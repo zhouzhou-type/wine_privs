@@ -1980,7 +1980,12 @@ static HRESULT UNIXFS_delete_with_shfileop(UnixFolder *This, UINT cidl, const LP
     op.hwnd = GetActiveWindow();
     op.wFunc = FO_DELETE;
     op.pFrom = wszPathsList;
-    op.fFlags = FOF_ALLOWUNDO;
+    /*modified by yangwx, begin, 20170315*/
+    if(global_cut)
+      op.fFlags = FOF_NOCONFIRMATION; //| FOF_WANTNUKEWARNING;
+    else
+      op.fFlags = FOF_ALLOWUNDO;
+    /*modified by yangwx, end, 20170315*/
     if (SHFileOperationW(&op))
     {
         WARN("SHFileOperationW failed\n");
@@ -1998,9 +2003,10 @@ static HRESULT UNIXFS_delete_with_syscalls(UnixFolder *This, UINT cidl, const LP
     char szAbsolute[FILENAME_MAX], *pszRelative;
     static const WCHAR empty[] = {0};
     UINT i;
-    
-    if (!SHELL_ConfirmYesNoW(GetActiveWindow(), ASK_DELETE_SELECTED, empty))
-        return S_OK;
+   /*modified by yangwx, begin, 20170315*/
+    if (!global_cut && !SHELL_ConfirmYesNoW(GetActiveWindow(), ASK_DELETE_SELECTED, empty))
+   /*modified by yangwx, end, 20170315*/
+      return S_OK;
     
     lstrcpyA(szAbsolute, This->m_pszPath);
     pszRelative = szAbsolute + lstrlenA(szAbsolute);
