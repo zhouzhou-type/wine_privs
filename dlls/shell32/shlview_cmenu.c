@@ -41,7 +41,9 @@
 #include "shresdef.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
-
+/*added by yangwx, begin, 20170315*/
+BOOL global_cut = FALSE;
+/*added by yangwx,end*/
 typedef struct
 {
     IContextMenu3 IContextMenu3_iface;
@@ -267,6 +269,9 @@ static void DoCopyOrCut(ContextMenu *This, HWND hwnd, BOOL cut)
     {
         OleSetClipboard(dataobject);
         IDataObject_Release(dataobject);
+	/*added by yangwx, begin, 20170310*/
+	global_cut = cut;
+	/*added by yangwx, end*/
     }
 }
 
@@ -714,6 +719,11 @@ static BOOL DoPaste(ContextMenu *This)
 {
 	BOOL bSuccess = FALSE;
 	IDataObject * pda;
+	/*added by yangwx, begin, 20170313*/
+	char SrcPath[MAX_PATH] = {'\0'}, DstPath[MAX_PATH] = {'\0'};
+	IPersistFolder2 *ppf_src= NULL, *ppf_dst = NULL;
+	LPITEMIDLIST pidl_src, pidl_dst;
+	/*added by yangwx, end*/
 
 	TRACE("\n");
 
@@ -761,6 +771,31 @@ static BOOL DoPaste(ContextMenu *This)
 		/* FIXME handle move
 		ISFHelper_DeleteItems(psfhlpsrc, lpcida->cidl, apidl);
 		*/
+		/*added by yangwx, begin, 20170313*/
+		//get src dir
+		IShellFolder_QueryInterface(psfFrom, &IID_IPersistFolder2, (LPVOID *)&ppf_src);
+		if(ppf_src)
+		{
+	          if(SUCCEEDED(IPersistFolder2_GetCurFolder(ppf_src, &pidl_src)))
+		    SHGetPathFromIDListA(pidl_src, SrcPath);
+		  SHFree(pidl_src);
+		  IPersistFolder2_Release(ppf_src);
+		}
+		//get dst dir
+		IShellFolder_QueryInterface(This->parent, &IID_IPersistFolder2, (LPVOID *)&ppf_dst);
+		if(ppf_dst)
+		{
+		  if(SUCCEEDED(IPersistFolder2_GetCurFolder(ppf_dst, &pidl_dst)))
+		    SHGetPathFromIDListA(pidl_dst, DstPath);
+		  SHFree(pidl_dst);
+		  IPersistFolder2_Release(ppf_dst);
+		}
+		TRACE("SrcPath=%s, DstPath=%s\n", SrcPath, DstPath);
+		if(global_cut && strcmp(SrcPath, DstPath)) {
+		  ISFHelper_DeleteItems(psfhlpsrc, lpcida->cidl, (LPCITEMIDLIST*)apidl);
+		  global_cut = FALSE;
+		}
+		/*added by yangwx, end*/
 	      }
 	      if(psfhlpdst) ISFHelper_Release(psfhlpdst);
 	      if(psfhlpsrc) ISFHelper_Release(psfhlpsrc);

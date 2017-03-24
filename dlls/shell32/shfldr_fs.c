@@ -1252,7 +1252,12 @@ ISFHelper_fnDeleteItems (ISFHelper * iface, UINT cidl, LPCITEMIDLIST * apidl)
     op.hwnd = GetActiveWindow();
     op.wFunc = FO_DELETE;
     op.pFrom = wszPathsList;
-    op.fFlags = FOF_ALLOWUNDO;
+     /*modified by yangwx, begin, 20170325*/
+    if(global_cut)
+      op.fFlags = FOF_NOCONFIRMATION; //| FOF_WANTNUKEWARNING;
+    else
+      op.fFlags = FOF_ALLOWUNDO;
+    /*modified by yangwx, end, 20170324*/
     if (SHFileOperationW(&op))
     {
         WARN("SHFileOperation failed\n");
@@ -1285,6 +1290,9 @@ ISFHelper_fnDeleteItems (ISFHelper * iface, UINT cidl, LPCITEMIDLIST * apidl)
         wszCurrentPath += lstrlenW(wszCurrentPath)+1;
     }
     HeapFree(GetProcessHeap(), 0, wszPathsList);
+    /* modified by yangwx begin 20170324*/
+    global_cut = FALSE;
+    /* modified by yangwx end 20170324*/
     return ret;
 }
 
