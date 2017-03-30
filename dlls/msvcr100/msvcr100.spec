@@ -956,7 +956,7 @@
 @ stub _ismbbalnum_l
 @ stub _ismbbalpha(long)
 @ stub _ismbbalpha_l
-@ stub _ismbbgraph(long)
+@ cdecl _ismbbgraph(long)
 @ stub _ismbbgraph_l
 @ stub _ismbbkalnum(long)
 @ stub _ismbbkalnum_l
@@ -968,8 +968,8 @@
 @ stub _ismbbkpunct_l
 @ cdecl _ismbblead(long)
 @ cdecl _ismbblead_l(long ptr)
-@ stub _ismbbprint(long)
-@ stub _ismbbprint_l
+@ cdecl _ismbbprint(long)
+@ cdecl _ismbbprint_l(long ptr)
 @ stub _ismbbpunct(long)
 @ stub _ismbbpunct_l
 @ cdecl _ismbbtrail(long)
