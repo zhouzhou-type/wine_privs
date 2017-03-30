@@ -1516,12 +1516,15 @@ static HRESULT WINAPI ShellFolder2_GetDetailsOf(IShellFolder2* iface,
             break;
         case 1:
             _ILGetFileSize(pidl, psd->str.u.cStr, MAX_PATH);
+	    hr = S_OK;
             break;
         case 2:
             _ILGetFileType (pidl, psd->str.u.cStr, MAX_PATH);
+	    hr = S_OK;
             break;
         case 3:
-            _ILGetFileDate(pidl, psd->str.u.cStr, MAX_PATH);
+            if(_ILGetFileDate(pidl, psd->str.u.cStr, MAX_PATH))
+		    hr = S_OK;
             break;
         case 4:
             psd->str.u.cStr[0] = S_ISDIR(statItem.st_mode) ? 'd' : '-';
@@ -1535,14 +1538,23 @@ static HRESULT WINAPI ShellFolder2_GetDetailsOf(IShellFolder2* iface,
             psd->str.u.cStr[8] = (statItem.st_mode & S_IWOTH) ? 'w' : '-';
             psd->str.u.cStr[9] = (statItem.st_mode & S_IXOTH) ? 'x' : '-';
             psd->str.u.cStr[10] = '\0';
+	    hr = S_OK;
             break;
         case 5:
             pPasswd = getpwuid(statItem.st_uid);
-            if (pPasswd) strcpy(psd->str.u.cStr, pPasswd->pw_name);
+            if (pPasswd)
+	    { 
+		    strcpy(psd->str.u.cStr, pPasswd->pw_name);
+		    hr = S_OK;
+	    }
             break;
         case 6:
             pGroup = getgrgid(statItem.st_gid);
-            if (pGroup) strcpy(psd->str.u.cStr, pGroup->gr_name);
+            if (pGroup)
+	    { 
+		    strcpy(psd->str.u.cStr, pGroup->gr_name);
+		    hr = S_OK;
+	    }
             break;
     }
     
