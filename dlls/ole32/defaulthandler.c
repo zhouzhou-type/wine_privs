@@ -249,6 +249,10 @@ static HRESULT WINAPI DefaultHandler_NDIUnknown_QueryInterface(
   {
     return IOleObject_QueryInterface(This->pOleDelegate, riid, ppvObject);
   }
+  else if (!This->inproc_server && This->pOleDelegate)
+  {
+    return IUnknown_QueryInterface(This->pOleDelegate, riid, ppvObject);
+  }
 
   /* Check that we obtained an interface. */
   if (*ppvObject == NULL)
