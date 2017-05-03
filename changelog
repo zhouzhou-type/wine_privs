@@ -2,3 +2,5 @@ WinGEAR Release Log:
     version  date
     0.2.0    2017-01-25
     0.3.0    2017-03-30
+    0.4.0    2017-05-03
+             修复dwarf.c文件中空指针引用缺陷．
