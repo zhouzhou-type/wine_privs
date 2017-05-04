@@ -585,8 +585,44 @@ HRESULT WINAPI SHCreateLinks( HWND hWnd, LPCSTR lpszDir, LPDATAOBJECT lpDataObje
 HRESULT WINAPI SHOpenFolderAndSelectItems( PCIDLIST_ABSOLUTE pidlFolder, UINT cidl,
                               PCUITEMID_CHILD_ARRAY *apidl, DWORD flags )
 {
-    FIXME("%p %u %p 0x%x: stub\n", pidlFolder, cidl, apidl, flags);
-    return E_NOTIMPL;
+    //FIXME("%p %u %p 0x%x: stub\n", pidlFolder, cidl, apidl, flags);
+    //added by wangxuefeii
+    STARTUPINFOW  startup;
+    PROCESS_INFORMATION info;
+    UINT_PTR retval = SE_ERR_NOASSOC;
+    DWORD dwCreationFlags;
+    WCHAR wszCommand[MAX_PATH*2] = {'"','C',':','\\','w','i','n','d','o','w','s','\\','s','y','s','t','e','m','3','2','\\','e','x','p','l','o','r','e','r','.','e','x','e','"',' ','\0'};
+    WCHAR wszPath[MAX_PATH] = {0};
+    int index;
+
+    if(!SHGetPathFromIDListW(pidlFolder,wszPath))
+        return SE_ERR_PNF;
+
+    index = strlenW(wszPath);
+    while(index >= 0)
+    {
+        if(wszPath[index] == wszCommand[3])
+	{
+	    wszPath[index+1] = (WCHAR)'\0';
+	    break;
+	}
+	index--;
+    }
+    strcatW(wszCommand,wszPath);
+
+    ZeroMemory(&startup,sizeof(STARTUPINFOW));
+    startup.cb = sizeof(STARTUPINFOW);
+    startup.dwFlags = STARTF_USESHOWWINDOW;
+    startup.wShowWindow = SW_SHOWNORMAL;
+    dwCreationFlags = CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE;
+    CreateProcessW(NULL, (LPWSTR)wszCommand, NULL, NULL, FALSE, dwCreationFlags, NULL,NULL, &startup, &info);
+    if ((retval = GetLastError()) >= 32)
+    {
+        FIXME("CreateProcess returned error %ld\n", retval);
+        retval = ERROR_BAD_FORMAT;
+    }    
+    //added by wangxuefei
+    return retval;
 }
 
 /***********************************************************************
