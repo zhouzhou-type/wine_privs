@@ -890,6 +890,9 @@ static HRESULT WINAPI BackgroundMenu_InvokeCommand(
 
             case FCIDM_SHVIEW_INSERT:
                 DoPaste(This);
+		/*added by yangwx, begin, 20170324*/
+		if(view) IShellView_Refresh(view);
+		/*added by yangwx, end, 20170324*/
                 break;
 
             case FCIDM_SHVIEW_PROPERTIES:
