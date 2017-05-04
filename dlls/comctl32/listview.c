@@ -8803,7 +8803,8 @@ static HIMAGELIST LISTVIEW_SetImageList(LISTVIEW_INFO *infoPtr, INT nType, HIMAG
 
     return himlOld;
 }
-
+//Function Declaration. Add By HAOJiaLiang For using in LISTVIEW_SetItemCount
+static INT LISTVIEW_SetSelectionMark(LISTVIEW_INFO *infoPtr, INT nIndex);
 /***
  * DESCRIPTION:
  * Preallocates memory (does *not* set the actual count of items !)
@@ -8835,6 +8836,11 @@ static BOOL LISTVIEW_SetItemCount(LISTVIEW_INFO *infoPtr, INT nItems, DWORD dwFl
 		LISTVIEW_SetItemFocus(infoPtr, -1);
 		SetRectEmpty(&infoPtr->rcFocus);
 	    }
+            //Check Selection Mark for special case. HAO JiaLiang 2017.04.10
+            if(infoPtr->nSelectionMark >= nItems)
+            {
+                LISTVIEW_SetSelectionMark(infoPtr,-1);
+            }
 	}
 
 	LISTVIEW_UpdateScroll(infoPtr);
