@@ -391,6 +391,87 @@ static void DoOpenProperties(ContextMenu *This, HWND hwnd)
 	    FIXME("No property pages found.\n");
 }
 
+static void CreateLink(ContextMenu *This)
+{
+	char szFilename[MAX_PATH] = {'\0'};
+        DWORD rtNum;
+	rtNum = _ILSimpleGetText(This->apidl[0],(LPVOID)szFilename,MAX_PATH);
+	TRACE("len:%d,szFilename:%s,len:%d\n",rtNum,szFilename,strlen(szFilename));
+        HRESULT hres;
+	LPITEMIDLIST sf_pidl;
+        IPersistFolder2 *persist;
+	char szSrc[MAX_PATH] = {'\0'};
+	IShellFolder_QueryInterface(This->parent,&IID_IPersistFolder2,(void**)&persist);
+	if(persist)
+	{
+		if(SUCCEEDED(IPersistFolder2_GetCurFolder(persist,&sf_pidl)))
+		{
+			SHGetPathFromIDListA(sf_pidl,szSrc);
+			TRACE("szSrc:%s,len:%d\n",szSrc,strlen(szSrc));
+		}
+		SHFree(sf_pidl);
+		IPersistFolder2_Release(persist);
+	}
+	szSrc[strlen(szSrc)] = '\\';
+	strcat(szSrc,szFilename);
+	TRACE("szSrc:%s,len:%d\n",szSrc,strlen(szSrc));
+	char pathLink[MAX_PATH];
+	strcpy(pathLink,szSrc);
+	strcat(pathLink,".lnk");
+	TRACE("pathlink:%s,len:%d\n",pathLink,strlen(pathLink));
+	
+	LPCSTR lpszDesc = "shortcut";
+        IShellLinkA* psl = NULL;  
+        hres = CoInitialize(NULL);
+        if(FAILED(hres))
+        {
+            TRACE("CoInitialize COM failed\n");
+	       return;
+        }
+        hres = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkA,(LPVOID*)&psl);
+        if(FAILED(hres))
+        {
+	       TRACE("CoCreateInstance failed\n");
+	        return;
+        }
+	hres = IShellLinkA_SetPath(psl,szSrc);
+	if(FAILED(hres))
+	{
+		TRACE("IShellLink_SetPath failed\n");
+		return;
+	}
+        hres = IShellLinkA_SetDescription(psl,lpszDesc);
+ 	if(FAILED(hres))
+	{
+		TRACE("IShellLinkA_SetDescription failed\n");
+		return;
+	}
+
+        IPersistFile* ppf;  
+	hres = IShellLinkA_QueryInterface(psl,&IID_IPersistFile,(LPVOID*)&ppf);
+        if(FAILED(hres))
+	{
+		TRACE("IShellLinkA_QueryInterface failed\n");
+		return;
+	}
+        WCHAR wsz[MAX_PATH]; 
+        int ret = MultiByteToWideChar(CP_ACP, 0, pathLink, -1, wsz, MAX_PATH); 
+        if(ret == 0)
+	{
+		TRACE("MultiByteToWideChar failed\n");
+		return;
+	}
+
+	hres = IPersistFile_Save(ppf,wsz,TRUE);
+        if(FAILED(hres))
+	{
+		TRACE("IPersistFile_Save failed\n");
+		return;
+	}
+        IPersistFile_Release(ppf);
+	IShellLinkA_Release(psl);
+        CoUninitialize();
+}
 static HRESULT WINAPI ItemMenu_InvokeCommand(
 	IContextMenu3 *iface,
 	LPCMINVOKECOMMANDINFO lpcmi)
@@ -456,6 +537,10 @@ static HRESULT WINAPI ItemMenu_InvokeCommand(
             TRACE("Verb FCIDM_SHVIEW_PROPERTIES\n");
             DoOpenProperties(This, lpcmi->hwnd);
             break;
+	case FCIDM_SHVIEW_CREATELINK:
+	    TRACE("Verb FCIDM_SHVIEW_CREATELINK\n");
+	    CreateLink(This);
+	    break;
         default:
             FIXME("Unhandled Verb %xl\n",LOWORD(lpcmi->lpVerb));
             return E_INVALIDARG;
