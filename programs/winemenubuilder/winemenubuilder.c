@@ -2480,7 +2480,107 @@ static const char* get_special_mime_type(LPCWSTR extension)
         return "application/x-ms-shortcut";
     return NULL;
 }
+/*added by yangwx, begin, 20170414*/
+static BOOL If_File_Exist(const char * desktopPath)
+{
+    int ret = access(desktopPath, F_OK);
+    if(0 == ret)
+	   return TRUE;
+    else if(-1 == ret)
+	   return FALSE;
 
+    return FALSE; 
+}
+
+static BOOL Process_MIMEType_Append(const char *desktopPath, const char *mimeType)
+{
+	int ret = 0, i = 0, tmp_len = 0;
+	char tmp_buf1[1024] = {'\0'};//tmp_buf1 is used to store per line content of the orignal desktop file, 1024 should be enough
+	char tmp_buf2[10240] = {'\0'};//tmp_buf2 is used to store the merged mimeType, so alloc more
+	char *p_file_bak = NULL; //the file path maybe long so we malloc it instead of statical array
+	int orig_desktopPath_len = strlen(desktopPath);
+	int malloc_size = orig_desktopPath_len + strlen(".bak") + 2;
+	p_file_bak = (char *)malloc(malloc_size);
+	if(!p_file_bak)
+	{
+		fprintf(stderr, "there is not enough memory for malloc\n");
+		return FALSE;
+	}
+	snprintf(p_file_bak, malloc_size - 1, "%s.bak", desktopPath);
+	FILE *src_fp = fopen(desktopPath, "r");
+	if(!src_fp)
+	{
+		fprintf(stderr, "can not open %s as read mode\n", desktopPath);
+		goto out;
+	}
+	FILE *dst_fp = fopen(p_file_bak, "w");
+	if(!dst_fp)
+	{
+		fprintf(stderr, "can not open %s as write mode\n", p_file_bak);
+		goto out;
+	}
+	while(fgets(tmp_buf1, sizeof(tmp_buf1) - 1, src_fp))
+	{
+		if(!strncmp(tmp_buf1, "MimeType=", strlen("Mimetype=")))
+		{
+			for(i = 0; i < sizeof(tmp_buf1); i++)
+			{
+				if(tmp_buf1[i] == '\r' || tmp_buf1[i] == '\n')
+				{
+					tmp_buf1[i] = '\0';//truncate it at the position of '\r\n'
+					break;
+				}
+			}
+			snprintf(tmp_buf2, sizeof(tmp_buf2) - 1, "%s%s;\n", tmp_buf1, mimeType);
+			ret = fputs(tmp_buf2, dst_fp);
+			if(EOF == ret)
+			{
+				fprintf(stderr, "write \"%s\" to %s failed\n", tmp_buf2, p_file_bak);
+				goto out;
+			}
+		}
+		else
+		{
+		    ret = fputs(tmp_buf1, dst_fp);
+		    if(EOF == ret)
+		    {
+			fprintf(stderr, "write \"%s\" to %s failed\n", tmp_buf1, p_file_bak);
+			goto out;
+		    }
+		}
+		memset(tmp_buf1, 0x00, sizeof(tmp_buf1));
+	}
+	if(src_fp)
+		fclose(src_fp);
+	if(dst_fp)
+		fclose(dst_fp);
+	/*rename*/
+	ret = rename(p_file_bak, desktopPath);	
+	if(p_file_bak)
+	{
+		free(p_file_bak);
+		p_file_bak = NULL;
+	}
+	if(0 == ret)
+		return TRUE;
+	else
+	{
+		fprintf(stderr, "renamn \"%s\" to \"%s\" failed\n", p_file_bak, desktopPath);
+		return FALSE;
+	}
+out:
+	if(src_fp)
+		fclose(src_fp);
+	if(dst_fp)
+		fclose(dst_fp);
+	if(p_file_bak)
+	{
+		free(p_file_bak);
+		p_file_bak = NULL;
+	}
+	return FALSE;
+}
+/*added by yangwx, end, 20170414*/
 static BOOL write_freedesktop_association_entry(const char *desktopPath, const char *dot_extension,
                                                 const char *friendlyAppName, const char *mimeType,
                                                 const char *progId, const char *openWithIcon)
@@ -2491,7 +2591,13 @@ static BOOL write_freedesktop_association_entry(const char *desktopPath, const c
     WINE_TRACE("writing association for file type %s, friendlyAppName=%s, MIME type %s, progID=%s, icon=%s to file %s\n",
                wine_dbgstr_a(dot_extension), wine_dbgstr_a(friendlyAppName), wine_dbgstr_a(mimeType),
                wine_dbgstr_a(progId), wine_dbgstr_a(openWithIcon), wine_dbgstr_a(desktopPath));
-
+    /*added by yangwx, begin,20170414*/
+    BOOL if_file_exist = If_File_Exist(desktopPath);
+    if(if_file_exist)
+	ret = Process_MIMEType_Append(desktopPath, mimeType);
+    else
+    {
+    /*added by yangwx, end,20170414*/
     desktop = fopen(desktopPath, "w");
     if (desktop)
     {
@@ -2509,6 +2615,7 @@ static BOOL write_freedesktop_association_entry(const char *desktopPath, const c
     }
     else
         WINE_ERR("error writing association file %s\n", wine_dbgstr_a(desktopPath));
+    }
     return ret;
 }
 
@@ -2700,7 +2807,37 @@ static BOOL generate_associations(const char *xdg_data_home, const char *package
 
             if (has_association_changed(extensionW, mimeTypeA, progIdW, friendlyAppNameA, openWithIconA))
             {
-                char *desktopPath = heap_printf("%s/wine-extension-%s.desktop", applications_dir, &extensionA[1]);
+		/*added by yangwx, begin, 20170413*/
+                //char *desktopPath = heap_printf("%s/wine-extension-%s.desktop", applications_dir, &extensionA[1]);
+		int orig_appname_len = strlen(friendlyAppNameA), i = 0;
+		char *p_new_appname = (char *)malloc(orig_appname_len + 2);
+		char *p_tmp_new_appname = NULL;
+		if(!p_new_appname)
+		{
+			WINE_ERR("there is not enough memory for malloc\n");
+			goto end;
+		}
+		memset(p_new_appname, 0x00, orig_appname_len + 2);
+		snprintf(p_new_appname, orig_appname_len + 1, "%s", friendlyAppNameA);
+		p_tmp_new_appname = p_new_appname;	
+		for(i = 0; i < orig_appname_len; i++)
+		{
+			if(*p_tmp_new_appname == ' ')
+				*p_tmp_new_appname = '-';
+			if(*p_tmp_new_appname == ',')
+			{
+				*p_tmp_new_appname = '\0';//truncate it at the ',' positon
+				break;
+			}
+			p_tmp_new_appname++;
+		}
+                char *desktopPath = heap_printf("%s/%s.desktop", applications_dir, p_new_appname);
+		if(p_new_appname)
+		{
+			free(p_new_appname);
+			p_new_appname = NULL;
+		}
+		/*added by yangwx, end, 20170413*/
                 if (desktopPath)
                 {
                     if (write_freedesktop_association_entry(desktopPath, extensionA, friendlyAppNameA, mimeTypeA, progIdA, openWithIconA))
