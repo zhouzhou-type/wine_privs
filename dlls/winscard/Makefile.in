@@ -1,8 +1,23 @@
 MODULE    = winscard.dll
 IMPORTLIB = winscard
 
+EXTRALIBS = -ldl -lpthread -lrt
+
 C_SRCS = \
-	winscard.c
+	winscard.c \
+	winscard_impl.c \
+	error.c \
+        simclist.c \
+	strlcpy.c \
+	utils.c \
+	configfile.c \
+	sys_unix.c \
+	winscard_msg.c \
+	debug.c \
+	hotplug_libudev.c \
+	winscard_clnt.c 
+
+
 
 RC_SRCS = \
 	rsrc.rc
