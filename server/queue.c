@@ -2392,7 +2392,11 @@ DECL_HANDLER(send_hardware_message)
         reply->wait = queue_mouse_message( desktop, req->win, &req->input, req->flags, sender );
         break;
     case INPUT_KEYBOARD:
-        reply->wait = queue_keyboard_message( desktop, req->win, &req->input, req->flags, sender );
+	/* When there is an application interaction, the currently applied window is not necessarily 
+	 * the window where the cursor is located, and the target window of the keyboard message that 
+	 * is placed in the queue should be the window where the cursor is located
+	 */
+        reply->wait = queue_keyboard_message( desktop, desktop->cursor.win /*req->win*/, &req->input, req->flags, sender );
         break;
     case INPUT_HARDWARE:
         queue_custom_hardware_message( desktop, req->win, &req->input );
