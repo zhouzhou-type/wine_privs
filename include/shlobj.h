@@ -1342,6 +1342,7 @@ typedef struct _SHChangeNotifyEntry
 void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID dwItem2);
 
 typedef enum {
+    SLDF_DEFAULT = 0x00000000,
     SLDF_HAS_ID_LIST = 0x00000001,
     SLDF_HAS_LINK_INFO = 0x00000002,
     SLDF_HAS_NAME = 0x00000004,
