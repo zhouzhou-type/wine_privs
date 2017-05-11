@@ -132,6 +132,8 @@ typedef struct
 	LONG            ref;
 
 	/* data structures according to the information in the link */
+        //And By HAO JiaLiang for Link flags
+        DWORD iLinkFlags;
 	LPITEMIDLIST	pPidl;
 	WORD		wHotKey;
 	SYSTEMTIME	time1;
@@ -155,6 +157,8 @@ typedef struct
 	IUnknown      *site;
 
 	LPOLESTR      filepath; /* file path returned by IPersistFile::GetCurFile */
+    DWORD		iFileLength; // Add By HAO Jialiang for file length
+        LPDBLIST extraData[1];
 } IShellLinkImpl;
 
 static inline IShellLinkImpl *impl_from_IShellLinkA(IShellLinkA *iface)
@@ -366,18 +370,139 @@ static BOOL StartLinkProcessor( LPCOLESTR szLink )
     return ret;
 }
 
+//Add by HAO Jialiang
+static BOOL getRelativePath(LPCWSTR current, LPCWSTR target, LPWSTR *relPath)
+{
+    const WCHAR backslash = '\\', slash = '/';
+    const WCHAR parentDir[] = {'.','.',0}, currentDir[]={'.',0},parentDirS[] = {'.','.','\\',0},currentDirS[]={'.','.','\\',0};
+    UINT currentLen = lstrlenW(current), targetLen = lstrlenW(target);
+    BOOL partOfCurrent = FALSE;
+    int index,difStart=0, parentParts = 0, leftParts = 0, copyLoc = 0, parentLen, leftLen;
+    LPWSTR parentPath = NULL;
+    if(current[0] != target[0])//in different disk
+	return FALSE;
+    //find different part of two path
+    for(index = 0;index < currentLen && index < targetLen; index++)
+    {
+        if(*(current+index) != *(target+index))
+	        break;
+	    if(*(current+index) == backslash || *(current+index) == slash)
+	        difStart = index + 1;
+    }
+    if(index == targetLen && index < currentLen)
+	{
+		if(*(current+index) == backslash || *(current+index) == slash)
+            partOfCurrent = TRUE;//target path in current path
+	}
+    else
+    {
+        //find left part of targetPath
+        for(index = difStart; index < targetLen; index++)
+        {
+            if(*(target+index) == backslash || *(target+index) == slash)
+	        {
+	            leftParts = leftParts + 1;
+	        }
+        }
+    }
+    //find left part of currentPath   translate to .. or .
+    for(index = difStart; index < currentLen; index++)
+    {
+        if(*(current+index) == backslash || *(current+index) == slash)
+	    {
+	        parentParts = parentParts + 1;
+	    }
+    }
+    /*************dif situation handle*********************
+    leftParts == 0 && parentParts == 0      same dir
+        relPath = (parent=0)\[*(target+difStart)]
+    leftParts != 0 && parentParts != 0      dif branch
+        relPath = (parent=n)\[*(target+difStart)]
+    leftParts != 0 && parentParts == 0      currentPath in targetPath
+        relPath = (parent=0)\[*(target+difStart)]
+    leftParts == 0 && parentParts != 0      targetPath in currentPath
+	    partOfCurrent == TRUE    folder
+	        parentParts = parentParts - 1;
+			relPath = [(parent=n) or (parent=0)]\[*(target+difStart)]
+	    partOfCurrent == FALSE    file
+            relPath = (parent=n)\[*(target+difStart)]
+    }
+	**************dif situation handle **********************/
+    if(partOfCurrent)
+    {
+        parentParts = parentParts - 1;
+	    difStart = targetLen;
+    }
+    leftLen = sizeof(WCHAR)*((targetLen - difStart));
+    if(parentParts == 0)
+    {
+		if(partOfCurrent)
+		{
+			parentLen = sizeof(WCHAR)*lstrlenW(currentDir);
+			parentPath = HeapAlloc(GetProcessHeap(),0,parentLen+1);
+			lstrcpyW(parentPath,currentDir);
+            copyLoc = lstrlenW(currentDir);
+		}
+		else
+		{
+			parentLen = sizeof(WCHAR)*lstrlenW(currentDirS);
+            parentPath = HeapAlloc(GetProcessHeap(),0,parentLen+1);
+			lstrcpyW(parentPath,currentDirS);
+            copyLoc = lstrlenW(currentDirS);
+	    }
+    }
+    else
+    {
+	     if(partOfCurrent)
+	     {
+            parentLen = sizeof(WCHAR)*((parentParts-1)*lstrlenW(parentDirS) + lstrlenW(parentDir));
+            parentPath = HeapAlloc(GetProcessHeap(),0,parentLen+1);
+            copyLoc = 0;
+            for(index = 0;index<parentParts-1;index++)
+            {
+                lstrcpyW(parentPath+copyLoc,parentDirS);
+	            copyLoc = copyLoc+lstrlenW(parentDirS);
+            }
+            lstrcpyW(parentPath+copyLoc,parentDir);
+            copyLoc = copyLoc + lstrlenW(parentDir);
+	    }
+	    else
+	    {
+            parentLen = sizeof(WCHAR)*parentParts*lstrlenW(parentDirS);
+            parentPath = HeapAlloc(GetProcessHeap(),0,parentLen+1);
+            copyLoc = 0;
+            for(index = 0;index<parentParts;index++)
+            {
+                lstrcpyW(parentPath+copyLoc,parentDirS);
+	            copyLoc = copyLoc+lstrlenW(parentDirS);
+            }
+	    }
+    }
+    *relPath = HeapAlloc(GetProcessHeap(),0,(parentLen+leftLen+1));
+    lstrcpyW(*relPath, parentPath);
+    if(leftLen > 0)
+        lstrcpyW(*relPath + copyLoc,target + difStart);
+    HeapFree(GetProcessHeap(),0,parentPath);
+    return TRUE;
+}
+
 static HRESULT WINAPI IPersistFile_fnSave(IPersistFile* iface, LPCOLESTR pszFileName, BOOL fRemember)
 {
     IShellLinkImpl *This = impl_from_IPersistFile(iface);
     IPersistStream *StreamThis = &This->IPersistStream_iface;
     HRESULT r;
     IStream *stm;
-
+    LPWSTR relPath = NULL;
     TRACE("(%p)->(%s)\n",This,debugstr_w(pszFileName));
 
     if (!pszFileName)
         return E_FAIL;
-
+    //Computer Relative Path and Set
+    if(getRelativePath(pszFileName,This->sPath,&relPath))
+    {
+	IShellLinkW_SetRelativePath(&This->IShellLinkW_iface,relPath,0);
+        HeapFree(GetProcessHeap(),0,relPath);
+    }
     r = SHCreateStreamOnFileW( pszFileName, STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE, &stm );
     if( SUCCEEDED( r ) )
     {
@@ -787,6 +912,7 @@ static HRESULT WINAPI IPersistStream_fnLoad(
         
     This->wHotKey = (WORD)hdr.wHotKey;
     This->iIcoNdx = hdr.nIcon;
+    This->iLinkFlags = hdr.dwFlags;
     FileTimeToSystemTime (&hdr.Time1, &This->time1);
     FileTimeToSystemTime (&hdr.Time2, &This->time2);
     FileTimeToSystemTime (&hdr.Time3, &This->time3);
@@ -1027,6 +1153,7 @@ static HRESULT WINAPI IPersistStream_fnSave(
     HRESULT r;
 
     IShellLinkImpl *This = impl_from_IPersistStream(iface);
+    This->iLinkFlags = This->iLinkFlags | SLDF_UNICODE;
 
     TRACE("%p %p %x\n", This, stm, fClearDirty);
 
@@ -1037,8 +1164,10 @@ static HRESULT WINAPI IPersistStream_fnSave(
 
     header.wHotKey = This->wHotKey;
     header.nIcon = This->iIcoNdx;
-    header.dwFlags = SLDF_UNICODE;   /* strings are in unicode */
-    if( This->pPidl )
+    header.dwFlags = This->iLinkFlags;
+	header.dwFileLength = This->iFileLength;
+//    header.dwFlags = SLDF_UNICODE;   /* strings are in unicode */
+/*    if( This->pPidl )
         header.dwFlags |= SLDF_HAS_ID_LIST;
     if( This->sPath )
         header.dwFlags |= SLDF_HAS_LINK_INFO;
@@ -1054,6 +1183,7 @@ static HRESULT WINAPI IPersistStream_fnSave(
         header.dwFlags |= SLDF_HAS_LOGO3ID;
     if( This->sComponent )
         header.dwFlags |= SLDF_HAS_DARWINID;
+*/
 
     SystemTimeToFileTime ( &This->time1, &header.Time1 );
     SystemTimeToFileTime ( &This->time2, &header.Time2 );
@@ -1103,7 +1233,11 @@ static HRESULT WINAPI IPersistStream_fnSave(
 
     if( This->sComponent )
         r = Stream_WriteAdvertiseInfo( stm, This->sComponent, EXP_DARWIN_ID_SIG );
-
+    // add extra data
+    if(*(This->extraData))
+    {
+        SHWriteDataBlockList(stm,*(This->extraData));
+    }
     /* the last field is a single zero dword */
     zero = 0;
     r = IStream_Write( stm, &zero, sizeof zero, &count );
@@ -1695,6 +1829,8 @@ static HRESULT WINAPI IShellLinkW_fnSetIDList(IShellLinkW * iface, LPCITEMIDLIST
 
     This->bDirty = TRUE;
 
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_ID_LIST;
+
     return S_OK;
 }
 
@@ -1730,6 +1866,7 @@ static HRESULT WINAPI IShellLinkW_fnSetDescription(IShellLinkW * iface, LPCWSTR 
     else
         This->sDescription = NULL;
     This->bDirty = TRUE;
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_NAME;
 
     return S_OK;
 }
@@ -1762,6 +1899,8 @@ static HRESULT WINAPI IShellLinkW_fnSetWorkingDirectory(IShellLinkW * iface, LPC
     lstrcpyW( This->sWorkDir, pszDir );
     This->bDirty = TRUE;
 
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_WORKINGDIR;
+
     return S_OK;
 }
 
@@ -1793,6 +1932,7 @@ static HRESULT WINAPI IShellLinkW_fnSetArguments(IShellLinkW * iface, LPCWSTR ps
         if ( !This->sArgs )
             return E_OUTOFMEMORY;
         lstrcpyW( This->sArgs, pszArgs );
+        This->iLinkFlags = This->iLinkFlags | SLDF_HAS_ARGS;
     }
     else This->sArgs = NULL;
 
@@ -1879,6 +2019,8 @@ static HRESULT WINAPI IShellLinkW_fnSetIconLocation(IShellLinkW * iface, LPCWSTR
     This->iIcoNdx = iIcon;
     This->bDirty = TRUE;
 
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_ICONLOCATION;
+
     return S_OK;
 }
 
@@ -1895,6 +2037,8 @@ static HRESULT WINAPI IShellLinkW_fnSetRelativePath(IShellLinkW * iface, LPCWSTR
         return E_OUTOFMEMORY;
     lstrcpyW( This->sPathRel, pszPathRel );
     This->bDirty = TRUE;
+
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_RELPATH;
 
     return ShellLink_UpdatePath(This->sPathRel, This->sPath, This->sWorkDir, &This->sPath);
 }
@@ -2016,8 +2160,9 @@ static HRESULT ShellLink_SetAdvertiseInfo(IShellLinkImpl *This, LPCWSTR str)
         return E_FAIL;
 
     This->sComponent = ShellLink_GetAdvertisedArg( szComponent );
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_DARWINID;
     This->sProduct = ShellLink_GetAdvertisedArg( szProduct );
-
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_LOGO3ID;
     TRACE("Component = %s\n", debugstr_w(This->sComponent));
     TRACE("Product = %s\n", debugstr_w(This->sProduct));
 
@@ -2036,6 +2181,22 @@ static BOOL ShellLink_GetVolumeInfo(LPCWSTR path, volume_info *volume)
     TRACE("r = %d type %d serial %08x name %s\n", r,
           volume->type, volume->serial, debugstr_w(volume->label));
     return r;
+}
+
+DWORD getFileLength(LPCWSTR filename)
+{
+    HANDLE file;
+    DWORD size;
+
+    file = CreateFileW( filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL );
+    if (file == INVALID_HANDLE_VALUE)
+	{
+        return INVALID_FILE_SIZE;
+	}
+
+    size = GetFileSize( file, NULL );
+    CloseHandle( file );
+    return size;
 }
 
 static HRESULT WINAPI IShellLinkW_fnSetPath(IShellLinkW * iface, LPCWSTR pszFile)
@@ -2087,6 +2248,7 @@ static HRESULT WINAPI IShellLinkW_fnSetPath(IShellLinkW * iface, LPCWSTR pszFile
 	  hr = S_FALSE;
 
         This->pPidl = SHSimpleIDListFromPathW(pszFile);
+        This->iLinkFlags = This->iLinkFlags | SLDF_HAS_ID_LIST;
         ShellLink_GetVolumeInfo(buffer, &This->volume);
 
         This->sPath = HeapAlloc( GetProcessHeap(), 0,
@@ -2100,6 +2262,10 @@ static HRESULT WINAPI IShellLinkW_fnSetPath(IShellLinkW * iface, LPCWSTR pszFile
         lstrcpyW(This->sPath, buffer);
     }
     This->bDirty = TRUE;
+    This->iLinkFlags = This->iLinkFlags | SLDF_HAS_LINK_INFO;
+	This->iFileLength = getFileLength(This->sPath);
+	if(This->iFileLength == INVALID_FILE_SIZE)
+		This->iFileLength = 0;
     HeapFree(GetProcessHeap(), 0, unquoted);
 
     return hr;
@@ -2158,8 +2324,12 @@ ShellLink_DataList_Release( IShellLinkDataList* iface )
 static HRESULT WINAPI
 ShellLink_AddDataBlock( IShellLinkDataList* iface, void* pDataBlock )
 {
-    FIXME("(%p)->(%p): stub\n", iface, pDataBlock);
-    return E_NOTIMPL;
+    //FIXME("(%p)->(%p): stub\n", iface, pDataBlock);
+    HRESULT r = E_FAIL;
+    IShellLinkImpl *This = impl_from_IShellLinkDataList(iface);
+    r = SHAddDataBlock(This->extraData,(DATABLOCK_HEADER *)pDataBlock);
+    return r;
+    //return E_NOTIMPL;
 }
 
 static HRESULT WINAPI
@@ -2196,19 +2366,27 @@ ShellLink_CopyDataBlock( IShellLinkDataList* iface, DWORD dwSig, void** ppDataBl
 static HRESULT WINAPI
 ShellLink_RemoveDataBlock( IShellLinkDataList* iface, DWORD dwSig )
 {
-    FIXME("(%p)->(%u): stub\n", iface, dwSig);
-    return E_NOTIMPL;
+    HRESULT r = E_FAIL;
+    //FIXME("(%p)->(%u): stub\n", iface, dwSig);
+    IShellLinkImpl *This = impl_from_IShellLinkDataList(iface);
+    r = SHRemoveDataBlock(This->extraData,dwSig);
+    return r;
+    //return E_NOTIMPL;
 }
 
+//Changed By HAO JiaLiang   use member iLinkFlags storage link data flags
 static HRESULT WINAPI
 ShellLink_GetFlags( IShellLinkDataList* iface, DWORD* pdwFlags )
 {
     IShellLinkImpl *This = impl_from_IShellLinkDataList(iface);
-    DWORD flags = 0;
 
-    FIXME("(%p)->(%p): partially implemented\n", This, pdwFlags);
+    *pdwFlags = This->iLinkFlags;
+    return S_OK;
+//    DWORD flags = 0;
+//
+//    FIXME("(%p)->(%p): partially implemented\n", This, pdwFlags);
 
-    /* FIXME: add more */
+    /* FIXME: add more
     if (This->sArgs)
         flags |= SLDF_HAS_ARGS;
     if (This->sComponent)
@@ -2222,14 +2400,26 @@ ShellLink_GetFlags( IShellLinkDataList* iface, DWORD* pdwFlags )
 
     *pdwFlags = flags;
 
-    return S_OK;
+    return S_OK;*/
 }
 
+//Changed By HAO JiaLiang   use member iLinkFlags storage link data flags
 static HRESULT WINAPI
 ShellLink_SetFlags( IShellLinkDataList* iface, DWORD dwFlags )
 {
+    /*
     FIXME("(%p)->(%u): stub\n", iface, dwFlags);
     return E_NOTIMPL;
+    */
+    IShellLinkImpl *This = impl_from_IShellLinkDataList(iface);
+    if(dwFlags == This->iLinkFlags)
+    {
+        return S_FALSE;
+    }else
+    {
+        This->iLinkFlags = dwFlags;
+    }
+    return S_OK;
 }
 
 static const IShellLinkDataListVtbl dlvt =
@@ -2655,7 +2845,9 @@ HRESULT WINAPI IShellLink_Constructor(IUnknown *outer, REFIID riid, void **obj)
     sl->iIdOpen = -1;
     sl->site = NULL;
     sl->filepath = NULL;
-
+    sl->iLinkFlags = SLDF_DEFAULT; // Add By HAO JiaLiang for init link flags
+	sl->iFileLength = 0;
+    sl->extraData[0] = NULL;
     TRACE("(%p)\n", sl);
 
     r = IShellLinkW_QueryInterface( &sl->IShellLinkW_iface, riid, obj );
