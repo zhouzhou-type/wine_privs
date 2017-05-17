@@ -444,7 +444,7 @@ static void dwarf2_parse_abbrev_set(dwarf2_traverse_context_t* abbrev_ctx,
             new->attribute = attribute;
             new->form      = form;
             new->next      = NULL;
-            if (abbrev_entry->attrs && last)    last->next = new;
+            if (abbrev_entry->attrs)    last->next = new;
             else                        abbrev_entry->attrs = new;
             last = new;
             abbrev_entry->num_attr++;
