@@ -1197,13 +1197,15 @@ VOID DIALOG_HelpContents(VOID)
 
 VOID DIALOG_HelpAboutNotepad(VOID)
 {
-    static const WCHAR notepadW[] = { 'W','i','n','e',' ','N','o','t','e','p','a','d',0 };
+    // static const WCHAR notepadW[] = { 'W','i','n','e',' ','N','o','t','e','p','a','d',0 };
     WCHAR szNotepad[MAX_STRING_LEN];
+	WCHAR szNotepadInfo[MAX_STRING_LEN];
     HICON icon = LoadImageW(Globals.hInstance, MAKEINTRESOURCEW(IDI_NOTEPAD),
                             IMAGE_ICON, 48, 48, LR_SHARED);
 
     LoadStringW(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad));
-    ShellAboutW(Globals.hMainWnd, szNotepad, notepadW, icon);
+	LoadStringW(Globals.hInstance, STRING_NOTEPAD_INFO, szNotepadInfo, ARRAY_SIZE(szNotepadInfo));
+    ShellAboutW(Globals.hMainWnd, szNotepad, szNotepadInfo, icon);
 }
 
 

@@ -255,9 +255,10 @@ static int CLOCK_MenuCommand (WPARAM wParam)
         }
             /* show "about" box */
         case IDM_ABOUT: {
+			HICON icon = LoadImageW(GetModuleHandleW(0), MAKEINTRESOURCEW(IDI_CLOCK), IMAGE_ICON, 48, 48, LR_SHARED);
             LoadStringW(Globals.hInstance, IDS_CLOCK, szApp, sizeof(szApp)/sizeof(WCHAR));
-            lstrcpyW(szAppRelease,szApp);
-            ShellAboutW(Globals.hMainWnd, szApp, szAppRelease, 0);
+			LoadStringW(Globals.hInstance, IDS_CLOCK_INFO, szAppRelease, sizeof(szAppRelease)/sizeof(WCHAR));
+            ShellAboutW(Globals.hMainWnd, szApp, szAppRelease, icon);
             break;
         }
     }
@@ -404,7 +405,7 @@ int PASCAL WinMain (HINSTANCE hInstance, HINSTANCE prev, LPSTR cmdline, int show
         class.cbClsExtra    = 0;
         class.cbWndExtra    = 0;
         class.hInstance     = hInstance;
-        class.hIcon         = LoadIconW(0, (LPCWSTR)IDI_APPLICATION);
+        class.hIcon         = LoadIconW(Globals.hInstance, MAKEINTRESOURCEW(IDI_CLOCK));
         class.hCursor       = LoadCursorW(0, (LPCWSTR)IDC_ARROW);
         class.hbrBackground = 0;
         class.lpszMenuName  = 0;

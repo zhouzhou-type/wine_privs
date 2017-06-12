@@ -68,6 +68,7 @@ STRING_PAGESETUP_HEADERVALUE,   "#msgctxt#do not translate#&f"
 STRING_PAGESETUP_FOOTERVALUE,   "Page &p"
 
 STRING_NOTEPAD,                                 "Notepad"
+STRING_NOTEPAD_INFO,                            "WinuxGEAR Notepad"
 STRING_ERROR,                                   "ERROR"
 
 STRING_UNTITLED,                                "Untitled"

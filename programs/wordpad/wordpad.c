@@ -50,7 +50,7 @@
 #endif
 
 /* use LoadString */
-static const WCHAR wszAppTitle[] = {'W','i','n','e',' ','W','o','r','d','p','a','d',0};
+// static const WCHAR szAppTitle[] = {'W','i','n','e',' ','W','o','r','d','p','a','d',0};
 
 static const WCHAR wszMainWndClass[] = {'W','O','R','D','P','A','D','T','O','P',0};
 
@@ -78,6 +78,9 @@ static WCHAR units_cmW[MAX_STRING_LEN];
 static WCHAR units_inW[MAX_STRING_LEN];
 static WCHAR units_inchW[MAX_STRING_LEN];
 static WCHAR units_ptW[MAX_STRING_LEN];
+
+static WCHAR szAppTitle[MAX_STRING_LEN];
+static WCHAR szAppInfo[MAX_STRING_LEN];
 
 static int last_bullet = PFN_BULLET;
 
@@ -131,6 +134,9 @@ static void DoLoadStrings(void)
     LoadStringW(hInstance, STRING_UNITS_IN, units_inW, MAX_STRING_LEN);
     LoadStringW(hInstance, STRING_UNITS_INCH, units_inchW, MAX_STRING_LEN);
     LoadStringW(hInstance, STRING_UNITS_PT, units_ptW, MAX_STRING_LEN);
+	
+	LoadStringW(hInstance, STRING_WORDPAD, szAppTitle, MAX_STRING_LEN);
+	LoadStringW(hInstance, STRING_WORDPAD_INFO, szAppInfo, MAX_STRING_LEN);
 }
 
 /* Show a message box with resource strings */
@@ -242,7 +248,7 @@ static void set_caption(LPCWSTR wszNewFileName)
         wszNewFileName = file_basename((LPWSTR)wszNewFileName);
 
     wszCaption = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                lstrlenW(wszNewFileName)*sizeof(WCHAR)+sizeof(wszSeparator)+sizeof(wszAppTitle));
+                lstrlenW(wszNewFileName)*sizeof(WCHAR)+sizeof(wszSeparator)+sizeof(szAppTitle));
 
     if(!wszCaption)
         return;
@@ -251,7 +257,7 @@ static void set_caption(LPCWSTR wszNewFileName)
     length += lstrlenW(wszNewFileName);
     memcpy(wszCaption + length, wszSeparator, sizeof(wszSeparator));
     length += sizeof(wszSeparator) / sizeof(WCHAR);
-    memcpy(wszCaption + length, wszAppTitle, sizeof(wszAppTitle));
+    memcpy(wszCaption + length, szAppTitle, sizeof(szAppTitle));
 
     SetWindowTextW(hMainWnd, wszCaption);
 
@@ -350,7 +356,7 @@ static void on_sizelist_modified(HWND hwndSizeList, LPWSTR wszNewFontSize)
         {
             SetWindowTextW(hwndSizeList, sizeBuffer);
             MessageBoxWithResStringW(hMainWnd, MAKEINTRESOURCEW(STRING_INVALID_NUMBER),
-                        wszAppTitle, MB_OK | MB_ICONINFORMATION);
+                        szAppTitle, MB_OK | MB_ICONINFORMATION);
         }
     }
 }
@@ -763,7 +769,7 @@ static void ShowOpenError(DWORD Code)
         default:
             Message = MAKEINTRESOURCEW(STRING_OPEN_FAILED);
     }
-    MessageBoxW(hMainWnd, Message, wszAppTitle, MB_ICONEXCLAMATION | MB_OK);
+    MessageBoxW(hMainWnd, Message, szAppTitle, MB_ICONEXCLAMATION | MB_OK);
 }
 
 static void DoOpenFile(LPCWSTR szOpenFileName)
@@ -800,7 +806,7 @@ static void DoOpenFile(LPCWSTR szOpenFileName)
         {
             CloseHandle(hFile);
             MessageBoxWithResStringW(hMainWnd, MAKEINTRESOURCEW(STRING_OLE_STORAGE_NOT_SUPPORTED),
-                    wszAppTitle, MB_OK | MB_ICONEXCLAMATION);
+                    szAppTitle, MB_OK | MB_ICONEXCLAMATION);
             return;
         }
     }
@@ -837,7 +843,7 @@ static void ShowWriteError(DWORD Code)
         default:
             Message = MAKEINTRESOURCEW(STRING_WRITE_FAILED);
     }
-    MessageBoxW(hMainWnd, Message, wszAppTitle, MB_ICONEXCLAMATION | MB_OK);
+    MessageBoxW(hMainWnd, Message, szAppTitle, MB_ICONEXCLAMATION | MB_OK);
 }
 
 static BOOL DoSaveFile(LPCWSTR wszSaveFileName, WPARAM format)
@@ -918,7 +924,7 @@ static BOOL DialogSaveFile(void)
         if(fileformat_flags(sfn.nFilterIndex-1) != SF_RTF)
         {
             if(MessageBoxWithResStringW(hMainWnd, MAKEINTRESOURCEW(STRING_SAVE_LOSEFORMATTING),
-                           wszAppTitle, MB_YESNO | MB_ICONEXCLAMATION) != IDYES)
+                           szAppTitle, MB_YESNO | MB_ICONEXCLAMATION) != IDYES)
                 continue;
         }
         return DoSaveFile(sfn.lpstrFile, fileformat_flags(sfn.nFilterIndex-1));
@@ -959,7 +965,7 @@ static BOOL prompt_save_changes(void)
 
         wsprintfW(text, wszSaveChanges, displayFileName);
 
-        ret = MessageBoxW(hMainWnd, text, wszAppTitle, MB_YESNOCANCEL | MB_ICONEXCLAMATION);
+        ret = MessageBoxW(hMainWnd, text, szAppTitle, MB_YESNOCANCEL | MB_ICONEXCLAMATION);
 
         HeapFree(GetProcessHeap(), 0, text);
 
@@ -1007,7 +1013,7 @@ static void DialogOpenFile(void)
 static void dialog_about(void)
 {
     HICON icon = LoadImageW(GetModuleHandleW(0), MAKEINTRESOURCEW(IDI_WORDPAD), IMAGE_ICON, 48, 48, LR_SHARED);
-    ShellAboutW(hMainWnd, wszAppTitle, 0, icon);
+    ShellAboutW(hMainWnd, szAppTitle, szAppInfo, icon);
 }
 
 static INT_PTR CALLBACK formatopts_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1204,7 +1210,7 @@ static void HandleCommandLine(LPWSTR cmdline)
     }
 
     if (opt_print)
-        MessageBoxWithResStringW(hMainWnd, MAKEINTRESOURCEW(STRING_PRINTING_NOT_IMPLEMENTED), wszAppTitle, MB_OK);
+        MessageBoxWithResStringW(hMainWnd, MAKEINTRESOURCEW(STRING_PRINTING_NOT_IMPLEMENTED), szAppTitle, MB_OK);
 }
 
 static LRESULT handle_findmsg(LPFINDREPLACEW pFr)
@@ -1286,7 +1292,7 @@ static LRESULT handle_findmsg(LPFINDREPLACEW pFr)
             custom_data->endPos = -1;
             EnableWindow(hMainWnd, FALSE);
             MessageBoxWithResStringW(hFindWnd, MAKEINTRESOURCEW(STRING_SEARCH_FINISHED),
-                                     wszAppTitle, MB_OK | MB_ICONASTERISK | MB_TASKMODAL);
+                                     szAppTitle, MB_OK | MB_ICONASTERISK | MB_TASKMODAL);
             EnableWindow(hMainWnd, TRUE);
         } else {
             SendMessageW(hEditorWnd, EM_SETSEL, ft.chrgText.cpMin, ft.chrgText.cpMax);
@@ -1604,7 +1610,7 @@ static INT_PTR CALLBACK paraformat_proc(HWND hWnd, UINT message, WPARAM wParam, 
                         if(ret != 3)
                         {
                             MessageBoxWithResStringW(hMainWnd, MAKEINTRESOURCEW(STRING_INVALID_NUMBER),
-                                        wszAppTitle, MB_OK | MB_ICONASTERISK);
+                                        szAppTitle, MB_OK | MB_ICONASTERISK);
                             return FALSE;
                         } else
                         {
@@ -1724,10 +1730,10 @@ static INT_PTR CALLBACK tabstops_proc(HWND hWnd, UINT message, WPARAM wParam, LP
                             if(!number_from_string(buffer, &number, &unit))
                             {
                                 MessageBoxWithResStringW(hWnd, MAKEINTRESOURCEW(STRING_INVALID_NUMBER),
-                                             wszAppTitle, MB_OK | MB_ICONINFORMATION);
+                                             szAppTitle, MB_OK | MB_ICONINFORMATION);
                             } else if (item_count >= MAX_TAB_STOPS) {
                                 MessageBoxWithResStringW(hWnd, MAKEINTRESOURCEW(STRING_MAX_TAB_STOPS),
-                                             wszAppTitle, MB_OK | MB_ICONINFORMATION);
+                                             szAppTitle, MB_OK | MB_ICONINFORMATION);
                             } else {
                                 int i;
                                 float next_number = -1;
@@ -1926,7 +1932,7 @@ static LRESULT OnCreate( HWND hWnd )
     hDLL = LoadLibraryW(wszRichEditDll);
     if(!hDLL)
     {
-        MessageBoxWithResStringW(hWnd, MAKEINTRESOURCEW(STRING_LOAD_RICHED_FAILED), wszAppTitle,
+        MessageBoxWithResStringW(hWnd, MAKEINTRESOURCEW(STRING_LOAD_RICHED_FAILED), szAppTitle,
                     MB_OK | MB_ICONEXCLAMATION);
         PostQuitMessage(1);
     }
@@ -2320,7 +2326,7 @@ static LRESULT OnCommand( HWND hWnd, WPARAM wParam, LPARAM lParam)
         TEXTRANGEW tr;
 
         GetWindowTextW(hwndEditor, data, nLen+1);
-        MessageBoxW(NULL, data, wszAppTitle, MB_OK);
+        MessageBoxW(NULL, data, szAppTitle, MB_OK);
 
         HeapFree( GetProcessHeap(), 0, data);
         data = HeapAlloc(GetProcessHeap(), 0, (nLen+1)*sizeof(WCHAR));
@@ -2328,7 +2334,7 @@ static LRESULT OnCommand( HWND hWnd, WPARAM wParam, LPARAM lParam)
         tr.chrg.cpMax = nLen;
         tr.lpstrText = data;
         SendMessageW(hwndEditor, EM_GETTEXTRANGE, 0, (LPARAM)&tr);
-        MessageBoxW(NULL, data, wszAppTitle, MB_OK);
+        MessageBoxW(NULL, data, szAppTitle, MB_OK);
         HeapFree( GetProcessHeap(), 0, data );
 
         /* SendMessage(hwndEditor, EM_SETSEL, 0, -1); */
@@ -2368,7 +2374,7 @@ static LRESULT OnCommand( HWND hWnd, WPARAM wParam, LPARAM lParam)
         SendMessageW(hwndEditor, EM_GETSELTEXT, 0, (LPARAM)data);
         sprintf(buf, "Start = %d, End = %d", range.cpMin, range.cpMax);
         MessageBoxA(hWnd, buf, "Editor", MB_OK);
-        MessageBoxW(hWnd, data, wszAppTitle, MB_OK);
+        MessageBoxW(hWnd, data, szAppTitle, MB_OK);
         HeapFree( GetProcessHeap(), 0, data);
         /* SendMessage(hwndEditor, EM_SETSEL, 0, -1); */
         return 0;
@@ -2767,7 +2773,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hOldInstance, LPSTR szCmdPar
     RegisterClassExW(&wc);
 
     registry_read_winrect(&rc);
-    hMainWnd = CreateWindowExW(0, wszMainWndClass, wszAppTitle, WS_CLIPCHILDREN|WS_OVERLAPPEDWINDOW,
+    hMainWnd = CreateWindowExW(0, wszMainWndClass, szAppTitle, WS_CLIPCHILDREN|WS_OVERLAPPEDWINDOW,
       rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
     registry_read_maximized(&bMaximized);
     if ((nCmdShow == SW_SHOWNORMAL || nCmdShow == SW_SHOWDEFAULT)

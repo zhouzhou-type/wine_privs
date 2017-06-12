@@ -8032,6 +8032,10 @@ msgstr "Wine &license"
 msgid "Running on %s"
 msgstr "Running on %s"
 
+#: shell32.rc:328
+msgid "Copyright"
+msgstr "Copyright©2015-2017CPU and Fundamental Software Research Center,CAS"
+
 #: shell32.rc:329
 msgid "Wine was brought to you by:"
 msgstr "Wine was brought to you by:"
@@ -9615,6 +9619,10 @@ msgstr "&About Clock"
 msgid "Clock"
 msgstr "Clock"
 
+#: clock.rc:51
+msgid "WinuxGEAR Clock"
+msgstr "V1.0\nWinuxGEAR Clock"
+
 #: cmd.rc:40
 msgid ""
 "CALL <batchfilename> is used within a batch file to execute commands from\n"
@@ -10930,6 +10938,10 @@ msgstr "Page &p"
 #: notepad.rc:71
 msgid "Notepad"
 msgstr "Notepad"
+
+#: notepad.rc:72
+msgid "WinuxGEAR Notepad"
+msgstr "V1.0\nWinuxGEAR Notepad"
 
 #: notepad.rc:72 progman.rc:64 winhlp32.rc:82
 msgid "ERROR"
@@ -13239,11 +13251,7 @@ msgid ""
 "under the terms of the GNU Lesser General Public License as published by the "
 "Free Software Foundation; either version 2.1 of the License, or (at your "
 "option) any later version."
-msgstr ""
-"This program is free software; you can redistribute it and/or modify it "
-"under the terms of the GNU Lesser General Public License as published by the "
-"Free Software Foundation; either version 2.1 of the License, or (at your "
-"option) any later version."
+msgstr "Copyright©2015-2017CPU and Fundamental Software Research Center,CAS"
 
 #: winecfg.rc:143
 msgid "Windows registration information"
@@ -13267,7 +13275,7 @@ msgid ""
 "linked to the Libraries and Graphics tabs to allow you to change system-wide "
 "or per-application settings in those tabs as well."
 msgstr ""
-"Wine can mimic different Windows versions for each application. This tab is "
+"WinuxGEAR can mimic different Windows versions for each application. This tab is "
 "linked to the Libraries and Graphics tabs to allow you to change system-wide "
 "or per-application settings in those tabs as well."
 
@@ -13326,7 +13334,7 @@ msgid ""
 "application)."
 msgstr ""
 "Dynamic Link Libraries can be specified individually to be either builtin "
-"(provided by Wine) or native (taken from Windows or provided by the "
+"(provided by WinuxGEAR) or native (taken from Windows or provided by the "
 "application)."
 
 #: winecfg.rc:194
@@ -13355,7 +13363,7 @@ msgstr "Load order"
 
 #: winecfg.rc:209
 msgid "&Builtin (Wine)"
-msgstr "&Builtin (Wine)"
+msgstr "&Builtin (WinuxGEAR)"
 
 #: winecfg.rc:210
 msgid "&Native (Windows)"
@@ -13523,7 +13531,7 @@ msgstr "About"
 
 #: winecfg.rc:44
 msgid "Wine configuration"
-msgstr "Wine configuration"
+msgstr "Configuration"
 
 #: winecfg.rc:46
 msgid "Theme files (*.msstyles; *.theme)"
@@ -13543,7 +13551,7 @@ msgstr "Links to"
 
 #: winecfg.rc:45
 msgid "Wine configuration for %s"
-msgstr "Wine configuration for %s"
+msgstr "Configuration for %s"
 
 #: winecfg.rc:84
 msgid "Selected driver: %s"
@@ -13615,7 +13623,7 @@ msgstr "Default Settings"
 
 #: winecfg.rc:62
 msgid "Wine Programs (*.exe; *.exe.so)"
-msgstr "Wine Programs (*.exe; *.exe.so)"
+msgstr "Programs (*.exe; *.exe.so)"
 
 #: winecfg.rc:63
 msgid "Use global settings"
@@ -14399,8 +14407,8 @@ msgid "Nobody"
 msgstr "Nobody"
 
 #: winemine.rc:32
-msgid "Copyright 2000 Joshua Thielen"
-msgstr "Copyright 2000 Joshua Thielen"
+msgid "WinuxGEAR WineMine"
+msgstr "V1.0\nWinuxGEAR Mine"
 
 #: winhlp32.rc:35
 msgid "Printer &setup..."
@@ -14631,8 +14639,8 @@ msgid "&Pale yellow\tCtrl+2"
 msgstr "&Pale yellow\tCtrl+2"
 
 #: wordpad.rc:104
-msgid "&About Wine Wordpad"
-msgstr "&About Wine Wordpad"
+msgid "&About Wordpad"
+msgstr "&About Wordpad"
 
 #: wordpad.rc:141
 msgid "Automatic"
@@ -14895,6 +14903,14 @@ msgstr "Printing not implemented."
 #: wordpad.rc:205
 msgid "Cannot add more than 32 tab stops."
 msgstr "Cannot add more than 32 tab stops."
+
+#: wordpad.rc:318
+msgid "Wordpad"
+msgstr "Wordpad"
+
+#: wordpad.rc:319
+msgid "WinuxGEAR Wordpad"
+msgstr "V1.0\nWinuxGEAR Wordpad"
 
 #: write.rc:30
 msgid "Starting Wordpad failed"

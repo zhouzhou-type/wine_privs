@@ -48,4 +48,8 @@ MAIN_MENU MENU
 STRINGTABLE
 {
 IDS_CLOCK, "Clock"
+IDS_CLOCK_INFO, "WinuxGEAR Clock"
 }
+
+/* @makedep: clock.ico */
+IDI_CLOCK ICON "clock.ico"

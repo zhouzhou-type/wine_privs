@@ -134,11 +134,11 @@ STYLE WS_CHILD
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "", IDC_ABT_PANEL, "STATIC", SS_OWNERDRAW, 0, 0, 260, 140
-    LTEXT           "",IDC_ABT_TITLE_TEXT,105,30,55,30
-    LTEXT           "",IDC_ABT_PANEL_TEXT,160,43,140,8
-    CONTROL         "",IDC_ABT_WEB_LINK,"SysLink", LWS_TRANSPARENT, 105,53,106,8
+    LTEXT           "",IDC_ABT_TITLE_TEXT,75,30,120,30
+    LTEXT           "",IDC_ABT_PANEL_TEXT,195,43,40,8
+    CONTROL         "",IDC_ABT_WEB_LINK,"SysLink", LWS_TRANSPARENT, 75,53,106,8
     LTEXT           "This program is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.",
-                    IDC_ABT_LICENSE_TEXT,105,64,145,66
+                    IDC_ABT_LICENSE_TEXT,20,75,220,50
     GROUPBOX        "Windows registration information", IDC_STATIC, 15, 155, 230, 55
     LTEXT           "&Owner:", IDC_STATIC, 22, 171, 40, 20
     EDITTEXT        IDC_ABT_OWNER, 75, 171, 160, 13, ES_AUTOHSCROLL | WS_TABSTOP
