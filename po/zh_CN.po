@@ -7965,6 +7965,10 @@ msgstr "使用许可(&L)"
 msgid "Running on %s"
 msgstr "运行于 %s"
 
+#: shell32.rc:328
+msgid "Copyright"
+msgstr "版权所有©2015-2017中国科学院通用芯片与基础软件研究中心"
+
 #: shell32.rc:329
 msgid "Wine was brought to you by:"
 msgstr "Wine 开发人员："
@@ -9446,6 +9450,10 @@ msgstr "关于时钟(&A)"
 msgid "Clock"
 msgstr "时钟"
 
+#: clock.rc:51
+msgid "WinuxGEAR Clock"
+msgstr "V1.0\n一款基于WinuxGEAR的经典时钟"
+
 #: cmd.rc:40
 msgid ""
 "CALL <batchfilename> is used within a batch file to execute commands from\n"
@@ -10729,6 +10737,10 @@ msgstr "第 &p 页"
 #: notepad.rc:71
 msgid "Notepad"
 msgstr "记事本"
+
+#: notepad.rc:72
+msgid "WinuxGEAR Notepad"
+msgstr "V1.0\n一款基于WinuxGEAR的经典文本编辑器"
 
 #: notepad.rc:72 progman.rc:64 winhlp32.rc:82
 msgid "ERROR"
@@ -13008,10 +13020,7 @@ msgid ""
 "under the terms of the GNU Lesser General Public License as published by the "
 "Free Software Foundation; either version 2.1 of the License, or (at your "
 "option) any later version."
-msgstr ""
-"本程序为自由软件，您可以遵照自由软件基金会出版的 GNU 较宽松通用公共许可证协议"
-"（LGPL）来对其进行添加、修改和重新发布。许可协议版本为2.1，您也可以选择采用更"
-"新的版本。"
+msgstr "版权所有©2015-2017中国科学院通用芯片与基础软件研究中心"
 
 #: winecfg.rc:143
 msgid "Windows registration information"
@@ -13035,7 +13044,7 @@ msgid ""
 "linked to the Libraries and Graphics tabs to allow you to change system-wide "
 "or per-application settings in those tabs as well."
 msgstr ""
-"对不同的程序，可以让 Wine 假装成不同版本的 Windows，也可以在“函数库”与“显"
+"对不同的程序，可以让 WinuxGEAR 假装成不同版本的 Windows，也可以在“函数库”与“显"
 "示”标签页中作不同的设置。"
 
 #: winecfg.rc:159
@@ -13092,7 +13101,7 @@ msgid ""
 "(provided by Wine) or native (taken from Windows or provided by the "
 "application)."
 msgstr ""
-"对各个动态链接库，可以选择使用 Wine 提供的内建版本，还是使用取自 Windows 或程"
+"对各个动态链接库，可以选择使用 WinuxGEAR 提供的内建版本，还是使用取自 Windows 或程"
 "序所提供的原装版本。"
 
 #: winecfg.rc:194
@@ -13121,7 +13130,7 @@ msgstr "载入顺序"
 
 #: winecfg.rc:209
 msgid "&Builtin (Wine)"
-msgstr "内建(Wine)(&B)"
+msgstr "内建(WinuxGEAR)(&B)"
 
 #: winecfg.rc:210
 msgid "&Native (Windows)"
@@ -13287,7 +13296,7 @@ msgstr "关于"
 
 #: winecfg.rc:44
 msgid "Wine configuration"
-msgstr "Wine 设置"
+msgstr "设置"
 
 #: winecfg.rc:46
 msgid "Theme files (*.msstyles; *.theme)"
@@ -13307,7 +13316,7 @@ msgstr "映射至"
 
 #: winecfg.rc:45
 msgid "Wine configuration for %s"
-msgstr "Wine 设置：针对 %s"
+msgstr "设置：针对 %s"
 
 #: winecfg.rc:84
 msgid "Selected driver: %s"
@@ -13379,7 +13388,7 @@ msgstr "默认设置"
 
 #: winecfg.rc:62
 msgid "Wine Programs (*.exe; *.exe.so)"
-msgstr "Wine 程序 (*.exe; *.exe.so)"
+msgstr "程序 (*.exe; *.exe.so)"
 
 #: winecfg.rc:63
 msgid "Use global settings"
@@ -14099,7 +14108,7 @@ msgstr "最快时间(&F)"
 
 #: winemine.rc:52
 msgid "&About WineMine"
-msgstr "关于 WineMine (&A)"
+msgstr "关于地雷(&A)"
 
 #: winemine.rc:59
 msgid "Fastest Times"
@@ -14147,15 +14156,15 @@ msgstr "地雷"
 
 #: winemine.rc:30
 msgid "WineMine"
-msgstr "Wine地雷"
+msgstr "地雷"
 
 #: winemine.rc:31
 msgid "Nobody"
 msgstr "无人"
 
 #: winemine.rc:32
-msgid "Copyright 2000 Joshua Thielen"
-msgstr "Copyright 2000 Joshua Thielen"
+msgid "WinuxGEAR WineMine"
+msgstr "V1.0\n一款基于WinuxGEAR的经典扫雷游戏"
 
 #: winhlp32.rc:35
 msgid "Printer &setup..."
@@ -14386,8 +14395,8 @@ msgid "&Pale yellow\tCtrl+2"
 msgstr "淡黄色(&P)\tCtrl+2"
 
 #: wordpad.rc:104
-msgid "&About Wine Wordpad"
-msgstr "关于 Wine 写字板(&A)"
+msgid "&About Wordpad"
+msgstr "关于写字板(&A)"
 
 #: wordpad.rc:141
 msgid "Automatic"
@@ -14648,6 +14657,14 @@ msgstr "打印功能尚未实现。"
 #: wordpad.rc:205
 msgid "Cannot add more than 32 tab stops."
 msgstr "最多只能添加 32 个制表位宽度。"
+
+#: wordpad.rc:318
+msgid "Wordpad"
+msgstr "写字板"
+
+#: wordpad.rc:319
+msgid "WinuxGEAR Wordpad"
+msgstr "V1.0\n一款基于WinuxGEAR的经典写字板"
 
 #: write.rc:30
 msgid "Starting Wordpad failed"

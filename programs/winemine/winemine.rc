@@ -28,7 +28,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
 STRINGTABLE {
      IDS_APPNAME, "WineMine"
      IDS_NOBODY,  "Nobody"
-     IDS_ABOUT,   "Copyright 2000 Joshua Thielen"
+     IDS_ABOUT,   "WinuxGEAR WineMine"
 }
 
 IDM_WINEMINE MENU

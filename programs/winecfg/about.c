@@ -116,12 +116,12 @@ AboutDlgProc (HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 -MulDiv(24, GetDeviceCaps(hDC, LOGPIXELSY), 72),
                 0, 0, 0, 0, FALSE, 0, 0, 0, 0, 0, 0, 0, tahomaW);
             SendMessageW(hWnd, WM_SETFONT, (WPARAM)titleFont, TRUE);
-            SetWindowTextA(hWnd, PACKAGE_NAME);
+            SetWindowTextA(hWnd, "WinuxGEAR"); // PACKAGE_NAME
         }
-        SetDlgItemTextA(hDlg, IDC_ABT_PANEL_TEXT, PACKAGE_VERSION);
+        SetDlgItemTextA(hDlg, IDC_ABT_PANEL_TEXT, "V1.0"); // PACKAGE_VERSION
 
         /* prepare the web link */
-        SetDlgItemTextA(hDlg, IDC_ABT_WEB_LINK, "<a href=\"" PACKAGE_URL "\">" PACKAGE_URL "</a>");
+        SetDlgItemTextA(hDlg, IDC_ABT_WEB_LINK, "<a href=\"http://www.cpu-os.ac.cn\">http://www.cpu-os.ac.cn</a>"); // PACKAGE_URL
 
         ReleaseDC(hDlg, hDC);
 
@@ -157,7 +157,7 @@ AboutDlgProc (HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             LPDRAWITEMSTRUCT pDIS = (LPDRAWITEMSTRUCT)lParam;
             FillRect(pDIS->hDC, &pDIS->rcItem, (HBRUSH) (COLOR_WINDOW+1));
-            DrawIconEx(pDIS->hDC, 0, 0, logo, 0, 0, 0, 0, DI_IMAGE);
+            DrawIconEx(pDIS->hDC, 25, 50, logo, 50, 50, 0, 0, DI_IMAGE);
             DrawEdge(pDIS->hDC, &pDIS->rcItem, EDGE_SUNKEN, BF_BOTTOM);
         }
         break;

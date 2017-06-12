@@ -100,7 +100,7 @@ BEGIN
     END
     POPUP "&Help"
     BEGIN
-        MENUITEM "&About Wine Wordpad",      ID_ABOUT
+        MENUITEM "&About Wordpad",      ID_ABOUT
     END
 END
 
@@ -202,6 +202,12 @@ BEGIN
     STRING_OPEN_ACCESS_DENIED,        "You do not have access to open the file."
     STRING_PRINTING_NOT_IMPLEMENTED,  "Printing not implemented."
     STRING_MAX_TAB_STOPS,             "Cannot add more than 32 tab stops."
+END
+
+STRINGTABLE
+BEGIN
+	STRING_WORDPAD, "Wordpad"
+	STRING_WORDPAD_INFO, "WinuxGEAR Wordpad"
 END
 
 IDD_DATETIME DIALOG 30, 20, 130, 80
