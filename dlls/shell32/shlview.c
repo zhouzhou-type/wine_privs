@@ -1597,6 +1597,24 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 		IShellView3_Refresh(&This->IShellView3_iface);
 		break;
 
+	      case 'a':
+	      case 'A':
+		TRACE("CTRL+A\n");
+		if(GetKeyState(VK_CONTROL) & 0x8000)
+		{
+		    UINT count = SendMessageW(This->hWndList,LVM_GETITEMCOUNT,0,0);
+		    LVITEMW lvItem;
+		    lvItem.iSubItem = 0;
+		    lvItem.mask = LVIF_PARAM;
+		    lvItem.state = LVIS_SELECTED;
+		    lvItem.stateMask = LVIS_SELECTED;
+		    for( UINT i = 0; i < count; i++)
+		    {
+		        SendMessageW(This->hWndList,LVM_SETITEMSTATE,i,(LPARAM)&lvItem);
+		    }
+		}
+		break;
+
 	      case VK_BACK:
 		{
 		  LPSHELLBROWSER lpSb;
