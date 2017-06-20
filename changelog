@@ -1,7 +1,48 @@
-WinGEAR Release Log:
-    version     date
-    0.2.0       2017-01-25
-    0.3.0       2017-03-30
-    0.4.0       2017-05-03
-    0.5.0-rc1	2017-05-09
-    0.5.0       2017-05-18
+winuxgear-engine (1.0.0-1+1cdos3) RELEASED; urgency=medium
+
+  * release 1.0.0
+
+  * update wine app logo and copyright
+
+  * wineboot: hide wait window
+
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 14 Jun 2017 15:43:19 +0800
+
+winuxgear-engine (1.0.0-1+1cdos2) RELEASED; urgency=medium
+
+  * release 0.5.0
+
+  * req_send_hardware_message: send keybord message to the window which cursor is on.
+
+  * BUG Fix in Function ListVIEW_SetItemCount, 
+  * ListView selectionMark has not been updated in special case: 
+  * newItemCount < OldCount and selectionMark >= newItemCount
+
+  * fix linked icon error when right-click on the file and click "open with"
+
+  * shlview_cmenu.c for create link.
+    
+  * fix shortcut error when right click a file in filemanager.
+
+  * fix update error when cut-copy a file in filemanager
+
+  * shell32: Implement SHOpenFolderAndSelectItems.
+    
+  * fix open folder error when right click a file in filemanager.
+
+  * explorer failed to open when right click a folder,
+  * Insert key HKEY_CLASSES_ROOT\folder\shell\explore\command can make it happy.
+
+  * uninx format file info cann't be displayed in file manager.
+
+  * JinGe word cann't be opened in IE,
+  * Its interface can be queried from IUnknown.
+
+  * _ismbb* functions in msvcrt module are stub, 
+  * it make ZWCAD crash when set block attributes.
+
+  * Wine cann't delete old file while cut/paste file,
+  * fix it using global_cut to dispatch cut and copy.
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 14 Jun 2017 15:43:19 +0800
