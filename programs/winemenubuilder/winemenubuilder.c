@@ -1497,13 +1497,13 @@ static BOOL write_directory_entry(const char *directory, const char *location)
     fprintf(file, "Type=Directory\n");
     if (strcmp(directory, "wine") == 0)
     {
-        fprintf(file, "Name=Wine\n");
-        fprintf(file, "Icon=wine\n");
+        fprintf(file, "Name=Windows兼容软件\n");
+        fprintf(file, "Icon=wine-folder\n");
     }
     else
     {
         fprintf(file, "Name=%s\n", directory);
-        fprintf(file, "Icon=folder\n");
+        fprintf(file, "Icon=wine-folder\n");
     }
 
     fclose(file);
@@ -2494,7 +2494,9 @@ static BOOL If_File_Exist(const char * desktopPath)
 
 static BOOL Process_MIMEType_Append(const char *desktopPath, const char *mimeType)
 {
-	int ret = 0, i = 0, tmp_len = 0;
+	int ret = 0;
+	int i = 0;
+	FILE *src_fp, *dst_fp;
 	char tmp_buf1[1024] = {'\0'};//tmp_buf1 is used to store per line content of the orignal desktop file, 1024 should be enough
 	char tmp_buf2[10240] = {'\0'};//tmp_buf2 is used to store the merged mimeType, so alloc more
 	char *p_file_bak = NULL; //the file path maybe long so we malloc it instead of statical array
@@ -2507,13 +2509,13 @@ static BOOL Process_MIMEType_Append(const char *desktopPath, const char *mimeTyp
 		return FALSE;
 	}
 	snprintf(p_file_bak, malloc_size - 1, "%s.bak", desktopPath);
-	FILE *src_fp = fopen(desktopPath, "r");
+	src_fp = fopen(desktopPath, "r");
 	if(!src_fp)
 	{
 		fprintf(stderr, "can not open %s as read mode\n", desktopPath);
 		goto out;
 	}
-	FILE *dst_fp = fopen(p_file_bak, "w");
+	dst_fp = fopen(p_file_bak, "w");
 	if(!dst_fp)
 	{
 		fprintf(stderr, "can not open %s as write mode\n", p_file_bak);
@@ -2587,12 +2589,12 @@ static BOOL write_freedesktop_association_entry(const char *desktopPath, const c
 {
     BOOL ret = FALSE;
     FILE *desktop;
-
+    BOOL if_file_exist;
     WINE_TRACE("writing association for file type %s, friendlyAppName=%s, MIME type %s, progID=%s, icon=%s to file %s\n",
                wine_dbgstr_a(dot_extension), wine_dbgstr_a(friendlyAppName), wine_dbgstr_a(mimeType),
                wine_dbgstr_a(progId), wine_dbgstr_a(openWithIcon), wine_dbgstr_a(desktopPath));
     /*added by yangwx, begin,20170414*/
-    BOOL if_file_exist = If_File_Exist(desktopPath);
+    if_file_exist = If_File_Exist(desktopPath);
     if(if_file_exist)
 	ret = Process_MIMEType_Append(desktopPath, mimeType);
     else
@@ -2811,6 +2813,7 @@ static BOOL generate_associations(const char *xdg_data_home, const char *package
                 //char *desktopPath = heap_printf("%s/wine-extension-%s.desktop", applications_dir, &extensionA[1]);
 		int orig_appname_len = strlen(friendlyAppNameA), i = 0;
 		char *p_new_appname = (char *)malloc(orig_appname_len + 2);
+		char *desktopPath; 
 		char *p_tmp_new_appname = NULL;
 		if(!p_new_appname)
 		{
@@ -2831,7 +2834,7 @@ static BOOL generate_associations(const char *xdg_data_home, const char *package
 			}
 			p_tmp_new_appname++;
 		}
-                char *desktopPath = heap_printf("%s/%s.desktop", applications_dir, p_new_appname);
+                desktopPath = heap_printf("%s/%s.desktop", applications_dir, p_new_appname);
 		if(p_new_appname)
 		{
 			free(p_new_appname);
