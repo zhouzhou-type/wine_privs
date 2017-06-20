@@ -1,3 +1,17 @@
+winuxgear-engine (1.0.1-1+1cdos1) UNRELEASED; urgency=medium
+
+  * 1.0.1-rc1
+
+  * ctrl-a selects all item in explorer.
+
+  * Repair part of desktop shortcut cannot write to the registry
+
+  * Bug Fix:qq.lnk create failed because of the shelllink partial implementation
+
+  * implement of scard api
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 20 Jun 2017 14:43:19 +0800
+
 winuxgear-engine (1.0.0-1+1cdos3) RELEASED; urgency=medium
 
   * release 1.0.0
@@ -5,7 +19,6 @@ winuxgear-engine (1.0.0-1+1cdos3) RELEASED; urgency=medium
   * update wine app logo and copyright
 
   * wineboot: hide wait window
-
 
  -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 14 Jun 2017 15:43:19 +0800
 
