@@ -1543,6 +1543,16 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
                   }
                 }
                 break;
+		case VK_F11:
+                  if(IsZoomed(GetParent(This->hWndParent)))
+                  {
+                    ShowWindow(GetParent(This->hWndParent),SW_SHOWDEFAULT);
+                  }
+		  else
+                  {
+                    ShowWindow(GetParent(This->hWndParent),SW_SHOWMAXIMIZED);
+                  }
+                  break;
               case VK_DELETE:
                 {
 		  UINT i, count;
