@@ -1629,8 +1629,15 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 		{
 		  LPSHELLBROWSER lpSb;
 		  if((lpSb = (LPSHELLBROWSER)SendMessageW(This->hWndParent, CWM_GETISHELLBROWSER, 0, 0)))
-		  {
-		    IShellBrowser_BrowseObject(lpSb, NULL, SBSP_PARENT);
+		  { 
+			  IShellViewImpl *view_this;
+      			  IShellBrowser_BrowseObject(lpSb, NULL, SBSP_PARENT);
+      			  view_this = NULL;
+      			  if(SUCCEEDED(IShellBrowser_QueryActiveShellView(lpSb,(IShellView**)&view_this)))
+      			  {
+      				  if(view_this)
+      					  ShellView_OnSetFocus(view_this);
+      			  }
 		  }
 	        }
 		break;
