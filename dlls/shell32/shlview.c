@@ -1296,6 +1296,155 @@ static LRESULT ShellView_OnCommand(IShellViewImpl * This,DWORD dwCmdID, DWORD dw
 	}
 	return 0;
 }
+/**********************************************************
+* IShellView_DoPaste
+* Implement ShellView clipboard paste :LVN_KEYDOWN CTRL+V
+* This is an ad-hoc fix for the CTRL+X/C/V problem of windows "Resource Manager"(this bug exists in <=wine-2.7). 
+*/
+static BOOL IShellView_DoPaste(IShellViewImpl *This)
+{
+	BOOL bSuccess = FALSE;
+	IDataObject * pda;
+	/*added by yangwx, begin, 20170313*/
+	char SrcPath[MAX_PATH] = {'\0'}, DstPath[MAX_PATH] = {'\0'};
+	IPersistFolder2 *ppf_src= NULL, *ppf_dst = NULL;
+	LPITEMIDLIST pidl_src, pidl_dst;
+	/*added by yangwx, end*/
+
+	TRACE("\n");
+
+	if(SUCCEEDED(OleGetClipboard(&pda)))
+	{
+	  STGMEDIUM medium;
+	  FORMATETC formatetc;
+
+	  TRACE("pda=%p\n", pda);
+
+	  /* Set the FORMATETC structure*/
+	  InitFormatEtc(formatetc, RegisterClipboardFormatW(CFSTR_SHELLIDLISTW), TYMED_HGLOBAL);
+
+	  /* Get the pidls from IDataObject */
+	  if(SUCCEEDED(IDataObject_GetData(pda,&formatetc,&medium)))
+         {
+	    LPITEMIDLIST * apidl;
+	    LPITEMIDLIST pidl;
+	    IShellFolder *psfFrom = NULL, *psfDesktop;
+
+	    LPIDA lpcida = GlobalLock(medium.u.hGlobal);
+	    TRACE("cida=%p\n", lpcida);
+
+	    apidl = _ILCopyCidaToaPidl(&pidl, lpcida);
+
+	    /* bind to the source shellfolder */
+	    SHGetDesktopFolder(&psfDesktop);
+	    if(psfDesktop)
+	    {
+	      IShellFolder_BindToObject(psfDesktop, pidl, NULL, &IID_IShellFolder, (LPVOID*)&psfFrom);
+	      IShellFolder_Release(psfDesktop);
+	    }
+
+	    if (psfFrom)
+	    {
+	      /* get source and destination shellfolder */
+	      ISFHelper *psfhlpdst, *psfhlpsrc;
+	      IShellFolder_QueryInterface(This->pSFParent, &IID_ISFHelper, (void**)&psfhlpdst);
+	      IShellFolder_QueryInterface(psfFrom, &IID_ISFHelper, (void**)&psfhlpsrc);
+
+	      /* do the copy/move */
+	      if (psfhlpdst && psfhlpsrc)
+	      {
+	        ISFHelper_CopyItems(psfhlpdst, psfFrom, lpcida->cidl, (LPCITEMIDLIST*)apidl);
+
+		//get src dir
+		IShellFolder_QueryInterface(psfFrom, &IID_IPersistFolder2, (LPVOID *)&ppf_src);
+		if(ppf_src)
+		{
+			if(SUCCEEDED(IPersistFolder2_GetCurFolder(ppf_src, &pidl_src)))
+				SHGetPathFromIDListA(pidl_src, SrcPath);
+			SHFree(pidl_src);
+			IPersistFolder2_Release(ppf_src);
+		}
+		//get dst dir
+		IShellFolder_QueryInterface(This->pSFParent, &IID_IPersistFolder2, (LPVOID *)&ppf_dst);
+		if(ppf_dst)
+		{
+			if(SUCCEEDED(IPersistFolder2_GetCurFolder(ppf_dst, &pidl_dst)))
+				SHGetPathFromIDListA(pidl_dst, DstPath);
+			SHFree(pidl_dst);
+			IPersistFolder2_Release(ppf_dst);
+		}
+		TRACE("SrcPath=%s, DstPath=%s\n", SrcPath, DstPath);
+		if(global_cut && strcmp(SrcPath, DstPath)){
+			ISFHelper_DeleteItems(psfhlpsrc, lpcida->cidl, (LPCITEMIDLIST*)apidl);}
+	      }
+	      if(psfhlpdst) ISFHelper_Release(psfhlpdst);
+	      if(psfhlpsrc) ISFHelper_Release(psfhlpsrc);
+	      IShellFolder_Release(psfFrom);
+	    }
+
+	    _ILFreeaPidl(apidl, lpcida->cidl);
+	    SHFree(pidl);
+
+	    /* release the medium*/
+	    ReleaseStgMedium(&medium);
+	  }
+	  IDataObject_Release(pda);
+	}
+#if 0
+	HGLOBAL  hMem;
+
+	OpenClipboard(NULL);
+	hMem = GetClipboardData(CF_HDROP);
+
+	if(hMem)
+	{
+          char * pDropFiles = GlobalLock(hMem);
+	  if(pDropFiles)
+	  {
+	    int len, offset = sizeof(DROPFILESTRUCT);
+
+	    while( pDropFiles[offset] != 0)
+	    {
+	      len = strlen(pDropFiles + offset);
+	      TRACE("%s\n", pDropFiles + offset);
+	      offset += len+1;
+	    }
+	  }
+	  GlobalUnlock(hMem);
+	}
+	CloseClipboard();
+#endif
+	return bSuccess;
+}
+
+/**********************************************************
+* IShellView_DoCopyOrCut
+*
+* copies the currently selected items to the clipboard.
+*
+* @param 1: the current ShellView, it is used to obtain the clipboard. 
+* @param 2: indicated the whether this is a cut command. TRUE means cut, FALSE means copy 
+* 
+* This function is a mimicked version of: static void DoCopyOrCut(ContextMenu *This, HWND hwnd, BOOL cut).
+*
+* This is an ad-hoc fix for the CTRL+X/C/V problem of windows "Resource Manager"(this bug exists in <=wine-2.7). 
+*/
+
+static void IShellView_DoCopyOrCut(IShellViewImpl * This, BOOL cut)//Created by refer 
+{
+	IDataObject *dataobject;
+
+	TRACE("(%p)->(wnd=%p, cut=%d)\n", This, This->hWnd, cut);
+	if (ShellView_GetSelections(This)){
+		if (SUCCEEDED(IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl, (LPCITEMIDLIST*)This->apidl, &IID_IDataObject, 0 , (void**)&dataobject)))
+		{
+	    		OleSetClipboard(dataobject);
+	    		IDataObject_Release(dataobject);
+	    		global_cut=cut;
+		}
+	}
+}
+ 
 
 /**********************************************************
 * ShellView_OnNotify()
@@ -1641,7 +1790,35 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 		  }
 	        }
 		break;
-
+              case 0x58:
+		/* Key "X" in Keyboard */
+		{
+			if (GetKeyState(VK_CONTROL)&0x8000)/* CTRL+X */
+			{
+				IShellView_DoCopyOrCut(This,TRUE);
+			}
+				
+			break;
+		}
+              case 0x43:
+		/*Key "C" in Keyboard*/
+		{
+			if (GetKeyState(VK_CONTROL)&0x8000)/* CTRL+C */
+			{
+				IShellView_DoCopyOrCut(This,FALSE);
+			}
+                        break;
+             	}
+	      case 0x56:
+		/*Key "V" in Keyboard*/
+		{
+			if (GetKeyState(VK_CONTROL)&0x8000)/* CTRL+V */
+			{
+				IShellView_DoPaste(This);
+				IShellView3_Refresh(&This->IShellView3_iface);
+			}
+                        break;
+		}
 	      default:
 		FIXME("LVN_KEYDOWN key=0x%08x\n", plvKeyDown->wVKey);
 	      }
