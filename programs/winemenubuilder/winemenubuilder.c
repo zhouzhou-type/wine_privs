@@ -1275,6 +1275,9 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
     char *iconsDir = NULL;
     HRESULT hr = S_OK;
     LARGE_INTEGER zero;
+    char *retPath = NULL;
+    int bestIconW = -1;
+    int bestIconH = -1;
 
     if (destFilename)
         *nativeIdentifier = heap_printf("%s", destFilename);
@@ -1291,7 +1294,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         hr = E_OUTOFMEMORY;
         goto end;
     }
-
     for (i = 0; i < numEntries; i++)
     {
         int bestIndex = i;
@@ -1336,6 +1338,8 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         }
         create_directories(iconDir);
         pngPath = heap_printf("%s/%s.png", iconDir, *nativeIdentifier);
+ 	 bestIconW = bestIconW > w ? bestIconW : w;
+    	 bestIconH = bestIconW == w ? h : bestIconH;
         if (pngPath == NULL)
         {
             hr = E_OUTOFMEMORY;
@@ -1354,8 +1358,15 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
     }
     refresh_icon_cache(iconsDir);
 
+    retPath = heap_printf("%s/%dx%d/apps/%s.png",iconsDir,bestIconW,bestIconH,*nativeIdentifier);
+    if(retPath != NULL)
+    {
+	    *nativeIdentifier = heap_printf("%s",retPath);
+    }
+
 end:
     HeapFree(GetProcessHeap(), 0, iconsDir);
+    HeapFree(GetProcessHeap(), 0, retPath);
     return hr;
 }
 #endif /* defined(__APPLE__) */
