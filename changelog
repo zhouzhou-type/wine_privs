@@ -1,3 +1,21 @@
+
+winuxgear-engine (1.0.1-1+1cdos2) UNRELEASED; urgency=medium
+
+  * 1.0.1-rc2
+
+  * display app's icon in start menu.
+
+  * ctrl-v,ctrl-x,ctrl-c in explorer.
+
+  * continous ctr-backspace in explorer.
+
+  * Fix F11 in wine resource browser
+
+  * change desktop menu name from wine to windows-compatible
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 22 Jun 2017 17:43:19 +0800
+
+
 winuxgear-engine (1.0.1-1+1cdos1) UNRELEASED; urgency=medium
 
   * 1.0.1-rc1
