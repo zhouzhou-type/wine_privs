@@ -3718,7 +3718,10 @@ static BOOL init_xdg(void)
     WCHAR shellDesktopPath[MAX_PATH];
     HRESULT hr = SHGetFolderPathW(NULL, CSIDL_DESKTOP, NULL, SHGFP_TYPE_CURRENT, shellDesktopPath);
     if (SUCCEEDED(hr))
+    {
         xdg_desktop_dir = wine_get_unix_file_name(shellDesktopPath);
+        strcat(xdg_desktop_dir, "/LinuxDesktop");
+    }
     if (xdg_desktop_dir == NULL)
     {
         WINE_ERR("error looking up the desktop directory\n");
