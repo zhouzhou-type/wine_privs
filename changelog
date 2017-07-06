@@ -1,3 +1,11 @@
+winuxgear-engine (1.1.0-1+1cdos1) RELEASED; urgency=medium
+
+  * 1.1.0
+
+  * merge stable merge wine-2.0.1 to winuxgear-engine.
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 5 Jul 2017 17:43:19 +0800
+
 
 winuxgear-engine (1.0.1-1+1cdos3) RELEASED; urgency=medium
 
