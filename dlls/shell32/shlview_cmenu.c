@@ -769,6 +769,9 @@ static HRESULT WINAPI BackgroundMenu_QueryContextMenu(
     }
     else
     {
+		/* add by wangyan, begin, 20170707 */
+        idCmdLast = 0xFFFFFFFF;
+		/* add by wangyan, end, 20170707 */
         idMax = Shell_MergeMenus (hMenu, GetSubMenu(hMyMenu,0), indexMenu,
                                   idCmdFirst, idCmdLast, MM_SUBMENUSHAVEIDS);
         hr =  MAKE_HRESULT(SEVERITY_SUCCESS, FACILITY_NULL, idMax-idCmdFirst);
