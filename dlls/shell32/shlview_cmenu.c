@@ -40,6 +40,11 @@
 
 #include "shresdef.h"
 
+/* add by wangyan, begin, 20170710*/
+#include "shlwapi.h"
+#include <stdio.h>
+/* add by wangyan, end, 20170710*/
+
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 /*added by yangwx, begin, 20170315*/
 BOOL global_cut = FALSE;
@@ -922,6 +927,188 @@ static BOOL DoPaste(ContextMenu *This)
 	return bSuccess;
 }
 
+/* add by wangyan, begin, 20170710 */
+static BOOL DoLink(LPCSTR pSrcFile, LPCSTR pDstFile)
+{
+	IShellLinkA *psl = NULL;
+	IPersistFile *pPf = NULL;
+	HRESULT hres;
+	WCHAR widelink[MAX_PATH];
+	BOOL ret = FALSE;
+
+	CoInitialize(0);
+
+	hres = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkA, (LPVOID)&psl);
+	if(SUCCEEDED(hres))
+	{
+		hres = IShellLinkA_QueryInterface(psl, &IID_IPersistFile, (LPVOID)&pPf);
+		if(FAILED(hres))
+		{
+			ERR(" IShellLinkA_QueryInterface failed\n");
+			goto fail;
+		}
+
+		TRACE("shortcut point to %s\n", pSrcFile);
+
+		hres = IShellLinkA_SetPath(psl, pSrcFile);
+		if(FAILED(hres))
+		{
+			ERR("IShellLinkA_SetPath failed\n");
+			goto fail;
+		}
+
+		MultiByteToWideChar(CP_ACP, 0, pDstFile, -1, widelink, MAX_PATH);
+
+		/* create the short cut */
+		hres = IPersistFile_Save(pPf, widelink, TRUE);
+		if(hres)
+		{
+			ERR("IPersistFile_Save failed\n");
+			IPersistFile_Release(pPf);
+			IShellLinkA_Release(psl);
+			goto fail;
+		}
+
+		//hres = IPersistFile_SaveCompleted(pPf, widelink);
+		IPersistFile_Release(pPf);
+		IShellLinkA_Release(psl);
+		TRACE("shortcut %s has been created\n", pDstFile);
+		
+		ret = TRUE;
+	}
+	else
+	{
+		TRACE("CoCreateInstance failed\n");
+	}
+
+fail:
+	CoUninitialize();
+	return ret;
+}
+
+
+static BOOL DoInsertLink(ContextMenu *This)
+{
+	BOOL bSuccess = FALSE;
+	IDataObject *pda;
+
+	TRACE("\n");
+
+	if(SUCCEEDED(OleGetClipboard(&pda)))
+	{
+		STGMEDIUM medium;
+		FORMATETC formatetc;
+
+		TRACE("pda = %p\n", pda);
+
+		/* Set the FORMATETC structure */
+		InitFormatEtc(formatetc, RegisterClipboardFormatW(CFSTR_SHELLIDLISTW), TYMED_HGLOBAL);
+
+		/* Get the pidls from IDataObject */
+		if(SUCCEEDED(IDataObject_GetData(pda, &formatetc, &medium)))
+		{
+			LPITEMIDLIST *apidl;
+			LPITEMIDLIST pidl;
+			IShellFolder *psfFrom = NULL, *psfDesktop;
+
+			LPIDA lpcida = GlobalLock(medium.u.hGlobal);
+			TRACE("cida = %p\n", lpcida);
+
+			apidl = _ILCopyCidaToaPidl(&pidl, lpcida);
+
+			/* bind to the source shellfolder */
+			SHGetDesktopFolder(&psfDesktop);
+			if(psfDesktop)
+			{
+				IShellFolder_BindToObject(psfDesktop, pidl, NULL, &IID_ISFHelper, (LPVOID *)&psfFrom);
+				IShellFolder_Release(psfDesktop);
+			}
+
+			if(psfFrom)
+			{
+				/* get source and destination shellfolder */
+				IPersistFolder2 *ppfdst = NULL;
+				IPersistFolder2 *ppfsrc = NULL;
+				IShellFolder_QueryInterface(This->parent, &IID_IPersistFolder2, (LPVOID*)&ppfdst);
+				IShellFolder_QueryInterface(psfFrom, &IID_IPersistFolder2, (LPVOID*)&ppfsrc);
+
+				TRACE("[%p\t%p]\n", ppfdst, ppfsrc);
+
+				/* do the link */
+				/* hack to the desktop path */
+				if((ppfdst && ppfsrc) || (This->desktop && ppfsrc))
+				{
+					int i;
+					char szSrcPath[MAX_PATH];
+					char szDstPath[MAX_PATH];
+					BOOL ret = FALSE;
+					LPITEMIDLIST pidl2;
+					char filename[MAX_PATH];
+					char linkFilename[MAX_PATH];
+					char srcFilename[MAX_PATH];
+
+					IPersistFolder2_GetCurFolder(ppfsrc, &pidl2);
+					SHGetPathFromIDListA(pidl2, szSrcPath);
+
+					if(This->desktop)
+					{
+						SHGetSpecialFolderLocation(0, CSIDL_DESKTOPDIRECTORY, &pidl2);
+						SHGetPathFromIDListA(pidl2, szDstPath);
+					}
+					else
+					{
+						IPersistFolder2_GetCurFolder(ppfdst, &pidl2);
+						SHGetPathFromIDListA(pidl2, szDstPath);
+					}
+
+					for(i = 0; i< lpcida->cidl; i++)
+					{
+						_ILSimpleGetText(apidl[i], filename, MAX_PATH);
+
+						TRACE("filename = %s\n", filename);
+
+						lstrcpyA(linkFilename, szDstPath);
+						PathAddBackslashA(linkFilename);
+						lstrcatA(linkFilename, "Shortcut to ");
+						//strcat(filename, ".lnk");
+						lstrcatA(linkFilename, filename);
+						lstrcatA(linkFilename, ".lnk");
+
+						TRACE("linkFilename = %s\n", linkFilename);
+
+						lstrcpyA(srcFilename, szSrcPath);
+						PathAddBackslashA(srcFilename);
+						lstrcatA(srcFilename, filename);
+
+						TRACE("srcFilename = %s\n", srcFilename);
+
+						ret = DoLink(srcFilename, linkFilename);
+						if(ret)
+						{
+							SHChangeNotify(SHCNE_CREATE, SHCNF_PATHA, linkFilename, NULL);
+						}
+	
+					}
+
+				}
+				if(ppfdst) IPersistFolder2_Release(ppfdst);
+				if(ppfsrc) IPersistFolder2_Release(ppfsrc);
+				IShellFolder_Release(psfFrom);
+			}
+			_ILFreeaPidl(apidl, lpcida->cidl);
+			SHFree(pidl);
+
+			/* release the medium */
+			ReleaseStgMedium(&medium);
+
+		}
+		IDataObject_Release(pda);
+	}
+	return bSuccess;
+}
+/* add by wangyan, end, 20170710 */
+
+
 static HRESULT WINAPI BackgroundMenu_InvokeCommand(
 	IContextMenu3 *iface,
 	LPCMINVOKECOMMANDINFO lpcmi)
@@ -986,6 +1173,12 @@ static HRESULT WINAPI BackgroundMenu_InvokeCommand(
 		} else {
 		    FIXME("launch item properties dialog\n");
 		}
+			/* add by wangyan, begin, 20170710 */
+			case FCIDM_SHVIEW_INSERTLINK:
+				TRACE("FCIDM_SHVIEW_INSERTLINK");
+				DoInsertLink(This);
+				break;
+			/* add by wangyan, end, 20170710 */
 		break;
 
             default:
