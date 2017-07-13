@@ -37,6 +37,7 @@
 #include "wine/unicode.h"
 #include "wine/list.h"
 
+#include "winsvc.h"
 #include "bus.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(plugplay);
@@ -624,6 +625,47 @@ void process_hid_report(DEVICE_OBJECT *device, BYTE *report, DWORD length)
     LeaveCriticalSection(&ext->report_cs);
 }
 
+static void startScardSvr()
+{
+    WCHAR scardsvrW[] = {'S','C','a','r','d','S','v','r',0};
+	SC_HANDLE scm, service;
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwBytesNeeded;
+
+	scm = OpenSCManagerW(NULL,NULL,0);
+	if(!scm)
+	{
+        WARN("failed to open SCM (%u)\n", GetLastError());
+        return;
+	}
+    service = OpenServiceW(scm, scardsvrW, SERVICE_ALL_ACCESS);
+	if(!service)
+	{
+        WARN("failed to open SCardSvr (%u)\n", GetLastError());
+		CloseServiceHandle(scm);
+        return;
+	}
+	if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,
+				(LPBYTE) &ssStatus, sizeof(SERVICE_STATUS_PROCESS),
+				&dwBytesNeeded))
+	{
+		WARN("failed to query service status (%u)\n", GetLastError());
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return;
+	}
+	if(ssStatus.dwCurrentState != SERVICE_RUNNING)
+	{
+        if(!StartServiceW(service,0,NULL))
+		{
+			WARN("start service SCardSvr failed(%u)\n", GetLastError());
+			CloseServiceHandle(service);
+		    CloseServiceHandle(scm);
+			return;
+		}
+	}
+}
+
 NTSTATUS WINAPI DriverEntry( DRIVER_OBJECT *driver, UNICODE_STRING *path )
 {
     static const WCHAR udevW[] = {'\\','D','r','i','v','e','r','\\','U','D','E','V',0};
@@ -632,6 +674,8 @@ NTSTATUS WINAPI DriverEntry( DRIVER_OBJECT *driver, UNICODE_STRING *path )
     static UNICODE_STRING iohid = {sizeof(iohidW) - sizeof(WCHAR), sizeof(iohidW), (WCHAR *)iohidW};
 
     TRACE( "(%p, %s)\n", driver, debugstr_w(path->Buffer) );
+
+	//startScardSvr();
 
     IoCreateDriver(&udev, udev_driver_init);
     IoCreateDriver(&iohid, iohid_driver_init);

@@ -2,22 +2,24 @@ MODULE    = winscard.dll
 IMPORTLIB = winscard
 
 EXTRALIBS = -ldl -lpthread -lrt
+IMPORTS   = rpcrt4 advapi32 ole32
 
 C_SRCS = \
-	winscard.c \
-	winscard_impl.c \
-	error.c \
-        simclist.c \
-	strlcpy.c \
-	utils.c \
 	configfile.c \
-	sys_unix.c \
-	winscard_msg.c \
 	debug.c \
+	error.c \
 	hotplug_libudev.c \
-	winscard_clnt.c 
+	simclist.c \
+	strlcpy.c \
+	sys_unix.c \
+	utils.c \
+	winscard.c \
+	winscard_clnt.c \
+	winscard_impl.c \
+	winscard_msg.c
 
 
 
 RC_SRCS = \
 	rsrc.rc
+

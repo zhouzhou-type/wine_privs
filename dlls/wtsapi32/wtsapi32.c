@@ -152,13 +152,27 @@ BOOL WINAPI WTSEnumerateSessionsA(HANDLE hServer, DWORD Reserved, DWORD Version,
 BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
     PWTS_SESSION_INFOW* ppSessionInfo, DWORD* pCount)
 {
-    FIXME("Stub %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
+	WCHAR console[]={'C','o','n','s','o','l','e',0};
+	WCHAR services[]={'S','e','r','v','i','c','e','s',0};
+	
+    TRACE(" %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
           ppSessionInfo, pCount);
 
     if (!ppSessionInfo || !pCount) return FALSE;
 
     *pCount = 0;
     *ppSessionInfo = NULL;
+
+	*pCount = 2;
+	*ppSessionInfo = HeapAlloc(GetProcessHeap(),0,2*sizeof(WTS_SESSION_INFOW));
+	(*ppSessionInfo)[0].SessionId = 0;
+	(*ppSessionInfo)[0].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(services))+1);
+	lstrcpyW((*ppSessionInfo)[0].pWinStationName,services);
+	(*ppSessionInfo)[0].State = WTSDisconnected;
+	(*ppSessionInfo)[1].SessionId = 1;
+	(*ppSessionInfo)[1].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(console))+1);
+	lstrcpyW((*ppSessionInfo)[1].pWinStationName,console);
+	(*ppSessionInfo)[1].State = WTSActive;
 
     return TRUE;
 }

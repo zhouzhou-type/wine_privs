@@ -1,0 +1,32 @@
+MODULE    = scardsvr.dll
+C_SRCS = \
+    svr_main.c \
+    auth.c \
+    atrhandler.c \
+    configfile.c \
+    debuglog.c \
+    dyn_hpux.c \
+    dyn_unix.c \
+    eventhandler.c \
+    hotplug_libudev.c  \
+    pcscdaemon.c \
+    ifdwrapper.c \
+    powermgt_generic.c \
+    prothandler.c \
+    readerfactory.c \
+    sd-daemon.c \
+    simclist.c \
+    sys_unix.c \
+    utils.c \
+    winscard.c \
+    winscard_msg.c \
+    winscard_msg_srv.c \
+    winscard_svc.c \
+    tokenparser.c 
+
+EXTRALIBS = -ldl -lpthread -lrt $(UDEV_LIBS)
+EXTRAINCL = $(UDEV_CFLAGS)
+
+IMPORTS   = rpcrt4 advapi32 ole32
+
+

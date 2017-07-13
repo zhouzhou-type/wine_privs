@@ -34,10 +34,12 @@
 
 #include "services.h"
 #include "svcctl.h"
+#include "dbt_append.h"
 
 extern HANDLE CDECL __wine_make_process_system(void);
 
 WINE_DEFAULT_DEBUG_CHANNEL(service);
+WINE_DECLARE_DEBUG_CHANNEL(scardsvr);
 
 static const GENERIC_MAPPING g_scm_generic =
 {
@@ -1242,6 +1244,105 @@ DWORD __cdecl svcctl_ControlService(
     ReleaseMutex(process->control_mutex);
     release_process(process);
     return result;
+}
+
+static device_event_info* __cdecl DeviceEventToBuffer(DWORD eventtype, DWORD vid, DWORD pid, DWORD interfacenum, LPCSTR devpath, LPCSTR sysname, LPCSTR interfacename, LPCSTR serialnum)
+{
+	int total_size = 0, current_size = 0;
+	int devpath_size = 0, sysname_size = 0, interfacename_size = 0, serialnum_size = 0;
+	device_event_info *dei = NULL;
+
+	if(devpath != NULL)
+		devpath_size = lstrlenA(devpath)*sizeof(CHAR);
+	if(sysname != NULL)
+		sysname_size = lstrlenA(sysname)*sizeof(CHAR);
+	if(interfacename != NULL)
+		interfacename_size = lstrlenA(interfacename)*sizeof(CHAR);
+	if(serialnum != NULL)
+		serialnum_size = lstrlenA(serialnum)*sizeof(CHAR);
+	total_size = sizeof(DWORD)*9+(devpath_size+sysname_size+interfacename_size+serialnum_size);
+
+	dei = HeapAlloc(GetProcessHeap(),0,total_size);
+	dei->size = total_size;
+	dei->eventtype = eventtype;
+	dei->vid = vid;
+	dei->pid = pid;
+	dei->interfacenum = interfacenum;
+
+	dei->devpath_size = devpath_size;
+	if(devpath_size)
+	{
+		memcpy(dei->string_var,devpath,dei->devpath_size);
+		current_size = current_size + dei->devpath_size;
+	}
+	dei->sysname_size = sysname_size;
+	if(sysname_size)
+	{
+		memcpy(dei->string_var+current_size,sysname,dei->sysname_size);
+		current_size = current_size + dei->sysname_size;
+	}
+	dei->interfacename_size = interfacename_size;
+	if(interfacename_size)
+	{
+		memcpy(dei->string_var+current_size,interfacename,dei->interfacename_size);
+		current_size = current_size + dei->interfacename_size;
+	}
+	dei->serialnum_size = serialnum_size;
+	if(serialnum_size)
+		memcpy(dei->string_var+current_size,serialnum,dei->serialnum_size);
+
+	return dei;
+}
+
+DWORD __cdecl svcctl_ControlDeviceEventA(
+    SC_RPC_HANDLE hService,DWORD dwEventType,DWORD dwVid, DWORD dwPid,
+	DWORD dwInterfaceNum, LPSTR pszDevPath, LPSTR pszSysName, 
+	LPSTR pszInterfaceName, LPSTR pszSerialNum)
+{
+	struct sc_service_handle *service;
+	struct process_entry *process;
+	device_event_info *data = NULL;
+	int data_size = 0;
+	BOOL shared_process;
+	DWORD result;
+
+    TRACE("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+    TRACE_(scardsvr)("rpc-S: hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+
+	//rpc transmit string == NULL error
+	if(lstrcmpA(pszDevPath,"null") == 0)
+		pszDevPath = NULL;
+	if(lstrcmpA(pszSysName,"null") == 0)
+		pszSysName = NULL;
+	if(lstrcmpA(pszInterfaceName,"null") == 0)
+		pszInterfaceName = NULL;
+	if(lstrcmpA(pszSerialNum,"null") == 0)
+		pszSerialNum = NULL;
+
+	if ((result = validate_service_handle(hService, 0, &service)) != 0)
+		return result;
+
+	data = DeviceEventToBuffer(dwEventType,dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+	if(data != NULL)
+		data_size = data->size;
+
+	service_lock(service->service_entry);
+	process = grab_process(service->service_entry->process);
+	shared_process = service->service_entry->shared_process;
+	service_unlock(service->service_entry);
+
+    result = WaitForSingleObject(process->control_mutex, 30000);
+	if (result != WAIT_OBJECT_0)
+	{
+		release_process(process);
+		return ERROR_SERVICE_REQUEST_TIMEOUT;
+	}
+	if(process_send_control(process, shared_process, service->service_entry->name, SERVICE_CONTROL_DEVICEEVENT, data, data_size, &result))
+		result = ERROR_SUCCESS;
+	HeapFree(GetProcessHeap(),0,data);
+	ReleaseMutex(process->control_mutex);
+	release_process(process);
+	return result;
 }
 
 DWORD __cdecl svcctl_CloseServiceHandle(

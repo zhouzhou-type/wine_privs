@@ -1054,6 +1054,7 @@ enable_bthprops_cpl
 enable_cabinet
 enable_capi2032
 enable_cards
+enable_ccid
 enable_cfgmgr32
 enable_clusapi
 enable_combase
@@ -1383,6 +1384,7 @@ enable_rtutils
 enable_samlib
 enable_sane_ds
 enable_scarddlg
+enable_scardsvr
 enable_sccbase
 enable_schannel
 enable_schedsvc
@@ -17781,6 +17783,7 @@ wine_fn_config_dll cabinet enable_cabinet implib
 wine_fn_config_test dlls/cabinet/tests cabinet_test
 wine_fn_config_dll capi2032 enable_capi2032 implib
 wine_fn_config_dll cards enable_cards implib
+wine_fn_config_dll ccid enable_ccid clean
 wine_fn_config_dll cfgmgr32 enable_cfgmgr32 implib
 wine_fn_config_dll clusapi enable_clusapi implib
 wine_fn_config_dll combase enable_combase
@@ -18264,6 +18267,7 @@ wine_fn_config_dll rtutils enable_rtutils implib
 wine_fn_config_dll samlib enable_samlib
 wine_fn_config_dll sane.ds enable_sane_ds clean
 wine_fn_config_dll scarddlg enable_scarddlg
+wine_fn_config_dll scardsvr enable_scardsvr clean
 wine_fn_config_dll sccbase enable_sccbase
 wine_fn_config_dll schannel enable_schannel
 wine_fn_config_test dlls/schannel/tests schannel_test

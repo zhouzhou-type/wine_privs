@@ -56,8 +56,14 @@
 #include "wine/unicode.h"
 
 #include "bus.h"
+#include "winsvc.h"
+#include "winuser.h"
+#include "dbt.h"
+#include "winreg.h"
+#include "wine/list.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(plugplay);
+WINE_DECLARE_DEBUG_CHANNEL(scardsvr);
 
 #ifdef HAVE_UDEV
 
@@ -67,6 +73,21 @@ static struct udev *udev_context = NULL;
 static DRIVER_OBJECT *udev_driver_obj = NULL;
 
 static const WCHAR hidraw_busidW[] = {'H','I','D','R','A','W',0};
+
+typedef struct _device_info_scardsvr
+{
+	struct list entry;
+	DWORD vid;
+	DWORD pid;
+	DWORD interfacenum;
+	char *devpath;
+	char *sysname;
+	char *interfacename;
+	char *serialnum;
+	char *syspath;
+}device_info_scardsvr;
+
+static struct list device_info_scardsvr_list = LIST_INIT(device_info_scardsvr_list);
 
 #include "initguid.h"
 DEFINE_GUID(GUID_DEVCLASS_HIDRAW, 0x3def44ad,0x242e,0x46e5,0x82,0x6d,0x70,0x72,0x13,0xf3,0xaa,0x81);
@@ -392,24 +413,229 @@ static const platform_vtbl hidraw_vtbl =
     hidraw_set_feature_report,
 };
 
+static device_info_scardsvr* getDeviceInfoFromCache(struct udev_device *dev)
+{
+	const char *syspath;
+	device_info_scardsvr *device_info = NULL;
+	device_info_scardsvr *ret = NULL;
+
+	if(dev == NULL)
+	{
+		ERR("param wrong dev or usbdev is NULL\n");
+		return NULL;
+	}
+
+	TRACE_(scardsvr)("dev=%p\n", dev);
+
+	syspath = udev_device_get_syspath(dev);
+
+	if(syspath == NULL)
+		return NULL;
+
+	LIST_FOR_EACH_ENTRY(device_info, &device_info_scardsvr_list, device_info_scardsvr, entry)
+	{
+		if(lstrcmpA(device_info->syspath, syspath) == 0)
+		{
+			ret = device_info;
+			break;
+		}
+	}
+
+	if(ret!=NULL)
+	{
+		TRACE_(scardsvr)("Get Device Event Info From Cache: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",ret->vid,ret->pid,ret->interfacenum,ret->devpath,ret->sysname,ret->interfacename,ret->serialnum,ret->syspath);
+	}
+
+	return ret;
+}
+static char *strdupA( const char *str )
+{
+	char *ret = NULL;
+	if (!str) return NULL;
+	if ((ret = HeapAlloc( GetProcessHeap(), 0, strlen(str) + 1 )))
+		strcpy(ret,str);
+	return ret;
+}
+static device_info_scardsvr* cacheDeviceInfo(struct udev_device *dev, struct udev_device *usbdev)
+{
+	char *devpath, *sysname, *interface, *serial, *syspath;
+	int vid = -1,pid = -1,interfaceNum = -1;
+	device_info_scardsvr *device_info = NULL;
+
+	TRACE_(scardsvr)("dev=%p  usbdev=%p\n", dev, usbdev);
+
+	if(dev == NULL || usbdev == NULL)
+	{
+		ERR("param wrong dev or usbdev is NULL\n");
+		return NULL;
+	}
+
+	device_info = getDeviceInfoFromCache(dev);
+
+	devpath = udev_device_get_devnode(usbdev);
+	sysname = udev_device_get_sysname(dev);
+	interface = udev_device_get_sysattr_value(dev, "interface");
+	serial = udev_device_get_sysattr_value(usbdev,"serial");
+	vid = get_sysattr_dword(usbdev,"idVendor",16);
+	pid = get_sysattr_dword(usbdev,"idProduct",16);
+	interfaceNum = get_sysattr_dword(dev, "bInterfaceNumber",16);
+	syspath = udev_device_get_syspath(dev);
+
+	if(syspath == NULL || devpath == NULL || sysname == NULL || vid == -1 || pid == -1)
+	{
+		ERR("udev get information not support cache: syspath == NULL || devpath == NULL || sysname == NULL || vid == 0 || pid == 0\n");
+		return NULL;
+	}
+
+	TRACE_(scardsvr)("Cache Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",vid,pid,interfaceNum,devpath,sysname,interface,serial,syspath);
+
+	if(device_info == NULL)
+	{
+		if(!(device_info = HeapAlloc(GetProcessHeap(),0,sizeof(*device_info))))
+		{
+			ERR("Alloc Heap Error\n");
+			return NULL;
+		}
+	}
+
+	device_info->vid = vid;
+	device_info->pid = pid;
+	device_info->interfacenum = interfaceNum;
+	device_info->devpath = strdupA(devpath);
+	device_info->sysname = strdupA(sysname);
+	device_info->interfacename = strdupA(interface);
+	device_info->serialnum = strdupA(serial);
+	device_info->syspath = strdupA(syspath);
+
+	list_add_tail(&device_info_scardsvr_list, &(device_info->entry));
+
+	return device_info;
+}
+
+static void deviceEventRegHandlerA(DWORD dwEventType, device_info_scardsvr *device_info)
+{
+	const char *Enum = "System\\CurrentControlSet\\Enum";
+	const char *formatA = "USB\\VID_%04x&PID_%04x\\%s";
+	char *instanceId = NULL;
+	int len,exists;
+	long ret;
+	HKEY enumKey, key = INVALID_HANDLE_VALUE;
+
+	TRACE_(scardsvr)("dwEventType=%04x device_info=%p\n",dwEventType, device_info);
+	
+	if(device_info == NULL)
+		return ;
+
+	TRACE_(scardsvr)("Register Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",device_info->vid,device_info->pid,device_info->interfacenum,device_info->devpath,device_info->sysname,device_info->interfacename,device_info->serialnum,device_info->syspath);
+	len = lstrlenA("USB\\VID_&PID_\\") + 8 + lstrlenA(device_info->sysname) + 1;
+	if((instanceId = HeapAlloc(GetProcessHeap(), 0, len*sizeof(char))))
+	{
+		sprintf(instanceId,formatA,device_info->vid,device_info->pid,device_info->sysname);
+	}
+
+	if(dwEventType == DBT_DEVICEARRIVAL)
+		exists = 1;
+	else
+		exists = 0;
+
+	ret = RegCreateKeyExA(HKEY_LOCAL_MACHINE,Enum,0,NULL,0,KEY_ALL_ACCESS, NULL, &enumKey, NULL);
+	if(!ret)
+	{
+		ret = RegCreateKeyExA(enumKey,instanceId,0,NULL,0,KEY_READ|KEY_WRITE, NULL, &key, NULL);
+		if(!ret)
+		{
+			if(device_info->vid != -1)
+				RegSetValueExA(key,"VID",0,REG_DWORD,(BYTE *)&(device_info->vid),sizeof(device_info->vid));
+			if(device_info->pid != -1)
+				RegSetValueExA(key,"PID",0,REG_DWORD,(BYTE *)&(device_info->pid),sizeof(device_info->pid));
+			if(device_info->sysname != NULL)
+				RegSetValueExA(key,"SysName",0,REG_SZ,(BYTE *)(device_info->sysname),sizeof(char)*(lstrlenA(device_info->sysname)+1));
+			if(device_info->interfacenum != -1)
+				RegSetValueExA(key,"InterfaceNum",0,REG_DWORD,(BYTE *)&(device_info->interfacenum),sizeof(device_info->interfacenum));
+			if(device_info->interfacename != NULL)
+				RegSetValueExA(key,"InterfaceName",0,REG_SZ,(BYTE *)(device_info->interfacename),sizeof(char)*(lstrlenA(device_info->interfacename)+1));
+			if(device_info->serialnum != NULL)
+				RegSetValueExA(key,"SerialNum",0,REG_SZ,(BYTE *)(device_info->serialnum),sizeof(char)*(lstrlenA(device_info->serialnum)+1));
+			if(device_info->devpath != NULL)
+				RegSetValueExA(key,"DevPath",0,REG_SZ,(BYTE *)(device_info->devpath),sizeof(char)*(lstrlenA(device_info->devpath)+1));
+			if(device_info->syspath != NULL)
+				RegSetValueExA(key,"SysPath",0,REG_SZ,(BYTE *)(device_info->syspath),sizeof(char)*(lstrlenA(device_info->syspath)+1));
+			RegSetValueExA(key,"Exists",0,REG_DWORD,(BYTE *)&exists,sizeof(exists));
+		}
+	}
+}
+
+static void sendDeviceEventToSCardSvr(DWORD dwEventType, device_info_scardsvr *dev_info)
+{
+    WCHAR scardsvrW[] = {'S','C','a','r','d','S','v','r',0};
+	SC_HANDLE scm, service;
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwBytesNeeded;
+	const char *devpath, *sysname, *interface, *serial;
+	int vid,pid,interfaceNum;
+	TRACE_(scardsvr)("dwEventType=%04x device_info=%p\n",dwEventType, dev_info);
+	if(dev_info == NULL)
+	{
+		ERR("device_info is NULL\n");
+		return ;
+	}
+
+	scm = OpenSCManagerW(NULL,NULL,0);
+	if(!scm)
+	{
+        WARN("failed to open SCM (%u)\n", GetLastError());
+        return;
+	}
+    service = OpenServiceW(scm, scardsvrW, SERVICE_ALL_ACCESS);
+	if(!service)
+	{
+        WARN("failed to open SCardSvr (%u)\n", GetLastError());
+		CloseServiceHandle(scm);
+        return;
+	}
+	if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,
+				(LPBYTE) &ssStatus, sizeof(SERVICE_STATUS_PROCESS),
+				&dwBytesNeeded))
+	{
+		WARN("failed to query service status (%u)\n", GetLastError());
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return;
+	}
+	if(ssStatus.dwCurrentState != SERVICE_RUNNING)
+	{
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return;
+	}
+    
+	devpath = dev_info->devpath;
+	sysname = dev_info->sysname;
+	interface = dev_info->interfacename;
+	serial = dev_info->serialnum;
+	vid = dev_info->vid;
+	pid = dev_info->pid;
+	interfaceNum = dev_info->interfacenum;
+
+	TRACE_(scardsvr)("Send Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s\n",vid,pid,interfaceNum,devpath,sysname,interface,serial);
+
+	if(!ControlDeviceEventA(service,dwEventType,vid,pid,interfaceNum,devpath,sysname,interface,serial))
+	{
+		WARN("control device event failed(%u)\n", GetLastError());
+	}
+	CloseServiceHandle(service);
+	CloseServiceHandle(scm);
+}
+
 static void try_add_device(struct udev_device *dev)
 {
-    DWORD vid = 0, pid = 0, version = 0;
+    DWORD vid = 0, pid = 0, version = 0,interfaceclass = 0;
     struct udev_device *usbdev;
     DEVICE_OBJECT *device = NULL;
-    const char *subsystem;
     const char *devnode;
     WCHAR *serial = NULL;
+	device_info_scardsvr* dev_info_scardsvr = NULL;
     int fd;
-
-    if (!(devnode = udev_device_get_devnode(dev)))
-        return;
-
-    if ((fd = open(devnode, O_RDWR)) == -1)
-    {
-        WARN("Unable to open udev device %s: %s\n", debugstr_a(devnode), strerror(errno));
-        return;
-    }
 
     usbdev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
     if (usbdev)
@@ -420,12 +646,26 @@ static void try_add_device(struct udev_device *dev)
         serial  = get_sysattr_string(usbdev, "serial");
     }
 
+    if (!(devnode = udev_device_get_devnode(usbdev)))
+        return;
+
+    if ((fd = open(devnode, O_RDWR)) == -1)
+    {
+        WARN("Unable to open udev device %s: %s\n", debugstr_a(devnode), strerror(errno));
+        return;
+    }
+
     TRACE("Found udev device %s (vid %04x, pid %04x, version %u, serial %s)\n",
           debugstr_a(devnode), vid, pid, version, debugstr_w(serial));
-
-    subsystem = udev_device_get_subsystem(dev);
-    if (strcmp(subsystem, "hidraw") == 0)
-    {
+	//Cache Device Event Info
+	dev_info_scardsvr = cacheDeviceInfo(dev,usbdev);
+    //Send Device Event to  SCardSvr
+	sendDeviceEventToSCardSvr(DBT_DEVICEARRIVAL,dev_info_scardsvr);
+	//RegisterDeviceEvent
+	deviceEventRegHandlerA(DBT_DEVICEARRIVAL,dev_info_scardsvr);
+	interfaceclass = get_sysattr_dword(dev,"bInterfaceClass",10);
+	if(interfaceclass == 3)
+	{
         device = bus_create_hid_device(udev_driver_obj, hidraw_busidW, vid, pid, version, 0, serial, FALSE,
                                        &GUID_DEVCLASS_HIDRAW, &hidraw_vtbl, sizeof(struct platform_private));
     }
@@ -439,7 +679,7 @@ static void try_add_device(struct udev_device *dev)
     }
     else
     {
-        WARN("Ignoring device %s with subsystem %s\n", debugstr_a(devnode), subsystem);
+        WARN("Ignoring device %s with interfaceclass %d (hid = 3)\n", debugstr_a(devnode), interfaceclass);
         close(fd);
     }
 
@@ -450,6 +690,13 @@ static void try_remove_device(struct udev_device *dev)
 {
     DEVICE_OBJECT *device = bus_find_hid_device(&hidraw_vtbl, dev);
     struct platform_private *private;
+	device_info_scardsvr *dev_info_scardsvr = NULL;
+	//Get Cached Device Info
+	dev_info_scardsvr = getDeviceInfoFromCache(dev);
+	//Send Device Event to SCardSvr
+	sendDeviceEventToSCardSvr(DBT_DEVICEREMOVECOMPLETE, dev_info_scardsvr);
+	//UnRegisterDeviceEvent
+	deviceEventRegHandlerA(DBT_DEVICEREMOVECOMPLETE,dev_info_scardsvr);
     if (!device) return;
 
     IoInvalidateDeviceRelations(device, RemovalRelations);
@@ -483,7 +730,7 @@ static void build_initial_deviceset(void)
         return;
     }
 
-    if (udev_enumerate_add_match_subsystem(enumerate, "hidraw") < 0)
+    if (udev_enumerate_add_match_subsystem(enumerate, "usb") < 0)
         WARN("Failed to add subsystem 'hidraw' to enumeration\n");
 
     if (udev_enumerate_scan_devices(enumerate) < 0)
@@ -517,8 +764,8 @@ static struct udev_monitor *create_monitor(struct pollfd *pfd)
         return NULL;
     }
 
-    if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "hidraw", NULL) < 0)
-        WARN("Failed to add subsystem 'hidraw' to monitor\n");
+    if (udev_monitor_filter_add_match_subsystem_devtype(monitor, "usb", "usb_interface") < 0)
+        WARN("Failed to add subsystem 'usb' to monitor\n");
 
     if (udev_monitor_enable_receiving(monitor) < 0)
         goto error;

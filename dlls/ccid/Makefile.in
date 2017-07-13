@@ -1,0 +1,43 @@
+MODULE    = ccid.dll
+
+C_SRCS = \
+	ccid.c \
+	ccid_usb.c \
+	commands.c \
+	debug.c \
+	ifdhandler.c \
+	openct/buffer.c \
+	openct/checksum.c \
+	openct/proto-t1.c \
+	simclist.c \
+	strlcpy.c \
+	towitoko/atr.c \
+	towitoko/pps.c \
+	utils.c
+
+LEX_SRCS = \
+	tokenparser.l
+
+EXTRALIBS = -lpthread -lusb-1.0
+EXTRAINCL = -I/usr/include/libusb-1.0
+
+VERSION = 1.4.26
+CCID_LIB = libccid.so
+PCSCLITE_HP_DROPDIR = /usr/local/lib/pcsc/drivers/
+CCID_Contents = ifd-ccid.bundle/Contents/
+PCSC_ARCH = Linux
+
+MK_DIR = mkdir ${PCSCLITE_HP_DROPDIR}${CCID_Contents}${PCSC_ARCH} -p
+INSTALL_DRIVERS = cp ccid.dll.so ${PCSCLITE_HP_DROPDIR}${CCID_Contents}${PCSC_ARCH}/${CCID_LIB}
+INSTALL_INFO_PLIST = cp Info.plist ${PCSCLITE_HP_DROPDIR}${CCID_Contents}
+
+GEN_INFO_PLIST = perl create_Info_plist.pl readers/supported_readers.txt Info.plist.src --target=$(CCID_LIB) --version=$(VERSION) > Info.plist
+
+install::
+	${MK_DIR}
+	${GEN_INFO_PLIST}
+	${INSTALL_INFO_PLIST}
+	${INSTALL_DRIVERS}
+
+uninstall::
+	rm ${PCSCLITE_HP_DROPDIR}${CCID_Contents} -rf

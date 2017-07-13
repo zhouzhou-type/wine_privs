@@ -28,7 +28,7 @@
 #include "wine/debug.h"
 #include "winscard.h"
 #include "winternl.h"
-
+#include "winsvc.h"
 
 #define IN_WINE_SC
 
@@ -42,6 +42,47 @@ const SCARD_IO_REQUEST g_rgSCardT0Pci = { SCARD_PROTOCOL_T0, 8 };
 const SCARD_IO_REQUEST g_rgSCardT1Pci = { SCARD_PROTOCOL_T1, 8 };
 const SCARD_IO_REQUEST g_rgSCardRawPci = { SCARD_PROTOCOL_RAW, 8 };
 
+static void scardsvr_auto_start(void)
+{
+    WCHAR scardsvrW[] = {'S','C','a','r','d','S','v','r',0};
+	SC_HANDLE scm, service;
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwBytesNeeded;
+    
+    scm = OpenSCManagerW(NULL, NULL, 0);
+    if (!scm)
+    {
+        WARN("failed to open SCM (%u)\n", GetLastError());
+        return;
+    }
+
+    service = OpenServiceW(scm, scardsvrW, SERVICE_QUERY_STATUS|SERVICE_START);
+	if(!service)
+	{
+        WARN("failed to open SCardSvr (%u)\n", GetLastError());
+		CloseServiceHandle(scm);
+        return;
+	}
+	if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,
+				(LPBYTE) &ssStatus, sizeof(SERVICE_STATUS_PROCESS),
+				&dwBytesNeeded))
+	{
+		WARN("failed to query service status (%u)\n", GetLastError());
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return;
+	}
+	if(ssStatus.dwCurrentState != SERVICE_RUNNING)
+	{
+        if(!StartServiceW(service,0,NULL))
+		{
+			WARN("start service SCardSvr failed(%u)\n", GetLastError());
+			CloseServiceHandle(service);
+		    CloseServiceHandle(scm);
+			return;
+		}
+	}
+}
 
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -59,6 +100,7 @@ BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             CloseHandle(g_startedEvent);
             break;
     }
+    scardsvr_auto_start();
 
     return TRUE;
 }
