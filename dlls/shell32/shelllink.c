@@ -498,7 +498,7 @@ static HRESULT WINAPI IPersistFile_fnSave(IPersistFile* iface, LPCOLESTR pszFile
     if (!pszFileName)
         return E_FAIL;
     //Computer Relative Path and Set
-    if(getRelativePath(pszFileName,This->sPath,&relPath))
+    if((This->iLinkFlags & SLDF_HAS_LINK_INFO) && (getRelativePath(pszFileName,This->sPath,&relPath)))
     {
 	IShellLinkW_SetRelativePath(&This->IShellLinkW_iface,relPath,0);
         HeapFree(GetProcessHeap(),0,relPath);
