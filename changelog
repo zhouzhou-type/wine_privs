@@ -1,3 +1,15 @@
+winuxgear-engine (1.3.0-1+1cdos1) UNRELEASED; urgency=medium
+
+  * 1.3.0-rc1
+
+  * fix qq.lnk which make Word's save menu crash.
+  * fixed submenu
+  * fix paste shortcut menu
+  * move scardsvr and ccid.so codes into winuxgear
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Wed, 28 Jul 2017 15:30:19 +0800
+
+
 winuxgear-engine (1.2.0-1+1cdos1) RELEASED; urgency=medium
 
   * 1.2.0
