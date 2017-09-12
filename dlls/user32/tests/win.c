@@ -2556,7 +2556,7 @@ static void test_SetWindowPos(HWND hwnd, HWND hwnd2)
     {
         ret = SetWindowPos(hwnd, 0, -32769, -40000, -32769, -90000, SWP_NOMOVE);
         ok(ret, "Got %d\n", ret);
-        ret = SetWindowPos(hwnd, 0, 32768, 40000, 32768, 40000, SWP_NOMOVE);
+        ret = SetWindowPos(hwnd, 0, 32768, 40000, 100, 100, SWP_NOMOVE);
         ok(ret, "Got %d\n", ret);
 
         ret = SetWindowPos(hwnd, 0, -32769, -40000, -32769, -90000, SWP_NOSIZE);
