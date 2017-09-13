@@ -70,6 +70,10 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 static const WCHAR SV_CLASS_NAME[] = {'S','H','E','L','L','D','L','L','_','D','e','f','V','i','e','w',0};
 
+/*Added by wyy!*/
+WCHAR szFolderName[MAX_PATH];   /* The name of parent folder.*/
+static BOOL backMark = FALSE;  /*If the shellview comes from VK_BACK, the backMark will be set TRUE.*/
+
 typedef struct
 {   BOOL    bIsAscending;
     INT     nHeaderID;
@@ -983,112 +987,6 @@ static HRESULT ShellView_OpenSelectedItems(IShellViewImpl * This)
 }
 
 /**********************************************************
- *	ShellView_DoContextMenu()
- */
-static void ShellView_DoContextMenu(IShellViewImpl * This, WORD x, WORD y, BOOL bDefault)
-{	UINT	uCommand;
-	DWORD	wFlags;
-	HMENU	hMenu;
-	BOOL	fExplore = FALSE;
-	HWND	hwndTree = 0;
-	LPCONTEXTMENU	pContextMenu = NULL;
-	CMINVOKECOMMANDINFO	cmi;
-
-	TRACE("(%p)->(0x%08x 0x%08x 0x%08x) stub\n",This, x, y, bDefault);
-
-	/* look, what's selected and create a context menu object of it*/
-	if( ShellView_GetSelections(This) )
-	{
-	  IShellFolder_GetUIObjectOf( This->pSFParent, This->hWndParent, This->cidl, (LPCITEMIDLIST*)This->apidl,
-                                      &IID_IContextMenu, NULL, (LPVOID *)&pContextMenu);
-
-	  if(pContextMenu)
-	  {
-	    TRACE("-- pContextMenu\n");
-	    hMenu = CreatePopupMenu();
-
-	    if( hMenu )
-	    {
-	      /* See if we are in Explore or Open mode. If the browser's tree is present, we are in Explore mode.*/
-	      if(SUCCEEDED(IShellBrowser_GetControlWindow(This->pShellBrowser,FCW_TREE, &hwndTree)) && hwndTree)
-	      {
-	        TRACE("-- explore mode\n");
-	        fExplore = TRUE;
-	      }
-
-	      /* build the flags depending on what we can do with the selected item */
-	      wFlags = CMF_NORMAL | (This->cidl != 1 ? 0 : CMF_CANRENAME) | (fExplore ? CMF_EXPLORE : 0);
-
-	      /* let the ContextMenu merge its items in */
-	      if (SUCCEEDED(IContextMenu_QueryContextMenu( pContextMenu, hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, wFlags )))
-	      {
-	        if (This->FolderSettings.fFlags & FWF_DESKTOP)
-		  SetMenuDefaultItem(hMenu, FCIDM_SHVIEW_OPEN, MF_BYCOMMAND);
-
-		if( bDefault )
-		{
-		  TRACE("-- get menu default command\n");
-		  uCommand = GetMenuDefaultItem(hMenu, FALSE, GMDI_GOINTOPOPUPS);
-		}
-		else
-		{
-		  TRACE("-- track popup\n");
-		  uCommand = TrackPopupMenu( hMenu,TPM_LEFTALIGN | TPM_RETURNCMD,x,y,0,This->hWnd,NULL);
-		}
-
-		if(uCommand > 0)
-		{
-		  TRACE("-- uCommand=%u\n", uCommand);
-		  if (uCommand==FCIDM_SHVIEW_OPEN && IsInCommDlg(This))
-		  {
-		    TRACE("-- dlg: OnDefaultCommand\n");
-		    if (OnDefaultCommand(This) != S_OK)
-		    {
-		      ShellView_OpenSelectedItems(This);
-		    }
-		  }
-		  else
-		  {
-		    TRACE("-- explore -- invoke command\n");
-		    ZeroMemory(&cmi, sizeof(cmi));
-		    cmi.cbSize = sizeof(cmi);
-		    cmi.hwnd = This->hWndParent; /* this window has to answer CWM_GETISHELLBROWSER */
-                    cmi.lpVerb = MAKEINTRESOURCEA(uCommand);
-		    IContextMenu_InvokeCommand(pContextMenu, &cmi);
-		  }
-		}
-		DestroyMenu(hMenu);
-	      }
-	    }
-	    if (pContextMenu)
-	      IContextMenu_Release(pContextMenu);
-	  }
-	}
-	else	/* background context menu */
-	{
-	  IContextMenu2 *pCM;
-
-	  hMenu = CreatePopupMenu();
-
-	  BackgroundMenu_Constructor(This->pSFParent, FALSE, &IID_IContextMenu2, (void**)&pCM);
-	  IContextMenu2_QueryContextMenu(pCM, hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, 0);
-
-	  uCommand = TrackPopupMenu( hMenu, TPM_LEFTALIGN | TPM_RETURNCMD,x,y,0,This->hWnd,NULL);
-	  DestroyMenu(hMenu);
-
-	  TRACE("-- (%p)->(uCommand=0x%08x )\n",This, uCommand);
-
-	  ZeroMemory(&cmi, sizeof(cmi));
-	  cmi.cbSize = sizeof(cmi);
-          cmi.lpVerb = MAKEINTRESOURCEA(uCommand);
-	  cmi.hwnd = This->hWndParent;
-	  IContextMenu2_InvokeCommand(pCM, &cmi);
-
-	  IContextMenu2_Release(pCM);
-	}
-}
-
-/**********************************************************
  *	##### message handling #####
  */
 
@@ -1213,6 +1111,36 @@ static LRESULT ShellView_OnActivate(IShellViewImpl *This, UINT uState)
 static LRESULT ShellView_OnSetFocus(IShellViewImpl * This)
 {
 	TRACE("%p\n",This);
+	if(backMark == TRUE)
+	{
+	   IEnumIDList *penum;
+	   HRESULT hr;
+	   hr = IShellFolder2_EnumObjects(This->pSF2Parent, 0, SHCONTF_FOLDERS|SHCONTF_NONFOLDERS|SHCONTF_INCLUDEHIDDEN, &penum);
+
+	   if(penum)
+	   {
+	      LPITEMIDLIST pidl;
+	      DWORD dwFetched;
+	      WCHAR tempFolderName[MAX_PATH]; 
+	     
+	      IEnumIDList_Reset(penum);
+	      while(S_OK == IEnumIDList_Next(penum, 1, &pidl, &dwFetched) &&dwFetched)
+	      {
+		_ILSimpleGetTextW(pidl, tempFolderName, MAX_PATH);
+		
+		if(!strcmpW(szFolderName,tempFolderName)) //Find the target folder
+		{
+		    IShellView_SelectItem(This,pidl,(SVSI_DESELECTOTHERS | SVSI_EDIT | SVSI_ENSUREVISIBLE |SVSI_FOCUSED|SVSI_SELECT));
+		    break;
+		}
+	      }
+	      
+             SHFree(pidl);
+	   }
+	    IEnumIDList_Release(penum); 
+	    backMark = FALSE;
+	   
+	}
 
 	/* Tell the browser one of our windows has received the focus. This
 	should always be done before merging menus (OnActivate merges the
@@ -1242,6 +1170,121 @@ static LRESULT ShellView_OnKillFocus(IShellViewImpl * This)
 	OnStateChange(This,CDBOSC_KILLFOCUS);
 
 	return 0;
+}
+
+/**********************************************************
+ *	ShellView_DoContextMenu()
+ */
+static void ShellView_DoContextMenu(IShellViewImpl * This, WORD x, WORD y, BOOL bDefault)
+{	UINT	uCommand;
+	DWORD	wFlags;
+	HMENU	hMenu;
+	BOOL	fExplore = FALSE;
+	HWND	hwndTree = 0;
+	LPCONTEXTMENU	pContextMenu = NULL;
+	CMINVOKECOMMANDINFO	cmi;
+
+	TRACE("(%p)->(0x%08x 0x%08x 0x%08x) stub\n",This, x, y, bDefault);
+
+	/* look, what's selected and create a context menu object of it*/
+	if( ShellView_GetSelections(This) )
+	{
+	  IShellFolder_GetUIObjectOf( This->pSFParent, This->hWndParent, This->cidl, (LPCITEMIDLIST*)This->apidl,
+                                      &IID_IContextMenu, NULL, (LPVOID *)&pContextMenu);
+
+	  if(pContextMenu)
+	  {
+	    TRACE("-- pContextMenu\n");
+	    hMenu = CreatePopupMenu();
+
+	    if( hMenu )
+	    {
+	      /* See if we are in Explore or Open mode. If the browser's tree is present, we are in Explore mode.*/
+	      if(SUCCEEDED(IShellBrowser_GetControlWindow(This->pShellBrowser,FCW_TREE, &hwndTree)) && hwndTree)
+	      {
+	        TRACE("-- explore mode\n");
+	        fExplore = TRUE;
+	      }
+
+	      /* build the flags depending on what we can do with the selected item */
+	      wFlags = CMF_NORMAL | (This->cidl != 1 ? 0 : CMF_CANRENAME) | (fExplore ? CMF_EXPLORE : 0);
+
+	      /* let the ContextMenu merge its items in */
+	      if (SUCCEEDED(IContextMenu_QueryContextMenu( pContextMenu, hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, wFlags )))
+	      {
+	        if (This->FolderSettings.fFlags & FWF_DESKTOP)
+		  SetMenuDefaultItem(hMenu, FCIDM_SHVIEW_OPEN, MF_BYCOMMAND);
+
+		if( bDefault )
+		{
+		  TRACE("-- get menu default command\n");
+		  uCommand = GetMenuDefaultItem(hMenu, FALSE, GMDI_GOINTOPOPUPS);
+		}
+		else
+		{
+		  TRACE("-- track popup\n");
+		  uCommand = TrackPopupMenu( hMenu,TPM_LEFTALIGN | TPM_RETURNCMD,x,y,0,This->hWnd,NULL);
+		}
+
+		if(uCommand > 0)
+		{
+		  TRACE("-- uCommand=%u\n", uCommand);
+		  if (uCommand==FCIDM_SHVIEW_OPEN && IsInCommDlg(This))
+		  {
+		    TRACE("-- dlg: OnDefaultCommand\n");
+		    IShellBrowser *browser= NULL;
+		    IShellView *view= NULL; 
+		    browser = This -> pShellBrowser;
+
+
+		    if (OnDefaultCommand(This) != S_OK)
+		    {
+		      ShellView_OpenSelectedItems(This);
+		    }
+		  	 if(browser && SUCCEEDED(IShellBrowser_QueryActiveShellView(browser,&view)))
+		   	 {
+				if(view)  ShellView_OnSetFocus(view);
+		   	 }     
+		  }
+		  else
+		  {
+		    TRACE("-- explore -- invoke command\n");
+		    ZeroMemory(&cmi, sizeof(cmi));
+		    cmi.cbSize = sizeof(cmi);
+		    cmi.hwnd = This->hWndParent; /* this window has to answer CWM_GETISHELLBROWSER */
+                    cmi.lpVerb = MAKEINTRESOURCEA(uCommand);
+		    IContextMenu_InvokeCommand(pContextMenu, &cmi);
+		  }
+		}
+		DestroyMenu(hMenu);
+	      }
+	    }
+	    if (pContextMenu)
+	      IContextMenu_Release(pContextMenu);
+	  }
+	}
+	else	/* background context menu */
+	{
+	  IContextMenu2 *pCM;
+
+	  hMenu = CreatePopupMenu();
+
+	  BackgroundMenu_Constructor(This->pSFParent, FALSE, &IID_IContextMenu2, (void**)&pCM);
+	  IContextMenu2_QueryContextMenu(pCM, hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, 0);
+
+	  uCommand = TrackPopupMenu( hMenu, TPM_LEFTALIGN | TPM_RETURNCMD,x,y,0,This->hWnd,NULL);
+	  DestroyMenu(hMenu);
+
+	  TRACE("-- (%p)->(uCommand=0x%08x )\n",This, uCommand);
+
+	  ZeroMemory(&cmi, sizeof(cmi));
+	  cmi.cbSize = sizeof(cmi);
+          cmi.lpVerb = MAKEINTRESOURCEA(uCommand);
+	  cmi.hwnd = This->hWndParent;
+	  IContextMenu2_InvokeCommand(pCM, &cmi);
+
+	  IContextMenu2_Release(pCM);
+	}
 }
 
 /**********************************************************
@@ -1454,6 +1497,8 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 {	LPNMLISTVIEW lpnmlv = (LPNMLISTVIEW)lpnmh;
 	NMLVDISPINFOW *lpdi = (NMLVDISPINFOW *)lpnmh;
 	LPITEMIDLIST pidl;
+	IShellBrowser *browser= NULL;
+	IShellViewImpl *view= NULL; 
 
 	TRACE("%p CtlID=%u lpnmh->code=%x\n",This,CtlID,lpnmh->code);
 
@@ -1487,15 +1532,29 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 	    TRACE("-- NM_RCLICK %p\n",This);
 	    break;	    
 
-          case NM_DBLCLK:
-            TRACE("-- NM_DBLCLK %p\n",This);
-            if (OnDefaultCommand(This) != S_OK) ShellView_OpenSelectedItems(This);
-            break;
+      case NM_DBLCLK:
+        TRACE("-- NM_DBLCLK %p\n",This);
 
-          case NM_RETURN:
-            TRACE("-- NM_RETURN %p\n",This);
-            if (OnDefaultCommand(This) != S_OK) ShellView_OpenSelectedItems(This);
-            break;
+	    browser = This -> pShellBrowser;
+        if (OnDefaultCommand(This) != S_OK) ShellView_OpenSelectedItems(This);
+            
+	    if(browser && SUCCEEDED(IShellBrowser_QueryActiveShellView(browser,&view)))
+	    {
+			if(view)  ShellView_OnSetFocus(view);
+	    }  
+	    break;
+
+      case NM_RETURN:
+		TRACE("-- NM_RETURN %p\n",This);
+
+	    browser = This -> pShellBrowser;
+        if (OnDefaultCommand(This) != S_OK) ShellView_OpenSelectedItems(This);
+            
+	    if(browser && SUCCEEDED(IShellBrowser_QueryActiveShellView(browser,&view)))
+	    {
+			if(view)  ShellView_OnSetFocus(view);
+	    }  
+        break;
 
 	  case HDN_ENDTRACKW:
 	    TRACE("-- HDN_ENDTRACKW %p\n",This);
@@ -1776,19 +1835,56 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 
 	      case VK_BACK:
 		{
-		  LPSHELLBROWSER lpSb;
-		  if((lpSb = (LPSHELLBROWSER)SendMessageW(This->hWndParent, CWM_GETISHELLBROWSER, 0, 0)))
-		  { 
-			  IShellViewImpl *view_this;
-      			  IShellBrowser_BrowseObject(lpSb, NULL, SBSP_PARENT);
-      			  view_this = NULL;
-      			  if(SUCCEEDED(IShellBrowser_QueryActiveShellView(lpSb,(IShellView**)&view_this)))
-      			  {
-      				  if(view_this)
-      					  ShellView_OnSetFocus(view_this);
-      			  }
-		  }
-	        }
+		   LPITEMIDLIST sf_pidl;
+	       IPersistFolder2 *persist;
+		   WCHAR tempFolderName[MAX_PATH];
+
+           IShellFolder_QueryInterface(This->pSF2Parent,&IID_IPersistFolder2,(void**)&persist);
+		   if(persist)
+		   {
+				if(SUCCEEDED(IPersistFolder2_GetCurFolder(persist,&sf_pidl)))
+				{
+				   SHGetPathFromIDListW(sf_pidl,tempFolderName);
+				}
+				SHFree(sf_pidl);
+				IPersistFolder2_Release(persist);
+		   }	
+
+		   if(*tempFolderName == '\0' ) //The path is empty.
+		   { 
+				strcpyW(szFolderName,tempFolderName);
+		   }
+		   else if(*tempFolderName !='\0')
+		   {
+		        WCHAR *p;
+				if((p = strrchrW(tempFolderName,'\\')))	
+				{
+				    if(*(p+1) == '\0')//such as Z:
+				    {
+						strcpyW(szFolderName,tempFolderName);
+				    }
+				    else
+				    {
+						strcpyW(szFolderName, (p+1));
+				    }
+				}
+		   }
+		   else
+		   {
+				*tempFolderName ='\0'; //Maybe there are some extra value that I don't know.
+				strcpyW(szFolderName, tempFolderName);
+		   }
+
+		   if(browser= This-> pShellBrowser)
+		    {
+				IShellBrowser_BrowseObject(browser, NULL, SBSP_PARENT);
+				if(SUCCEEDED(IShellBrowser_QueryActiveShellView(browser,&view)))
+				{
+					backMark = TRUE;
+					if(view) ShellView_OnSetFocus(view);
+			    }          
+			 }
+	    }
 		break;
               case 0x58:
 		/* Key "X" in Keyboard */
