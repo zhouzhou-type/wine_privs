@@ -1,3 +1,14 @@
+winuxgear-engine (1.5.0-1+1cdos1) RELEASED; urgency=medium
+
+  * 1.5.0
+
+  * realize function of create shortcut menu
+  * Set Focus on upper dir when input Backspace
+  * fix logout crash when run winetest
+  * check HeapAlloc in d3dx9 and ole32.
+
+ -- CDOS Support Team <support_os@cpu-os.ac.cn>  Thurs, 13 Sep 2017 17:03:18 +0800
+
 winuxgear-engine (1.4.0-1+1cdos1) RELEASED; urgency=medium
 
   * 1.4.0
