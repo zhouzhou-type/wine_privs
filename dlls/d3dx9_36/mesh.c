@@ -5184,6 +5184,8 @@ HRESULT WINAPI D3DXCreateTextA(struct IDirect3DDevice9 *device, HDC hdc, const c
 
     len = MultiByteToWideChar(CP_ACP, 0, text, -1, NULL, 0);
     textW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+    if(!textW)
+        return E_OUTOFMEMORY;
     MultiByteToWideChar(CP_ACP, 0, text, -1, textW, len);
 
     hr = D3DXCreateTextW(device, hdc, textW, deviation, extrusion,
