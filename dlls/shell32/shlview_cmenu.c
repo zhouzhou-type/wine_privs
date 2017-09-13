@@ -42,6 +42,8 @@
 
 /* add by wangyan, begin, 20170710*/
 #include "shlwapi.h"
+#include "commdlg.h"
+#include <libgen.h>
 #include <stdio.h>
 /* add by wangyan, end, 20170710*/
 
@@ -930,7 +932,8 @@ static BOOL DoPaste(ContextMenu *This)
 	return bSuccess;
 }
 
-/* add by wangyan, begin, 20170710 */
+/* add by wangyan, begin, 20170720 */
+
 static BOOL DoLink(LPCSTR pSrcFile, LPCSTR pDstFile)
 {
 	IShellLinkA *psl = NULL;
@@ -988,7 +991,107 @@ fail:
 	CoUninitialize();
 	return ret;
 }
+/* add by wangyan, end, 20170720 */
 
+/* add by wangyan, begin, 20170720 */
+BOOL DoNewLink(ContextMenu * This)
+{
+	OPENFILENAMEA ofn;
+	
+	static char szFileName[MAX_PATH] = {'\0'};
+	HWND hwnd;
+	char srcFilename[MAX_PATH] = {'\0'};
+	char separator[MAX_PATH] = "\\";
+	char *basename;
+	char *namep;
+	char linkFilename[MAX_PATH] = {'\0'};
+	IPersistFolder2 *persist;
+	LPITEMIDLIST sf_pidl;
+	char szDstPath[MAX_PATH];
+
+	HMODULE	hComdlg32;
+	BOOL (WINAPI *pGetOpenFileNameA)(OPENFILENAMEA *);
+
+	hwnd = GetForegroundWindow();
+
+	/* LoadLibrary comdlg32.dll */
+	hComdlg32 = LoadLibraryA("comdlg32.dll");
+	
+	/* Get GetOpenFileNameA enry address */
+	pGetOpenFileNameA = (void *)GetProcAddress(hComdlg32, "GetOpenFileNameA");
+
+	memset(&ofn, '\0', sizeof(OPENFILENAMEA));
+
+	ofn.lStructSize       = sizeof(OPENFILENAMEA);
+	ofn.hwndOwner         = hwnd;
+	ofn.hwndOwner         = NULL;
+	ofn.hInstance         = NULL;
+	ofn.lpstrFilter 	  = "ALL Files\0*.*\0\0";
+	ofn.nFilterIndex      = 1;
+	ofn.lpstrCustomFilter = NULL;
+	ofn.nMaxCustFilter    = 0;
+	ofn.lpstrFile         = szFileName;
+	ofn.nMaxFile          = MAX_PATH;
+	ofn.lpstrFileTitle    = NULL;
+	ofn.nMaxFileTitle     = 0;
+	ofn.lpstrInitialDir   = NULL;
+	ofn.lpstrTitle        = "Select A File";
+	ofn.Flags             = OFN_HIDEREADONLY | OFN_CREATEPROMPT;
+	ofn.Flags             = 0;
+	ofn.nFileOffset       = 0;
+	ofn.nFileExtension    = 0;
+	ofn.lpstrDefExt       = NULL;
+	ofn.lCustData         = 0;
+	ofn.lpfnHook          = NULL;
+	ofn.lpTemplateName    = NULL;
+
+	/* get the current shellfolder when right click */
+	IShellFolder_QueryInterface(This->parent, &IID_IPersistFolder2, (void **)&persist);
+	if(persist)
+	{
+		if(SUCCEEDED(IPersistFolder2_GetCurFolder(persist, &sf_pidl)))
+		{
+			SHGetPathFromIDListA(sf_pidl, szDstPath);
+			TRACE("szDstPath = %s", szDstPath);
+		}
+		SHFree(sf_pidl);
+		IPersistFolder2_Release(persist);
+	}
+	
+	/* add charactor '\' in the end of szDstPath */
+	strcat(szDstPath, separator);
+
+	/* open file dialog */
+	if(pGetOpenFileNameA(&ofn))
+	{
+		TRACE("ofn.lpstrFile = %s", ofn.lpstrFile);
+		strcpy(srcFilename, ofn.lpstrFile);
+		
+		/* get basename from whole path */
+		namep = strrchr(srcFilename, '\\');
+		TRACE("namep = %s", namep);
+	
+		/* basename point to the last '\' charactor */
+		basename = namep+1;
+		TRACE("basename = %s", basename);
+
+		/* get the linkFilename */
+		lstrcatA(linkFilename, szDstPath);
+		lstrcatA(linkFilename, "Shortcut to ");
+		lstrcatA(linkFilename, basename);
+		lstrcatA(linkFilename, ".lnk");
+		
+		TRACE("linkFilename = %s", linkFilename);
+	
+		/* create new link */
+		DoLink(srcFilename, linkFilename);
+	}
+
+	FreeLibrary(hComdlg32);
+
+	return 0;
+}
+/* add by wangyan, end, 20170720 */
 
 static BOOL DoInsertLink(ContextMenu *This)
 {
@@ -1176,14 +1279,22 @@ static HRESULT WINAPI BackgroundMenu_InvokeCommand(
 		} else {
 		    FIXME("launch item properties dialog\n");
 		}
-			/* add by wangyan, begin, 20170710 */
-			case FCIDM_SHVIEW_INSERTLINK:
-				TRACE("FCIDM_SHVIEW_INSERTLINK");
-				DoInsertLink(This);
-				break;
-			/* add by wangyan, end, 20170710 */
 		break;
-
+	    /* add by wangyan, begin, 20170710 */
+	    case FCIDM_SHVIEW_INSERTLINK:
+		TRACE("FCIDM_SHVIEW_INSERTLINK");
+		DoInsertLink(This);
+		break;
+	    /* add by wangyan, end, 20170710 */
+	    /* add by wanyan, begin, 20170720 */
+  	    case FCIDM_SHVIEW_NEWLINK:
+		TRACE("FCIDM_SHVIEW_NEWLINK");
+		DoNewLink(This);
+		if (view) 
+		    IShellView_Refresh(view);
+		break;
+	    /* add by wanyan, end, 20170720 */
+ 
             default:
                 /* if it's an id just pass it to the parent shv */
                 if (hWnd) SendMessageA(hWnd, WM_COMMAND, MAKEWPARAM(LOWORD(lpcmi->lpVerb), 0), 0);
