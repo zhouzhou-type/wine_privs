@@ -3664,6 +3664,10 @@ static BlockChainStream* Storage32Impl_SmallBlocksToBigBlocks(
   cbTotalRead.QuadPart = 0;
 
   buffer = HeapAlloc(GetProcessHeap(),0,DEF_SMALL_BLOCK_SIZE);
+  if (!buffer)
+  {
+    return NULL;
+  }
   do
   {
     resRead = SmallBlockChainStream_ReadAt(*ppsbChain,
