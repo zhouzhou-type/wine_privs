@@ -28,6 +28,7 @@
 #include "wine/windef16.h"
 #include "winbase.h"
 #include "wingdi.h"
+#include "winsvc.h"
 #include "winuser.h"
 #include "winnls.h"
 #include "winternl.h"
@@ -572,9 +573,7 @@ DWORD WINAPI RegisterTasklist (DWORD x)
  */
 HDEVNOTIFY WINAPI RegisterDeviceNotificationA(HANDLE hnd, LPVOID notifyfilter, DWORD flags)
 {
-    FIXME("(hwnd=%p, filter=%p,flags=0x%08x) returns a fake device notification handle!\n",
-          hnd,notifyfilter,flags );
-    return (HDEVNOTIFY) 0xcafecafe;
+    return RegisterDeviceNotificationA(hnd, 0, flags);
 }
 
 /***********************************************************************
@@ -602,9 +601,55 @@ HDEVNOTIFY WINAPI RegisterDeviceNotificationA(HANDLE hnd, LPVOID notifyfilter, D
  */
 HDEVNOTIFY WINAPI RegisterDeviceNotificationW(HANDLE hRecipient, LPVOID pNotificationFilter, DWORD dwFlags)
 {
-    FIXME("(hwnd=%p, filter=%p,flags=0x%08x) returns a fake device notification handle!\n",
+	SC_HANDLE scm, service;
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwBytesNeeded;
+    HDEVNOTIFY handle = NULL;
+    WCHAR plugplayW[] = {'P','l','u','g','P','l','a','y',0};
+
+    FIXME("(hwnd=%p, filter=%p,flags=0x%08x) partial-stub  no device filter!\n",
           hRecipient,pNotificationFilter,dwFlags );
-    return (HDEVNOTIFY) 0xcafeaffe;
+
+	scm = OpenSCManagerW(NULL,NULL,0);
+	if(!scm)
+	{
+        ERR("failed to open SCM (%u)\n", GetLastError());
+        return NULL;
+	}
+    service = OpenServiceW(scm, plugplayW, SERVICE_ALL_ACCESS);
+	if(!service)
+	{
+        ERR("failed to open PNP (%u)\n", GetLastError());
+		CloseServiceHandle(scm);
+        return NULL;
+	}
+	if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,
+				(LPBYTE) &ssStatus, sizeof(SERVICE_STATUS_PROCESS),
+				&dwBytesNeeded))
+	{
+		ERR("failed to query service status (%u)\n", GetLastError());
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return NULL;
+	}
+	if(ssStatus.dwCurrentState != SERVICE_RUNNING)
+	{
+		ERR("pnp service is not running\n");
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return NULL;
+	}
+
+    handle = RegDevNotificationW(service,hRecipient,dwFlags);
+	if(!handle)
+    {
+	    ERR("control device event failed(%u)\n", GetLastError());
+	}
+
+	CloseServiceHandle(service);
+	CloseServiceHandle(scm);
+
+    return handle;
 }
 
 /***********************************************************************
@@ -613,8 +658,48 @@ HDEVNOTIFY WINAPI RegisterDeviceNotificationW(HANDLE hRecipient, LPVOID pNotific
  */
 BOOL  WINAPI UnregisterDeviceNotification(HDEVNOTIFY hnd)
 {
-    FIXME("(handle=%p), STUB!\n", hnd);
-    return TRUE;
+    BOOL ret;
+	SC_HANDLE scm, service;
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwBytesNeeded;
+    WCHAR plugplayW[] = {'P','l','u','g','P','l','a','y',0};
+
+	scm = OpenSCManagerW(NULL,NULL,0);
+	if(!scm)
+	{
+        ERR("failed to open SCM (%u)\n", GetLastError());
+        return FALSE;
+	}
+    service = OpenServiceW(scm, plugplayW, SERVICE_ALL_ACCESS);
+	if(!service)
+	{
+        ERR("failed to open PNP (%u)\n", GetLastError());
+		CloseServiceHandle(scm);
+        return FALSE;
+	}
+	if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,
+				(LPBYTE) &ssStatus, sizeof(SERVICE_STATUS_PROCESS),
+				&dwBytesNeeded))
+	{
+		ERR("failed to query service status (%u)\n", GetLastError());
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return FALSE;
+	}
+	if(ssStatus.dwCurrentState != SERVICE_RUNNING)
+	{
+		ERR("pnp service is not running\n");
+		CloseServiceHandle(service);
+		CloseServiceHandle(scm);
+		return FALSE;
+	}
+
+    ret = UnRegDevNotificationW(service,hnd);
+
+	CloseServiceHandle(service);
+	CloseServiceHandle(scm);
+
+    return ret;
 }
 
 /***********************************************************************

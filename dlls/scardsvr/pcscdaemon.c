@@ -579,6 +579,21 @@ int pcscd_main(int argc, char **argv)
 			/* close read side */
 			close(pipefd[0]);
 		}
+	}else
+	{
+		int pid;
+		int fd;
+		fd = open("/dev/null", O_RDWR);
+		if (fd != -1)
+		{
+			dup2(fd, STDIN_FILENO);
+			dup2(fd, STDOUT_FILENO);
+			dup2(fd, STDERR_FILENO);
+
+			/* do not close stdin, stdout or stderr */
+			if (fd > 2)
+				close(fd);
+		}
 	}
 
 	/*
