@@ -55,6 +55,10 @@
 #include "appmgmt.h"
 
 #include "initguid.h"
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -352,21 +356,68 @@ BOOL run_winemenubuilder( const WCHAR *args )
     return ret;
 }
 
+static void handle_connection(int sockfd, LPWSTR buffer, long len)
+{
+	int ret,pid;
+	ret = write(sockfd, buffer, len);
+}
+
+static void unix_socket_conn(const char *servername, LPWSTR buffer, long lenth)
+{
+
+	int fd, len, rval;
+	struct sockaddr_un addr;
+	const char *server_dir = wine_get_server_dir();
+	const char *socket_name ="/foosock";
+	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
+
+	if((fd = socket(AF_UNIX, SOCK_STREAM,0)) < 0 ) return(-1);
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(addr.sun_path, socket_addr);
+
+	len = sizeof(addr) - sizeof(addr.sun_path) +strlen(addr.sun_path)+1;
+
+	int conn;
+	conn = connect(fd,(struct sockaddr *)&addr, len);
+	if (conn < 0)
+	{
+		rval = -4;
+	}else{
+		
+		handle_connection(fd, buffer, lenth);
+	
+	}
+
+	close(fd);
+	return rval;
+}
+
 static BOOL StartLinkProcessor( LPCOLESTR szLink )
 {
-    static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
-    LONG len;
+   //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
+    static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',' ','"','%','d','"',0 };
+    
+	LONG len;
     LPWSTR buffer;
     BOOL ret;
 
-    len = sizeof(szFormat) + lstrlenW( szLink ) * sizeof(WCHAR);
+    len = sizeof(szFormat) + (lstrlenW( szLink )+5) * sizeof(WCHAR);
     buffer = HeapAlloc( GetProcessHeap(), 0, len );
     if( !buffer )
         return FALSE;
 
-    wsprintfW( buffer, szFormat, szLink );
+   /*wsprintfW( buffer, szFormat, szLink );
     ret = run_winemenubuilder( buffer );
-    HeapFree( GetProcessHeap(), 0, buffer );
+    HeapFree( GetProcessHeap(), 0, buffer );*/
+	 
+	//change by xiaoya 
+	wsprintfW(buffer,szFormat, szLink, GetCurrentProcessId());
+	unix_socket_conn("foosock",buffer,len);
+
     return ret;
 }
 
