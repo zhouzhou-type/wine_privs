@@ -1745,7 +1745,6 @@ static BOOL write_menu_entry(const char *unix_link, const char *link, const char
     char *desktopDir;
     char *filename = NULL;
     BOOL ret = TRUE;
-	fprintf(stderr,"**********write_menu_entry****is work******\n");
     WINE_TRACE("(%s, %s, %s, %s, %s, %s, %s)\n", wine_dbgstr_a(unix_link), wine_dbgstr_a(link),
                wine_dbgstr_a(path), wine_dbgstr_a(args), wine_dbgstr_a(descr),
                wine_dbgstr_a(workdir), wine_dbgstr_a(icon));
@@ -1764,7 +1763,6 @@ static BOOL write_menu_entry(const char *unix_link, const char *link, const char
         goto end;
     }
     desktopDir = strrchr(desktopPath, '/');
-    fprintf(stderr,"##desktopDir(1):%s\n###",desktopDir);
     
     *desktopDir = 0;
     if (!create_directories(desktopPath))
@@ -1788,7 +1786,6 @@ static BOOL write_menu_entry(const char *unix_link, const char *link, const char
         ret = FALSE;
     }
 	
-    fprintf(stderr,"####(write_menu)#linkname:%s\n###desktopPath:%s\n####desktopDir:%s\n###filename:%s\n###unix_link:%s\n#",linkname,desktopPath,desktopDir,filename,unix_link);
 end:
     HeapFree(GetProcessHeap(), 0, desktopPath);
     HeapFree(GetProcessHeap(), 0, filename);
@@ -2990,7 +2987,6 @@ BOOL isDesktopFile(const char *path)
 	userName = wine_get_user_name();
 	char cmdline[500];
 	sprintf(cmdline,"%s%s%s",c_users,userName,desktop);
-	fprintf(stderr,"*+*+*+*+**+*+***isDesktopFile**cmdline:%s**************+*\n",cmdline);
 	if(strstr(path,cmdline)!=NULL)
 	{
 		return TRUE;
@@ -3211,7 +3207,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         lstrcatW(szPath, startW);
     }
 
-    fprintf(stderr, "SS____ 4\n");
     /* escape the path and parameters */
     escaped_path = escape(szPath);
     escaped_args = escape(szArgs);
@@ -3229,7 +3224,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         goto cleanup;
     }
 
-    fprintf(stderr, "SS____ 5\n");
     /* building multiple menus concurrently has race conditions */
     hsem = CreateSemaphoreA( NULL, 1, 1, "winemenubuilder_semaphore");
     if( WAIT_OBJECT_0 != MsgWaitForMultipleObjects( 1, &hsem, FALSE, INFINITE, QS_ALLINPUT ) )
@@ -3306,7 +3300,6 @@ cleanup:
 
     if (r && !bWait)
         WINE_ERR("failed to build the menu\n" );
-    fprintf(stderr, "SS_____ cleanup\n");
     return ( r == 0 );
 }
 
@@ -3482,7 +3475,6 @@ static BOOL WaitForParentProcess( int pid )
     else
         WINE_ERR("Unable to wait for parent process, error %d\n", GetLastError());
 
-    fprintf(stderr,"done+++++++++++++\n");
 done:
     if (hprocess) CloseHandle( hprocess );
     if (hsnapshot) CloseHandle( hsnapshot );
@@ -3736,7 +3728,6 @@ static void cleanup_desktop(void){
                 	      }
                  	      else
 			      {
-				     fprintf(stderr,"file exists!!!!\n");
                     		    i++;
 			      }
               	          }
@@ -4261,7 +4252,7 @@ static void unix_socket_accept(int listenfd, int epollfd)
 	char buffer1[4];
 	clifd = accept(listenfd,(struct sockaddr *)&addr ,&len);
 	if (clifd  < 0){
-		fprintf(stderr,"SS_____ accept error:\n");
+		fprintf(stderr,"accept error:\n");
 	}
 	else
 	{
@@ -4304,17 +4295,6 @@ static void do_epoll(int listenfd){
 	int epollfd ,ret;
 	struct epoll_event events[EPOLLEVENTS];
 
-	struct processInfo buff1[MAX_PROCESS_INFO];
-	struct processInfo buff2[MAX_PROCESS_INFO];
-	struct processInfo *previousInfoBuff = buff1;
-	struct processInfo *parentInfoBuff = buff2;
-	struct processInfo *tmpBuff = NULL;
-	int previousInfoCount = 0;
-	int parentInfoCount = 0;
-	int tmpCount = 0;
-
-
-
 	epollfd = epoll_create(FDSIZE);
 	if(epollfd == -1){
 		WINE_TRACE("epoll_create is fail");
@@ -4329,18 +4309,6 @@ static void do_epoll(int listenfd){
 		if(ret>0){
 		handle_events(epollfd, events, ret, listenfd);
 		}
-	/*when application is uninstall,the menu file is delete*/
-    //processmonitor: process exit 
-    /*
-		parentInfoCount = getParentProcessInfo(parentInfoBuff);
-		checkProcessTerminate(parentInfoBuff, parentInfoCount, previousInfoBuff, previousInfoCount);
-		tmpBuff = previousInfoBuff;
-		previousInfoBuff = parentInfoBuff;
-		parentInfoBuff = tmpBuff;
-		tmpCount = previousInfoCount;
-		previousInfoCount = parentInfoCount;
-		parentInfoCount = tmpCount;
-        */
 	}
 	close(epollfd);	
 }
@@ -4357,32 +4325,18 @@ static void socket_data(void){
 	listenfd = unix_socket_listen(socket_addr);
 	if(listenfd<0)
 	{
-		fprintf(stderr,"SS_____ Error when listening.....\n");
 		return 0;
 	}
-	fprintf(stderr,"SS_____ Finished listening ...\n");
 	
-//	return listenfd;
 	do_epoll(listenfd);
 
 } 
 
 static void loop(HANDLE stop_event)
 {
-	struct processInfo buff1[MAX_PROCESS_INFO];
-	struct processInfo buff2[MAX_PROCESS_INFO];
-	struct processInfo *previousInfoBuff = buff1;
-	struct processInfo *parentInfoBuff = buff2;
-	struct processInfo *tmpBuff = NULL;
-	int previousInfoCount = 0;
-	int parentInfoCount = 0;
-	int tmpCount = 0;
-    pid_t fpid;
-    fprintf(stderr,"come in!!!\n"); 
-    
 	do
 	{ 	
-        socket_data();
+        	socket_data();
         
 	}while (WaitForSingleObject(stop_event,1000) != WAIT_OBJECT_0 );
 									
@@ -4457,7 +4411,6 @@ static void WINAPI ServiceMain( DWORD argc, LPWSTR *argv)
 
 void sig_handler(int signo)  
 {  
-    fprintf(stderr,"******catch the signal SIGUSR1******\n"); 
     
     cleanup_desktop();
     cleanup_menus();
@@ -4474,22 +4427,6 @@ int wmain(int argc, WCHAR *argv[])
         exit(EXIT_FAILURE);  
     }
      
-    /*struct sigaction act;
-    act.sa_handler = sig_handler;
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = 0;
-    if (sigaction(SIGUSR1, &act, NULL) < 0)
-        exit(EXIT_FAILURE);*/  
-    
-    /*SERVER_START_REQ(register_pid)
-    {
-        //req->register_pid=GetCurrentProcessId();
-        req->register_pid=getpid();
-        sprintf(req->word,"from winemenubuilder,pid is %d",req->register_pid);
-        wine_server_call(req);
-        fprintf(stderr,"winemenubuilder receive msg:%s\n",reply->word);
-    }
-    SERVER_END_REQ;*/
     SERVER_START_REQ(register_pid)
     {
         //req->register_pid=GetCurrentProcessId();
