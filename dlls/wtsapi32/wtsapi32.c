@@ -154,26 +154,36 @@ BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
 {
 	WCHAR console[]={'C','o','n','s','o','l','e',0};
 	WCHAR services[]={'S','e','r','v','i','c','e','s',0};
+	DWORD size = sizeof(WTS_SESSION_INFOW);
+	DWORD winStaName_len = sizeof(WCHAR)*8;
 	
     TRACE(" %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
           ppSessionInfo, pCount);
-
+    TRACE("size is %d\n", size);
     if (!ppSessionInfo || !pCount) return FALSE;
 
-    *pCount = 0;
-    *ppSessionInfo = NULL;
+    //*pCount = 0;
+    //*ppSessionInfo = NULL;
 
 	*pCount = 2;
 	*ppSessionInfo = HeapAlloc(GetProcessHeap(),0,2*sizeof(WTS_SESSION_INFOW));
 	(*ppSessionInfo)[0].SessionId = 0;
-	(*ppSessionInfo)[0].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(services))+1);
+	(*ppSessionInfo)[0].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(services)+1));
 	lstrcpyW((*ppSessionInfo)[0].pWinStationName,services);
 	(*ppSessionInfo)[0].State = WTSDisconnected;
 	(*ppSessionInfo)[1].SessionId = 1;
-	(*ppSessionInfo)[1].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(console))+1);
+	(*ppSessionInfo)[1].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(console)+1));
 	lstrcpyW((*ppSessionInfo)[1].pWinStationName,console);
 	(*ppSessionInfo)[1].State = WTSActive;
+/*
+    *pCount = 1;
 
+    *ppSessionInfo = LocalAlloc(LMEM_ZEROINIT, size+winStaName_len);
+    (*ppSessionInfo)->SessionId = 0;
+    (*ppSessionInfo)->pWinStationName = *ppSessionInfo+size;
+    lstrcpyW((PVOID)(*ppSessionInfo+size),console);
+    (*ppSessionInfo)->State = WTSActive;
+*/
     return TRUE;
 }
 
@@ -185,6 +195,7 @@ void WINAPI WTSFreeMemory(PVOID pMemory)
     static int once;
 
     if (!once++) FIXME("Stub %p\n", pMemory);
+    LocalFree(pMemory);
 }
 
 /************************************************************

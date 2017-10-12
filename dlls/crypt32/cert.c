@@ -114,7 +114,7 @@ static const context_vtbl_t cert_vtbl;
 static void Cert_free(context_t *context)
 {
     cert_t *cert = (cert_t*)context;
-
+    TRACE("(%p)\n", context);
     CryptMemFree(cert->ctx.pbCertEncoded);
     LocalFree(cert->ctx.pCertInfo);
 }
@@ -124,6 +124,7 @@ static context_t *Cert_clone(context_t *context, WINECRYPT_CERTSTORE *store, BOO
     cert_t *cert;
 
     if(use_link) {
+    	 TRACE("LINK\n");
         cert = (cert_t*)Context_CreateLinkContext(sizeof(CERT_CONTEXT), context, store);
         if(!cert)
             return NULL;
@@ -131,7 +132,7 @@ static context_t *Cert_clone(context_t *context, WINECRYPT_CERTSTORE *store, BOO
         const cert_t *cloned = (const cert_t*)context;
         DWORD size = 0;
         BOOL res;
-
+        TRACE("NEW\n");
         cert = (cert_t*)Context_CreateDataContext(sizeof(CERT_CONTEXT), &cert_vtbl, store);
         if(!cert)
             return NULL;
@@ -154,6 +155,7 @@ static context_t *Cert_clone(context_t *context, WINECRYPT_CERTSTORE *store, BOO
     }
 
     cert->ctx.hCertStore = store;
+    TRACE("returning %p\n", &(cert->base));
     return &cert->base;
 }
 

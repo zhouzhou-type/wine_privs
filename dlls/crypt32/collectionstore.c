@@ -192,6 +192,8 @@ static context_t *CRYPT_CollectionAdvanceEnum(WINE_COLLECTIONSTORE *store,
         }
         else
         {
+
+            TRACE("storeNext is NULL\n");
             SetLastError(CRYPT_E_NOT_FOUND);
             ret = NULL;
         }
@@ -266,6 +268,7 @@ static BOOL Collection_deleteCert(WINECRYPT_CERTSTORE *store, context_t *context
     TRACE("(%p, %p)\n", store, cert);
 
     linked = (cert_t*)context->linked;
+    Context_AddRef(&linked->base);     //new add
     return CertDeleteCertificateFromStore(&linked->ctx);
 }
 
@@ -332,7 +335,6 @@ static BOOL Collection_deleteCRL(WINECRYPT_CERTSTORE *store, context_t *context)
     crl_t *crl = (crl_t*)context, *linked;
 
     TRACE("(%p, %p)\n", store, crl);
-
     linked = (crl_t*)context->linked;
     return CertDeleteCRLFromStore(&linked->ctx);
 }

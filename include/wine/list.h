@@ -132,7 +132,8 @@ static inline struct list *list_tail( const struct list *list )
 /* check if a list is empty */
 static inline int list_empty( const struct list *list )
 {
-    return list->next == list;
+    //return list->next == list;
+    return ((list->next == list) || (list->prev == list)); //new add
 }
 
 /* initialize a list */
