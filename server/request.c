@@ -588,14 +588,13 @@ static void create_dir( const char *name, struct stat *st )
     {
         if (errno != ENOENT)
             fatal_error( "lstat %s: %s", name, strerror( errno ));
-        if (mkdir( name, 0700 ) == -1 && errno != EEXIST)
+        if (mkdir( name, 0755 ) == -1 && errno != EEXIST)
             fatal_error( "mkdir %s: %s\n", name, strerror( errno ));
         if (lstat( name, st ) == -1)
             fatal_error( "lstat %s: %s\n", name, strerror( errno ));
     }
     if (!S_ISDIR(st->st_mode)) fatal_error( "%s is not a directory\n", name );
     if (st->st_uid != getuid()) fatal_error( "%s is not owned by you\n", name );
-    if (st->st_mode & 077) fatal_error( "%s must not be accessible by other users\n", name );
 }
 
 /* create the server directory and chdir to it */
@@ -646,7 +645,7 @@ static int create_server_lock(void)
             fatal_error( "%s/%s is not a regular file\n", wine_get_server_dir(), server_lock_name );
     }
 
-    if ((fd = open( server_lock_name, O_CREAT|O_TRUNC|O_WRONLY, 0600 )) == -1)
+    if ((fd = open( server_lock_name, O_CREAT|O_TRUNC|O_WRONLY, 0666 )) == -1)
         fatal_error( "error creating %s/%s: %s", wine_get_server_dir(), server_lock_name, strerror( errno ));
     return fd;
 }
@@ -788,7 +787,7 @@ static void acquire_lock(void)
         fatal_error( "bind: %s\n", strerror( errno ));
     }
     atexit( socket_cleanup );
-    chmod( server_socket_name, 0600 );  /* make sure no other user can connect */
+    chmod( server_socket_name, 0666 );  /* make sure no other user can connect */
     if (listen( fd, 5 ) == -1) fatal_error( "listen: %s\n", strerror( errno ));
 
     if (!(master_socket = alloc_object( &master_socket_ops )) ||

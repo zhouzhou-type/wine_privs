@@ -942,15 +942,8 @@ done:
 }
 
 
-/***********************************************************************
- *           init_windows_dirs
- *
- * Initialize the windows and system directories from the environment.
- */
-static void init_windows_dirs(void)
+static void set_windows_dirs(void)
 {
-    extern void CDECL __wine_init_windows_dir( const WCHAR *windir, const WCHAR *sysdir );
-
     static const WCHAR windirW[] = {'w','i','n','d','i','r',0};
     static const WCHAR winsysdirW[] = {'w','i','n','s','y','s','d','i','r',0};
     static const WCHAR default_windirW[] = {'C',':','\\','w','i','n','d','o','w','s',0};
@@ -983,6 +976,27 @@ static void init_windows_dirs(void)
         DIR_System = buffer;
     }
 
+    if (is_win64 || is_wow64)   /* SysWow64 is always defined on 64-bit */
+    {
+        len = strlenW( DIR_Windows );
+        buffer = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) + sizeof(default_syswow64W) );
+        memcpy( buffer, DIR_Windows, len * sizeof(WCHAR) );
+        memcpy( buffer + len, default_syswow64W, sizeof(default_syswow64W) );
+        DIR_SysWow64 = buffer;
+    }
+}
+
+/***********************************************************************
+ *           init_windows_dirs
+ *
+ * Initialize the windows and system directories from the environment.
+ */
+static void init_windows_dirs(void)
+{
+    extern void CDECL __wine_init_windows_dir( const WCHAR *windir, const WCHAR *sysdir );
+
+    set_windows_dirs();
+
     if (!CreateDirectoryW( DIR_Windows, NULL ) && GetLastError() != ERROR_ALREADY_EXISTS)
         ERR( "directory %s could not be created, error %u\n",
              debugstr_w(DIR_Windows), GetLastError() );
@@ -991,16 +1005,9 @@ static void init_windows_dirs(void)
              debugstr_w(DIR_System), GetLastError() );
 
     if (is_win64 || is_wow64)   /* SysWow64 is always defined on 64-bit */
-    {
-        len = strlenW( DIR_Windows );
-        buffer = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) + sizeof(default_syswow64W) );
-        memcpy( buffer, DIR_Windows, len * sizeof(WCHAR) );
-        memcpy( buffer + len, default_syswow64W, sizeof(default_syswow64W) );
-        DIR_SysWow64 = buffer;
         if (!CreateDirectoryW( DIR_SysWow64, NULL ) && GetLastError() != ERROR_ALREADY_EXISTS)
             ERR( "directory %s could not be created, error %u\n",
                  debugstr_w(DIR_SysWow64), GetLastError() );
-    }
 
     TRACE_(file)( "WindowsDir = %s\n", debugstr_w(DIR_Windows) );
     TRACE_(file)( "SystemDir  = %s\n", debugstr_w(DIR_System) );
@@ -1009,6 +1016,21 @@ static void init_windows_dirs(void)
     __wine_init_windows_dir( DIR_Windows, DIR_System );
 }
 
+static BOOL check_wineboot(void)
+{
+    static const WCHAR wineboot_eventW[] = {'_','_','w','i','n','e','b','o','o','t','_','e','v','e','n','t',0};
+
+    if (!CreateEventW( NULL, TRUE, FALSE, wineboot_eventW ))
+    {
+        fprintf(stderr,"wine-container not started: failed to create wineboot event\n");
+        return FALSE;
+    }else if (GetLastError() != ERROR_ALREADY_EXISTS)  /* we created it */
+    {
+        fprintf(stderr,"wine-container not started: wineboot event not existed\n");
+        return FALSE;
+    }
+    return TRUE;
+}
 
 /***********************************************************************
  *           start_wineboot
@@ -1178,6 +1200,11 @@ static void set_process_name( int argc, char *argv[] )
 #endif  /* HAVE_PRCTL */
 }
 
+static void init_user_shell_folders(void)
+{
+    HMODULE hShell32 = LoadLibraryA("shell32");
+	FreeLibrary(hShell32);
+}
 
 /***********************************************************************
  *           __wine_kernel_init
@@ -1192,8 +1219,6 @@ void CDECL __wine_kernel_init(void)
     WCHAR *p, main_exe_name[MAX_PATH+1];
     PEB *peb = NtCurrentTeb()->Peb;
     RTL_USER_PROCESS_PARAMETERS *params = peb->ProcessParameters;
-    HANDLE boot_events[2];
-    BOOL got_environment = TRUE;
 
     /* Initialize everything */
 
@@ -1204,6 +1229,8 @@ void CDECL __wine_kernel_init(void)
 
     LOCALE_Init();
 
+    if(!check_wineboot()) goto error;
+
     if (!params->Environment)
     {
         /* Copy the parent environment */
@@ -1212,16 +1239,14 @@ void CDECL __wine_kernel_init(void)
         /* convert old configuration to new format */
         convert_old_config();
 
-        got_environment = set_registry_environment( FALSE );
+        set_registry_environment( FALSE );
         set_additional_environment();
     }
 
-    init_windows_dirs();
+    set_windows_dirs();
     init_current_directory( &params->CurrentDirectory );
-
     set_process_name( __wine_main_argc, __wine_main_argv );
     set_library_wargv( __wine_main_argv );
-    boot_events[0] = boot_events[1] = 0;
 
     if (peb->ProcessParameters->ImagePathName.Buffer)
     {
@@ -1239,9 +1264,9 @@ void CDECL __wine_kernel_init(void)
         }
         update_library_argv0( main_exe_name );
         if (!build_command_line( __wine_main_wargv )) goto error;
-        start_wineboot( boot_events );
     }
 
+	init_user_shell_folders();
     /* if there's no extension, append a dot to prevent LoadLibrary from appending .dll */
     p = strrchrW( main_exe_name, '.' );
     if (!p || strchrW( p, '/' ) || strchrW( p, '\\' )) strcatW( main_exe_name, dotW );
@@ -1252,20 +1277,6 @@ void CDECL __wine_kernel_init(void)
     RtlInitUnicodeString( &NtCurrentTeb()->Peb->ProcessParameters->DllPath,
                           MODULE_get_dll_load_path(main_exe_name) );
 
-    if (boot_events[0])
-    {
-        DWORD timeout = 2 * 60 * 1000, count = 1;
-
-        if (boot_events[1]) count++;
-        if (!got_environment) timeout = 5 * 60 * 1000;  /* initial prefix creation can take longer */
-        if (WaitForMultipleObjects( count, boot_events, FALSE, timeout ) == WAIT_TIMEOUT)
-            ERR( "boot event wait timed out\n" );
-        CloseHandle( boot_events[0] );
-        if (boot_events[1]) CloseHandle( boot_events[1] );
-        /* reload environment now that wineboot has run */
-        set_registry_environment( got_environment );
-        set_additional_environment();
-    }
     set_wow64_environment();
 
     if (!(peb->ImageBaseAddress = LoadLibraryExW( main_exe_name, 0, DONT_RESOLVE_DLL_REFERENCES )))
@@ -1313,6 +1324,42 @@ void CDECL __wine_kernel_init(void)
     ExitProcess( GetLastError() );
 }
 
+/***********************************************************************
+ *           __wine_kernel_init_container
+ *
+ * Wine initialisation: load and start the main exe file.
+ */
+void CDECL __wine_kernel_init_container(void)
+{
+    static const WCHAR kernel32W[] = {'k','e','r','n','e','l','3','2',0};
+    HANDLE boot_events[2];
+
+    setbuf(stdout,NULL);
+    setbuf(stderr,NULL);
+    kernel32_handle = GetModuleHandleW(kernel32W);
+    IsWow64Process( GetCurrentProcess(), &is_wow64 );
+    LOCALE_Init();
+
+    /* Copy the parent environment */
+    if (!build_initial_environment()) exit(1);
+
+    init_windows_dirs();
+    boot_events[0] = boot_events[1] = 0;
+    start_wineboot( boot_events );
+
+    if (boot_events[0])
+    {
+        DWORD timeout = 5 * 60 * 1000, count = 1;
+
+        if (boot_events[1]) count++;
+        if (WaitForMultipleObjects( count, boot_events, FALSE, timeout ) == WAIT_TIMEOUT)
+            ERR( "boot event wait timed out\n" );
+        CloseHandle( boot_events[0] );
+        if (boot_events[1]) CloseHandle( boot_events[1] );
+    }
+    fprintf(stderr,"wine-container:start over, enjoy your work!\n");
+    ExitProcess( GetLastError() );
+}
 
 /***********************************************************************
  *           build_argv

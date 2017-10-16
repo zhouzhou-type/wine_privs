@@ -1679,3 +1679,4 @@
 
 # Init code
 @ cdecl __wine_kernel_init()
+@ cdecl __wine_kernel_init_container()

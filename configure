@@ -867,6 +867,7 @@ with_wine_tools
 with_wine64
 enable_largefile
 with_x
+enable_container
 enable_acledit
 enable_aclui
 enable_activeds
@@ -17583,6 +17584,9 @@ ac_config_links="$ac_config_links wine64:tools/winewrapper"
 wine_fn_config_symlink wine64
 fi
 
+wine_fn_config_makefile container enable_container
+wine_fn_config_makefile container enable_container clean,install-lib
+wine_fn_config_makefile container enable_container clean,install-lib
 wine_fn_config_dll acledit enable_acledit
 wine_fn_config_dll aclui enable_aclui implib
 wine_fn_config_dll activeds enable_activeds implib

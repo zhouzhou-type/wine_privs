@@ -1,0 +1,9 @@
+PROGRAMS = wine-container
+
+C_SRCS = container.c
+
+IN_SRCS = container.inf.in
+
+EXTRALIBS = $(LDEXECFLAGS) -lwine $(PTHREAD_LIBS)
+
+INSTALL_LIB = $(PROGRAMS) container.inf

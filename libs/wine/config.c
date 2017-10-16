@@ -35,7 +35,7 @@
 #endif
 #include "wine/library.h"
 
-static const char server_config_dir[] = "/.wine";        /* config dir relative to $HOME */
+static const char server_default_config_dir[] = "/opt/.wine";        /* default config dir */
 static const char server_root_prefix[] = "/tmp/.wine";   /* prefix for server root dir */
 static const char server_dir_prefix[] = "/server-";      /* prefix for server dir */
 
@@ -224,9 +224,6 @@ static void init_server_dir( dev_t dev, ino_t ino )
 
 #ifdef __ANDROID__  /* there's no /tmp dir on Android */
     root = build_path( config_dir, ".wineserver" );
-#elif defined(HAVE_GETUID)
-    root = xmalloc( sizeof(server_root_prefix) + 12 );
-    sprintf( root, "%s-%u", server_root_prefix, getuid() );
 #else
     root = xstrdup( server_root_prefix );
 #endif
@@ -260,10 +257,9 @@ static void init_paths(void)
 {
     struct stat st;
 
-    const char *home = getenv( "HOME" );
     const char *user = NULL;
     const char *prefix = getenv( "WINEPREFIX" );
-
+	
 #ifdef HAVE_GETPWUID
     char uid_str[32];
     struct passwd *pwd = getpwuid( getuid() );
@@ -271,7 +267,6 @@ static void init_paths(void)
     if (pwd)
     {
         user = pwd->pw_name;
-        if (!home) home = pwd->pw_dir;
     }
     if (!user)
     {
@@ -300,12 +295,8 @@ static void init_paths(void)
     }
     else
     {
-        if (!home) fatal_error( "could not determine your home directory\n" );
-        if (home[0] != '/') fatal_error( "your home directory %s is not an absolute path\n", home );
-        config_dir = xmalloc( strlen(home) + sizeof(server_config_dir) );
-        strcpy( config_dir, home );
+        config_dir = xstrdup(server_default_config_dir);
         remove_trailing_slashes( config_dir );
-        strcat( config_dir, server_config_dir );
         if (stat( config_dir, &st ) == -1)
         {
             if (errno == ENOENT) return;  /* will be created later on */
@@ -313,9 +304,6 @@ static void init_paths(void)
         }
     }
     if (!S_ISDIR(st.st_mode)) fatal_error( "%s is not a directory\n", config_dir );
-#ifdef HAVE_GETUID
-    if (st.st_uid != getuid()) fatal_error( "%s is not owned by you\n", config_dir );
-#endif
 
     init_server_dir( st.st_dev, st.st_ino );
 }

@@ -1207,6 +1207,70 @@ static int server_connect(void)
     const char *serverdir;
     struct sockaddr_un addr;
     struct stat st;
+    int s, slen, fd_cwd;
+
+    /* retrieve the current directory */
+    fd_cwd = open( ".", O_RDONLY );
+    if (fd_cwd != -1) fcntl( fd_cwd, F_SETFD, 1 ); /* set close on exec flag */
+
+    serverdir = wine_get_server_dir();
+
+    /* chdir to the server directory */
+    if (chdir( serverdir ) == -1)
+        fatal_perror( "wine-container not started: chdir to %s", serverdir );
+
+    /* make sure we are at the right place */
+    if (stat( ".", &st ) == -1) fatal_perror( "wine-container not started: stat %s", serverdir );
+
+    if (lstat( SOCKETNAME, &st ) == -1) /* check for an already existing socket */
+        fatal_perror( "wine-container not started: lstat %s/%s", serverdir, SOCKETNAME );
+
+    /* make sure the socket is sane (ISFIFO needed for Solaris) */
+    if (!S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode))
+         fatal_error( "wine-container not started: '%s/%s' is not a socket\n", serverdir, SOCKETNAME );
+
+    /* try to connect to it */
+    addr.sun_family = AF_UNIX;
+    strcpy( addr.sun_path, SOCKETNAME );
+    slen = sizeof(addr) - sizeof(addr.sun_path) + strlen(addr.sun_path) + 1;
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+    addr.sun_len = slen;
+#endif
+    if ((s = socket( AF_UNIX, SOCK_STREAM, 0 )) == -1) fatal_perror( "socket" );
+#ifdef SO_PASSCRED
+    else
+    {
+        int enable = 1;
+        setsockopt( s, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable) );
+    }
+#endif
+    if (connect( s, (struct sockaddr *)&addr, slen ) != -1)
+    {
+        /* switch back to the starting directory */
+        if (fd_cwd != -1)
+        {
+            fchdir( fd_cwd );
+            close( fd_cwd );
+        }
+        fcntl( s, F_SETFD, 1 ); /* set close on exec flag */
+        return s;
+    }
+    close( s );
+
+    server_connect_error( serverdir );
+}
+
+/***********************************************************************
+ *           server_connect_container
+ *
+ * Attempt to connect to an existing server socket.
+ * We need to be in the server directory already.
+ */
+static int server_connect_container(void)
+{
+    const char *serverdir;
+    struct sockaddr_un addr;
+    struct stat st;
     int s, slen, retry, fd_cwd;
 
     /* retrieve the current directory */
@@ -1226,8 +1290,6 @@ static int server_connect(void)
 
     /* make sure we are at the right place */
     if (stat( ".", &st ) == -1) fatal_perror( "stat %s", serverdir );
-    if (st.st_uid != getuid()) fatal_error( "'%s' is not owned by you\n", serverdir );
-    if (st.st_mode & 077) fatal_error( "'%s' must not be accessible by other users\n", serverdir );
 
     for (retry = 0; retry < 6; retry++)
     {
@@ -1383,6 +1445,72 @@ void server_init_process(void)
             fatal_error( "WINEARCH set to invalid value '%s', it must be either win32 or win64.\n", arch );
 
         fd_socket = server_connect();
+    }
+
+    /* setup the signal mask */
+    sigemptyset( &server_block_set );
+    sigaddset( &server_block_set, SIGALRM );
+    sigaddset( &server_block_set, SIGIO );
+    sigaddset( &server_block_set, SIGINT );
+    sigaddset( &server_block_set, SIGHUP );
+    sigaddset( &server_block_set, SIGUSR1 );
+    sigaddset( &server_block_set, SIGUSR2 );
+    sigaddset( &server_block_set, SIGCHLD );
+    pthread_sigmask( SIG_BLOCK, &server_block_set, NULL );
+
+    /* receive the first thread request fd on the main socket */
+    ntdll_get_thread_data()->request_fd = receive_fd( &version );
+
+#ifdef SO_PASSCRED
+    /* now that we hopefully received the server_pid, disable SO_PASSCRED */
+    {
+        int enable = 0;
+        setsockopt( fd_socket, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable) );
+    }
+#endif
+
+    if (version != SERVER_PROTOCOL_VERSION)
+        server_protocol_error( "version mismatch %d/%d.\n"
+                               "Your %s binary was not upgraded correctly,\n"
+                               "or you have an older one somewhere in your PATH.\n"
+                               "Or maybe the wrong wineserver is still running?\n",
+                               version, SERVER_PROTOCOL_VERSION,
+                               (version > SERVER_PROTOCOL_VERSION) ? "wine" : "wineserver" );
+#ifdef __APPLE__
+    send_server_task_port();
+#endif
+#if defined(__linux__) && defined(HAVE_PRCTL)
+    /* work around Ubuntu's ptrace breakage */
+    if (server_pid != -1) prctl( 0x59616d61 /* PR_SET_PTRACER */, server_pid );
+#endif
+}
+
+/***********************************************************************
+ *           server_init_process_container
+ *
+ * Start the server and create the initial socket pair.
+ */
+void server_init_process_container(void)
+{
+    obj_handle_t version;
+    const char *env_socket = getenv( "WINESERVERSOCKET" );
+
+    server_pid = -1;
+    if (env_socket)
+    {
+        fd_socket = atoi( env_socket );
+        if (fcntl( fd_socket, F_SETFD, 1 ) == -1)
+            fatal_perror( "Bad server socket %d", fd_socket );
+        unsetenv( "WINESERVERSOCKET" );
+    }
+    else
+    {
+        const char *arch = getenv( "WINEARCH" );
+
+        if (arch && strcmp( arch, "win32" ) && strcmp( arch, "win64" ))
+            fatal_error( "WINEARCH set to invalid value '%s', it must be either win32 or win64.\n", arch );
+
+        fd_socket = server_connect_container();
     }
 
     /* setup the signal mask */

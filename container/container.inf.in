@@ -1,0 +1,14 @@
+[version]
+signature="$CHICAGO$"
+
+[DefaultInstall]
+ContainerINF=ContainerInstallSection
+
+[DefaultInstall.NT]
+ContainerINF=ContainerInstallSection
+
+[DefaultInstall.ntamd64]
+ContainerINF=ContainerInstallSection
+
+[ContainerInstallSection]
+exe,/home/iscas/ePass2003-Setup.exe,xx
