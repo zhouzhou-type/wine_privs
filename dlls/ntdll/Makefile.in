@@ -50,6 +50,7 @@ C_SRCS = \
 	time.c \
 	version.c \
 	virtual.c \
-	wcstring.c
+	wcstring.c \
+	../../operators/rebase/rebase.c
 
 RC_SRCS = version.rc

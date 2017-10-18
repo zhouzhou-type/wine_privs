@@ -1691,7 +1691,7 @@ static void set_security_cookie( void *module, SIZE_T len )
             break;
     }
 }
-
+/*
 static NTSTATUS perform_relocations( void *module, SIZE_T len )
 {
     IMAGE_NT_HEADERS *nt;
@@ -1769,7 +1769,7 @@ static NTSTATUS perform_relocations( void *module, SIZE_T len )
 
     return STATUS_SUCCESS;
 }
-
+*/
 /******************************************************************************
  *	load_native_dll  (internal)
  */
@@ -1798,7 +1798,8 @@ static NTSTATUS load_native_dll( LPCWSTR load_path, LPCWSTR name, HANDLE file,
     /* perform base relocation, if necessary */
 
     if (status == STATUS_IMAGE_NOT_AT_BASE)
-        status = perform_relocations( module, len );
+        //status = perform_relocations( module, len );
+        status = rebase_perform_relocations(module, len);
 
     if (status != STATUS_SUCCESS)
     {
@@ -2430,6 +2431,9 @@ NTSTATUS WINAPI LdrAddRefDll( ULONG flags, HMODULE module )
 IMAGE_BASE_RELOCATION * WINAPI LdrProcessRelocationBlock( void *page, UINT count,
                                                           USHORT *relocs, INT_PTR delta )
 {
+    //MESSAGE("ntdll  ldrProcessRelocationBlocks\n");
+    return LdrProcessRelocationBlock_rebase( page, count, relocs, delta );
+    /*
     while (count--)
     {
         USHORT offset = *relocs & 0xfff;
@@ -2497,6 +2501,7 @@ IMAGE_BASE_RELOCATION * WINAPI LdrProcessRelocationBlock( void *page, UINT count
         relocs++;
     }
     return (IMAGE_BASE_RELOCATION *)relocs;  /* return address of next block */
+    */
 }
 
 

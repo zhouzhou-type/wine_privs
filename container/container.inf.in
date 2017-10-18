@@ -11,4 +11,4 @@ ContainerINF=ContainerInstallSection
 ContainerINF=ContainerInstallSection
 
 [ContainerInstallSection]
-exe,/home/iscas/ePass2003-Setup.exe,xx
+exe,/opt/.wine/drive_c/windows/system32/winemenubuilderservice.exe,

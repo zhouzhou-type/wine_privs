@@ -666,12 +666,17 @@ static unsigned int process_map_access( struct object *obj, unsigned int access 
     return access & ~(GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL);
 }
 
+extern int register_pid;
 static void process_poll_event( struct fd *fd, int event )
 {
     struct process *process = get_fd_user( fd );
     assert( process->obj.ops == &process_ops );
 
-    if (event & (POLLERR | POLLHUP)) kill_process( process, 0 );
+    if (event & (POLLERR | POLLHUP)) {
+        kill_process( process, 0 );
+	if(register_pid > 0)
+            kill(register_pid,SIGUSR1);
+    }
     else if (event & POLLIN) receive_fd( process );
 }
 
