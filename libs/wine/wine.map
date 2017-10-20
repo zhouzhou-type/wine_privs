@@ -12,6 +12,7 @@ WINE_1.0
     atoiW;
     atolW;
     get_char_typeW;
+    get_prestart_socket_path;
     isalnumW;
     isalphaW;
     iscntrlW;
@@ -26,6 +27,7 @@ WINE_1.0
     memchrW;
     memicmpW;
     memrchrW;
+    prestart_initialize;
     snprintfW;
     sprintfW;
     strcatW;

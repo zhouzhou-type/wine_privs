@@ -1971,6 +1971,10 @@ static pid_t exec_loader( LPCWSTR cmd_line, unsigned int flags, int socketfd,
             if (winedebug) putenv( winedebug );
             if (wineloader) putenv( wineloader );
             if (unixdir) chdir(unixdir);
+#ifdef _WINE_PRESTART_
+				TRACE("CreateProcess %s\n", debugstr_w(cmd_line));
+				unsetenv("WINEPRESTART");
+#endif // ~ _WINE_PRESTART_
 
             if (argv)
             {

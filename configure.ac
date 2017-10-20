@@ -3665,6 +3665,7 @@ WINE_CONFIG_TOOL(tools/winegcc,[clean,install-dev])
 WINE_CONFIG_TOOL(tools/winemaker,[clean,install-dev])
 WINE_CONFIG_TOOL(tools/wmc,[clean,install-dev])
 WINE_CONFIG_TOOL(tools/wrc,[clean,install-dev])
+WINE_CONFIG_MAKEFILE([wineprestart],,[clean,install-lib])
 dnl End of auto-generated output commands
 
 dnl Main ignore file

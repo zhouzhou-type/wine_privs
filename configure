@@ -1621,6 +1621,7 @@ enable_wusa
 enable_xcopy
 enable_server
 enable_tools
+enable_wineprestart
 '
       ac_precious_vars='build_alias
 host_alias
@@ -18600,6 +18601,7 @@ wine_fn_config_program wusa enable_wusa install
 wine_fn_config_program xcopy enable_xcopy clean,install
 wine_fn_config_test programs/xcopy/tests xcopy.exe_test
 wine_fn_config_makefile server enable_server clean,install-lib
+wine_fn_config_makefile prestart enable_wineprestart clean,install-lib
 wine_fn_config_tool tools clean
 wine_fn_config_tool tools/sfnt2fon clean
 wine_fn_config_tool tools/widl clean,install-dev

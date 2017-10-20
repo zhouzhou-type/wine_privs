@@ -51,3 +51,4 @@ RC_SRCS = \
 
 MC_SRCS = \
 	winerror.mc
+CFLAGS+=-D_WINE_PRESTART_

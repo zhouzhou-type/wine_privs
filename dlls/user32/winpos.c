@@ -37,6 +37,10 @@
 #include "win.h"
 #include "wine/debug.h"
 
+#ifdef _WINE_PRESTART_
+#include "prestart.h"
+#endif // _WINE_PRESTART_
+
 WINE_DEFAULT_DEBUG_CHANNEL(win);
 
 #define SWP_AGG_NOGEOMETRYCHANGE \
@@ -1228,6 +1232,27 @@ BOOL WINAPI ShowWindow( HWND hwnd, INT cmd )
 {
     HWND full_handle;
 
+#ifdef _WINE_PRESTART_
+	if (cmd != SW_HIDE && getenv("WINEPRESTART"))
+	{
+		//MESSAGE("[ShowWindow]tid=%p hwnd=%p cmd=%d\n", GetCurrentThreadId(), hwnd, cmd);
+		if (!post_prestart_activated())
+		{
+			MESSAGE("[prestart] %s hwnd=%p cmd=%d\n", __FUNCTION__, hwnd, cmd);
+			LONG style = GetWindowLongW(hwnd, GWL_STYLE);
+			if ((style & (WS_POPUP|WS_CHILD)) != WS_CHILD)// WS_OVERLAPPED == 0
+			{
+				MESSAGE("[prestart] %s Top level window hwnd=%p cmd=%d\n", __FUNCTION__, hwnd, cmd);
+				WinDispItem item;
+				item.Hwnd = hwnd;
+				item.Cmd = cmd;
+				add_win_disp(&item);
+				cmd = SW_HIDE;
+			}
+		}
+	}
+#endif // _WINE_PRESTART_
+
     if (is_broadcast(hwnd))
     {
         SetLastError( ERROR_INVALID_PARAMETER );
@@ -2302,6 +2327,28 @@ BOOL WINAPI SetWindowPos( HWND hwnd, HWND hwndInsertAfter,
         SetLastError( ERROR_INVALID_PARAMETER );
         return FALSE;
     }
+
+#ifdef _WINE_PRESTART_
+	if ((flags & (SWP_SHOWWINDOW | SWP_HIDEWINDOW)) && getenv("WINEPRESTART"))
+	{
+		if (!post_prestart_activated())
+		{
+			LONG style = GetWindowLongW(hwnd, GWL_STYLE);
+			if ((style & (WS_POPUP | WS_CHILD)) != WS_CHILD) // WS_OVERLAPPED == 0
+			{
+				//MESSAGE("[%s] Top-level hwnd=%p after=%p x,y,cx,cy=%d,%d,%d,%d flags=0x%04x window text=%s\n", __FUNCTION__, hwnd, hwndInsertAfter, x, y, cx, cy, flags, debugstr_w(lpWinText));
+
+				WinDispItem item;
+				item.Hwnd = hwnd;
+				item.Cmd = (flags & SWP_SHOWWINDOW) ? SW_SHOW : SW_HIDE;
+				add_win_disp(&item);
+
+				flags &= ~SWP_SHOWWINDOW;
+				flags |= SWP_HIDEWINDOW;
+			}
+		}
+	}
+#endif // ~ _WINE_PRESTART_
 
     winpos.hwnd = WIN_GetFullHandle(hwnd);
     winpos.hwndInsertAfter = WIN_GetFullHandle(hwndInsertAfter);
