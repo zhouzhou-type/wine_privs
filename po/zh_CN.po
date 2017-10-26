@@ -868,6 +868,30 @@ msgstr "斜体"
 msgid "Bold Italic"
 msgstr "粗斜体"
 
+#: comdlg32.rc:121
+msgid "Medium Font"
+msgstr "中等体"
+
+#: comdlg32.rc:121
+msgid "Medium Italic"
+msgstr "中等偏斜体"
+
+#: comdlg32.rc:121
+msgid "Thin"
+msgstr "细体"
+
+#: comdlg32.rc:121
+msgid "Thin Italic"
+msgstr "细偏斜体"
+
+#: comdlg32.rc:121
+msgid "Light"
+msgstr "轻体"
+
+#: comdlg32.rc:121
+msgid "Light Italic"
+msgstr "轻偏斜体"
+
 #: comdlg32.rc:121 wordpad.rc:125
 msgid "Black"
 msgstr "黑色"
@@ -7967,7 +7991,7 @@ msgstr "运行于 %s"
 
 #: shell32.rc:328
 msgid "Copyright"
-msgstr "版权所有©2015-2017中国科学院通用芯片与基础软件研究中心"
+msgstr "版权所有©2016-2017中国科学院通用芯片与基础软件研究中心"
 
 #: shell32.rc:329
 msgid "Wine was brought to you by:"
@@ -13020,7 +13044,7 @@ msgid ""
 "under the terms of the GNU Lesser General Public License as published by the "
 "Free Software Foundation; either version 2.1 of the License, or (at your "
 "option) any later version."
-msgstr "版权所有©2015-2017中国科学院通用芯片与基础软件研究中心"
+msgstr "版权所有©2016-2017中国科学院通用芯片与基础软件研究中心"
 
 #: winecfg.rc:143
 msgid "Windows registration information"

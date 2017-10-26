@@ -124,10 +124,16 @@ typedef struct {
 
 /* Font styles */
 
+#define IDS_FONT_THIN           251
+#define IDS_FONT_THIN_ITALIC    252
+#define IDS_FONT_LIGHT          253
+#define IDS_FONT_LIGHT_ITALIC   254
+#define IDS_FONT_MEDIUM         255
 #define IDS_FONT_REGULAR        256
 #define IDS_FONT_BOLD           257
 #define IDS_FONT_ITALIC         258
 #define IDS_FONT_BOLD_ITALIC    259
+#define IDS_FONT_MEDIUM_ITALIC  260
 
 /* Color names string IDs */
 
@@ -178,6 +184,8 @@ typedef struct {
 #define IDS_OPEN_FILE    1205
 #define IDS_SELECT_FOLDER 1206
 #define IDS_FONT_SIZE_INPUT 1207
+#define IDS_OPEN         1208
+#define IDS_CANCEL       1209
 
 #define IDS_FAKEDOCTEXT  1300
 

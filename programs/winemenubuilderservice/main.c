@@ -4189,8 +4189,8 @@ static void parse_cmdline(LPWSTR cmdline)
     for( p = cmdline; p && *p; )
     {
         token = next_token( &p );
-	if( !token )
-	  break;
+		if( !token )
+			break;
         if( !strcmpW( token, dash_aW ) )
         {
             RefreshFileTypeAssociations();
@@ -4212,34 +4212,32 @@ static void parse_cmdline(LPWSTR cmdline)
                      thumbnail_lnk(lnkFile, outputFile);
             }
         }
-	else if( token[0] == '-' )
-	{
-	    WINE_ERR( "unknown option %s\n", wine_dbgstr_w(token) );
-	}
+		else if( token[0] == '-' )
+		{
+			WINE_ERR( "unknown option %s\n", wine_dbgstr_w(token) );
+		}
         else
-	{
-		 WCHAR *pid_w= next_token( &p );
-		 if(!pid_w)
-			 break;
-		 int pid = atoiW(pid_w);	
-		 BOOL bRet;
-		 if (bURL)
-	
-		 	 bRet = Process_URL( token, bWait, pid );
-		 else{
-			 
-		 	 bRet = Process_Link( token, bWait, pid );
-		 }
-		 if (!bRet)
-		 {
-		     WINE_ERR( "failed to build menu item for %s\n", wine_dbgstr_w(token) );
-		     ret = 1;
-		 }
+		{
+			WCHAR *pid_w= next_token( &p );
+		 	if(!pid_w)
+				break;
+		 	int pid = atoiW(pid_w);	
+		 	BOOL bRet;
+		 	if (bURL)
+				bRet = Process_URL( token, bWait, pid );
+			else
+			{ 
+				bRet = Process_Link( token, bWait, pid );
+			}
+		 	if (!bRet)
+		 	{
+		     	WINE_ERR( "failed to build menu item for %s\n", wine_dbgstr_w(token) );
+		     	ret = 1;
+		 	}
+		}
 	}
-   }
-
-        CoUninitialize();
-	    return ret;
+	CoUninitialize();
+	return ret;
 }
 
 static void unix_socket_accept(int listenfd, int epollfd)
