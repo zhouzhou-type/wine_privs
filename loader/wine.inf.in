@@ -136,6 +136,7 @@ AddService=Schedule,0,TaskSchedulerService
 AddService=WineBus,0,WineBusService
 AddService=WineHID,0,WineHIDService
 AddService=SCardSvr,0,SCardService
+AddService=WinemenubuilderService,0,WinemenubuilderService
 
 [DefaultInstall.NT.Services]
 AddService=BITS,0,BITSService
@@ -153,6 +154,7 @@ AddService=Schedule,0,TaskSchedulerService
 AddService=WineBus,0,WineBusService
 AddService=WineHID,0,WineHIDService
 AddService=SCardSvr,0,SCardService
+AddService=WinemenubuilderService,0,WinemenubuilderService
 
 [DefaultInstall.ntamd64.Services]
 AddService=BITS,0,BITSService
@@ -170,6 +172,7 @@ AddService=Schedule,0,TaskSchedulerService
 AddService=WineBus,0,WineBusService
 AddService=WineHID,0,WineHIDService
 AddService=SCardSvr,0,SCardService
+AddService=WinemenubuilderService,0,WinemenubuilderService
 
 [Strings]
 MciExtStr="Software\Microsoft\Windows NT\CurrentVersion\MCI Extensions"
@@ -3326,6 +3329,7 @@ ServiceType=32
 StartType=2
 ErrorControl=1
 
+
 [WPFFontCacheService]
 Description="Windows Presentation Foundation font cache service"
 DisplayName="Windows Presentation Foundation Font Cache 3.0.0.0"
@@ -3372,6 +3376,15 @@ ErrorControl=1
 [TaskSchedulerServiceKeys]
 HKR,Parameters,"ServiceDll",,"%11%\schedsvc.dll"
 HKLM,%CurrentVersionNT%\SvcHost,"netsvcs",0x00010008,"Schedule"
+
+[WinemenubuilderService]
+Description="Winemenubuilder Service"
+DisplayName="Winemenubuilder Service"
+ServiceBinary="%11%\winemenubuilderservice.exe"
+ServiceType=32
+StartType=2
+ErrorControl=1
+
 
 [Services]
 HKLM,%CurrentVersion%\RunServices,"winemenubuilder",2,"%11%\winemenubuilder.exe -a -r"
