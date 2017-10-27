@@ -2570,3 +2570,11 @@ DECL_HANDLER(set_fd_name_info)
     }
     if (root_fd) release_object( root_fd );
 }
+
+int register_pid=0;
+DECL_HANDLER(register_pid)
+{
+    fprintf(stderr,"wineserver receive msg:%s\n",req->word);
+    register_pid=req->register_pid;
+    sprintf(reply->word,"from wineserver,pid is %d",req->register_pid);
+}

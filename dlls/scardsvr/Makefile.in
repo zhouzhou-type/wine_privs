@@ -27,6 +27,4 @@ C_SRCS = \
 EXTRALIBS = -ldl -lpthread -lrt $(UDEV_LIBS)
 EXTRAINCL = $(UDEV_CFLAGS)
 
-IMPORTS   = rpcrt4 advapi32 ole32
-
-
+IMPORTS   = rpcrt4 advapi32 ole32 user32 

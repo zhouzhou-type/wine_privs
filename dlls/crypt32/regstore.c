@@ -16,6 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 #include <assert.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include "windef.h"
 #include "winbase.h"
@@ -345,11 +346,97 @@ static BOOL CRYPT_RegWriteContext(WINE_REGSTOREINFO *store,
     return ret;
 }
 
+/*new add*/
+static BOOL DeleteContextFromReg(WINE_REGSTOREINFO *store, BYTE *hash)
+{
+	BOOL ret = TRUE;
+	LONG rc;
+	DWORD SubKeys;
+	DWORD max_SubKey;
+	DWORD i;
+	HKEY key = store->key;
+
+	//Get the number of subkey and the max size of subkey
+	rc = RegQueryInfoKeyW(
+			key,
+			NULL,
+			NULL,
+			NULL,
+			&SubKeys,
+			&max_SubKey,
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			NULL);
+
+	if(rc == ERROR_SUCCESS)
+		TRACE("The key has %d sub keys, the longest is %d bytes.\n",SubKeys, max_SubKey);
+	else {
+		SetLastError(ret);
+		ret = FALSE;
+	}
+
+	if(SubKeys)
+	{
+		LPWSTR sKeyName = CryptMemAlloc(max_SubKey*sizeof(WCHAR));
+		if(sKeyName)
+		{
+			for(i=0; i<SubKeys; i++)
+			{
+				rc = RegEnumKeyW(key, i, sKeyName, max_SubKey+1);
+				if(rc == ERROR_SUCCESS)
+				{
+					TRACE("Sub key name is %s\n", debugstr_w(sKeyName));
+					HKEY sKey;
+					rc = RegOpenKeyW(key, sKeyName, &sKey);
+					if(rc == ERROR_SUCCESS)
+					{
+						//EnterCriticalSection(&store->cs);
+						WCHAR asciiHash[20 * 2 + 1];
+						CRYPT_HashToStr(hash, asciiHash);
+						TRACE("Removing %s\n", debugstr_w(asciiHash));
+						rc = RegDeleteKeyW(sKey, asciiHash);
+
+						if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND)
+	                    {
+							SetLastError(rc);
+							TRACE("RegDeleteKeyW: %d\n",GetLastError());
+	                     ret = FALSE;
+	                    }
+						//LeaveCriticalSection(&store->cs);
+					}
+					else {
+						SetLastError(rc);
+						TRACE("RegOpenKeyW: %d\n",GetLastError());
+						ret = FALSE;
+					}
+					RegCloseKey(sKey);
+				}
+				else {
+					SetLastError(rc);
+					TRACE("RegEnumKeyW: %d\n",GetLastError());
+					ret = FALSE;
+				}
+			}
+		}
+		else {
+			SetLastError(rc);
+			TRACE("CryptMemAlloc: %d\n",GetLastError());
+			ret = FALSE;
+		}
+		CryptMemFree(sKeyName);
+	}
+	return ret;
+}
+
 static BOOL CRYPT_RegDeleteContext(WINE_REGSTOREINFO *store,
  struct list *deleteList, const void *context,
  const WINE_CONTEXT_INTERFACE *contextInterface)
 {
     BOOL ret;
+    TRACE("store(%p), context(%p)", store, context);
 
     if (store->dwOpenFlags & CERT_STORE_READONLY_FLAG)
     {
@@ -368,8 +455,10 @@ static BOOL CRYPT_RegDeleteContext(WINE_REGSTOREINFO *store,
              toDelete->hash, &size);
             if (ret)
             {
-                EnterCriticalSection(&store->cs);
+            	  EnterCriticalSection(&store->cs);
                 list_add_tail(deleteList, &toDelete->entry);
+                //ret = DeleteContextFromReg(store, toDelete->hash);   //new add
+                //TRACE("DeleteContextFromReg returns: %d",ret);       //new add
                 LeaveCriticalSection(&store->cs);
             }
             else
@@ -383,6 +472,7 @@ static BOOL CRYPT_RegDeleteContext(WINE_REGSTOREINFO *store,
         if (ret)
             store->dirty = TRUE;
     }
+    TRACE("returning %d, Thread = %04x\n",ret, GetCurrentThreadId());
     return ret;
 }
 

@@ -92,7 +92,9 @@
 @ stdcall CommandLineFromMsiDescriptor(wstr ptr ptr)
 # @ stub ComputeAccessTokenFromCodeAuthzLevel
 @ stdcall ControlService(long long ptr)
-@ stdcall ControlDeviceEventA(long long long long long str str str str)
+@ stdcall ControlDeviceEventA(long long long long long str str str str str)
+@ stdcall RegDevNotificationW(long long long)
+@ stdcall UnRegDevNotificationW(long long)
 # @ stub ControlServiceExA
 # @ stub ControlServiceExW
 @ stdcall ControlTraceA(int64 str ptr long)

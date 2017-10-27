@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
@@ -101,7 +102,10 @@ void CRYPT_InitStore(WINECRYPT_CERTSTORE *store, DWORD dwFlags, CertStoreType ty
 void CRYPT_FreeStore(WINECRYPT_CERTSTORE *store)
 {
     if (store->properties)
-        ContextPropertyList_Free(store->properties);
+    {
+    	TRACE("Store->property(%p)\n",store->properties);
+       ContextPropertyList_Free(store->properties);
+    }
     store->dwMagic = 0;
     CryptMemFree(store);
 }
@@ -181,20 +185,33 @@ static context_t *MemStore_enumContext(WINE_MEMSTORE *store, struct list *list, 
 
     EnterCriticalSection(&store->cs);
     if (prev) {
-        next = list_next(list, &prev->u.entry);
+
+        if(prev->u.entry.next == NULL)
+        	TRACE("prev->u.entry.next(%p) == NULL\n", prev->u.entry.next);
+        else if(prev->u.entry.next == list)
+        	TRACE("prev->u.entry.next(%p) == list\n", prev->u.entry.next);
+    	 next = list_next(list, &prev->u.entry);
+    	 TRACE("prev->u.entry.next(%p)\n", prev->u.entry.next);
         Context_Release(prev);
     }else {
+        if(list->next == NULL)
+        	TRACE("list->next(%p) == NULL\n",list->next);
+        else if(list->next == list)
+        	TRACE("list->next(%p) == list\n",list->next);
         next = list_next(list, list);
+        TRACE("list->next(%p)\n",list->next);
     }
     LeaveCriticalSection(&store->cs);
 
     if (!next) {
         SetLastError(CRYPT_E_NOT_FOUND);
+        TRACE("---Next is NULL---\n");
         return NULL;
     }
 
     ret = LIST_ENTRY(next, context_t, u.entry);
     Context_AddRef(ret);
+    TRACE("Context ref = %d\n", ret->ref);
     return ret;
 }
 
@@ -204,14 +221,21 @@ static BOOL MemStore_deleteContext(WINE_MEMSTORE *store, context_t *context)
 
     EnterCriticalSection(&store->cs);
     if (!list_empty(&context->u.entry)) {
+    	 TRACE("context->u.entry(%p), context->u.entry.next(%p), context->u.entry.prev(%p),Thread = %04x\n",&context->u.entry, context->u.entry.next, context->u.entry.prev, GetCurrentThreadId());
+    	 TRACE("store->certs(%p), store->certs.next(%p), store->certs.prev(%p),Thread = %04x\n",&store->certs, store->certs.next, store->certs.prev, GetCurrentThreadId());
         list_remove(&context->u.entry);
-        list_init(&context->u.entry);
+        TRACE("store->certs(%p), store->certs.next(%p), store->certs.prev(%p),Thread = %04x\n",&store->certs, store->certs.next, store->certs.prev, GetCurrentThreadId());
+        //list_init(&context->u.entry);
+        context->u.entry.prev = &context->u.entry;
+        TRACE("context->u.entry(%p), context->u.entry.next(%p), context->u.entry.prev(%p),Thread = %04x\n",&context->u.entry, context->u.entry.next, context->u.entry.prev, GetCurrentThreadId());
         in_list = TRUE;
+
     }
     LeaveCriticalSection(&store->cs);
 
     if(in_list && !context->ref)
         Context_Free(context);
+    TRACE("Context ref = %d, return TRUE!, Thread = %04x\n", context->ref, GetCurrentThreadId());
     return TRUE;
 }
 
@@ -230,6 +254,7 @@ static void free_contexts(struct list *list)
 static void MemStore_releaseContext(WINECRYPT_CERTSTORE *store, context_t *context)
 {
     /* Free the context only if it's not in a list. Otherwise it may be reused later. */
+	TRACE("(%p)\n", context);
     if(list_empty(&context->u.entry))
         Context_Free(context);
 }
@@ -486,13 +511,19 @@ static WINECRYPT_CERTSTORE *CRYPT_SysRegOpenStoreW(HCRYPTPROV hCryptProv,
 
         wsprintfW(storePath, fmt, base, storeName);
         if (dwFlags & CERT_STORE_OPEN_EXISTING_FLAG)
-            rc = RegOpenKeyExW(root, storePath, 0, sam, &key);
+        {
+        	fprintf(stderr,"store.c CRYPT_SysRegOpenStoreW openkey start, Thread = %04x\n", GetCurrentThreadId());
+        	rc = RegOpenKeyExW(root, storePath, 0, sam, &key);
+        	fprintf(stderr,"store.c CRYPT_SysRegOpenStoreW openkey end, Thread = %04x\n", GetCurrentThreadId());
+        }
+
         else
         {
             DWORD disp;
-
+        	  fprintf(stderr,"store.c CRYPT_SysRegOpenStoreW createkey start, Thread = %04x\n", GetCurrentThreadId());
             rc = RegCreateKeyExW(root, storePath, 0, NULL, 0, sam, NULL,
                                  &key, &disp);
+            fprintf(stderr,"store.c CRYPT_SysRegOpenStoreW createkey end, Thread = %04x\n", GetCurrentThreadId());
             if (!rc && dwFlags & CERT_STORE_CREATE_NEW_FLAG &&
                 disp == REG_OPENED_EXISTING_KEY)
             {
@@ -944,8 +975,9 @@ PCCERT_CONTEXT WINAPI CertEnumCertificatesInStore(HCERTSTORE hCertStore, PCCERT_
 BOOL WINAPI CertDeleteCertificateFromStore(PCCERT_CONTEXT pCertContext)
 {
     WINECRYPT_CERTSTORE *hcs;
+    context_t *context;
 
-    TRACE("(%p)\n", pCertContext);
+    TRACE("(%p), Thread (%04x)\n", pCertContext, GetCurrentThreadId());
 
     if (!pCertContext)
         return TRUE;
@@ -954,8 +986,13 @@ BOOL WINAPI CertDeleteCertificateFromStore(PCCERT_CONTEXT pCertContext)
 
     if (hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
         return FALSE;
-
-    return hcs->vtbl->certs.delete(hcs, &cert_from_ptr(pCertContext)->base);
+    context = &cert_from_ptr(pCertContext)->base;
+    if(hcs->vtbl->certs.delete(hcs, context))
+    {
+    	Context_Release(context);
+    	return TRUE;
+    }
+    else return FALSE;
 }
 
 BOOL WINAPI CertAddCRLContextToStore(HCERTSTORE hCertStore,

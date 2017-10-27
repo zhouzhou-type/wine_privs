@@ -480,6 +480,7 @@
 		<string>0x08C3</string>
 		<string>0x15E1</string>
 		<string>0x062D</string>
+		<string>0x2010</string>
 	</array>
 
 	<key>ifdProductID</key>
@@ -862,6 +863,7 @@
 		<string>0x0402</string>
 		<string>0x2007</string>
 		<string>0x0001</string>
+		<string>0x1200</string>
 	</array>
 
 	<key>ifdFriendlyName</key>
@@ -1244,6 +1246,7 @@
 		<string>Precise Biometrics Precise 200 MC</string>
 		<string>RSA RSA SecurID (R) Authenticator</string>
 		<string>THRC Smart Card Reader</string>
+		<string>AraTech FP410-BioK</string>
 	</array>
 
 	<key>Copyright</key>

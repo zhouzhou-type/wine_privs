@@ -20,6 +20,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(scardsvr);
 static const WCHAR scardsvrW[] = {'S','C','a','r','d','S','v','r',0};
 static SERVICE_STATUS_HANDLE scardsvr_handle;
 static HANDLE done_event;
+static HDEVNOTIFY dev_notify;
 
 static void scardsvr_update_status(DWORD state)
 {
@@ -39,8 +40,6 @@ static void scardsvr_update_status(DWORD state)
 
 static DWORD WINAPI scardsvr_handler( DWORD control, DWORD event_type, LPVOID event_data, LPVOID context )
 {
-	PDEV_BROADCAST_HDR dbh = (DEV_BROADCAST_HDR*)event_data;
-	PDEV_BROADCAST_WINE dbcw = NULL;
     TRACE("control:%#x  event_type:%04x  event_data:%p\n", control, event_type, event_data);
 
     switch (control)
@@ -48,21 +47,43 @@ static DWORD WINAPI scardsvr_handler( DWORD control, DWORD event_type, LPVOID ev
     case SERVICE_CONTROL_STOP:
     case SERVICE_CONTROL_SHUTDOWN:
         scardsvr_update_status(SERVICE_STOP_PENDING);
+        if(UnregisterDeviceNotification(dev_notify) == FALSE)
+            ERR("UnRegisterDeviceNotification error %d\n", GetLastError());
         SetEvent(done_event);
         break;
     case SERVICE_CONTROL_DEVICEEVENT:
-		if(dbh != NULL)
+		if(event_data != NULL)
 		{
-			if(dbh->dbch_devicetype == DBT_DEVTYP_WINE)
+	        PDEV_BROADCAST_HDR dbh = (DEV_BROADCAST_HDR*)event_data;
+	        PDEV_BROADCAST_WINE dbcw = NULL;
+			if(event_type == DBT_DEVICEARRIVAL)
 			{
-				dbcw = (DEV_BROADCAST_WINE *)dbh;
-				if(event_type == DBT_DEVICEARRIVAL)
-				{
-					libudev_add_device(dbcw);
-				}else if(event_type == DBT_DEVICEREMOVECOMPLETE)
-				{
-					libudev_remove_device(dbcw);
-				}
+                switch(dbh->dbch_devicetype)
+                {
+                    case DBT_DEVTYP_WINE:
+                        dbcw = (DEV_BROADCAST_WINE *)dbh;
+				        libudev_add_device(dbcw);
+                        break;
+                    case DBT_DEVTYP_DEVICEINTERFACE:
+                        FIXME("control:DBT_DEVTYP_DEVICEINITERFACE\n");
+                        break;
+                    default:
+                        break;
+                }
+			}else if(event_type == DBT_DEVICEREMOVECOMPLETE)
+			{
+                switch(dbh->dbch_devicetype)
+                {
+                    case DBT_DEVTYP_WINE:
+                        dbcw = (DEV_BROADCAST_WINE *)dbh;
+				        libudev_remove_device(dbcw);
+                        break;
+                    case DBT_DEVTYP_DEVICEINTERFACE:
+                        FIXME("control:DBT_DEVTYP_DEVICEINITERFACE\n");
+                        break;
+                    default:
+                        break;
+                }
 			}
 		}
     default:
@@ -88,6 +109,12 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR *argv)
     {
         ERR("RegisterServiceCtrlHandler error %d\n", GetLastError());
         return;
+    }
+    else
+    {
+        dev_notify = RegisterDeviceNotificationW(scardsvr_handle,NULL,DEVICE_NOTIFY_SERVICE_HANDLE);
+        if(dev_notify == NULL)
+            ERR("RegisterDeviceNotification error %d\n", GetLastError());
     }
 
     done_event = CreateEventW(NULL, TRUE, FALSE, NULL);

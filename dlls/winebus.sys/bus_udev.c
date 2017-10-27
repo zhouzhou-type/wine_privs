@@ -63,7 +63,6 @@
 #include "wine/list.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(plugplay);
-WINE_DECLARE_DEBUG_CHANNEL(scardsvr);
 
 #ifdef HAVE_UDEV
 
@@ -74,7 +73,7 @@ static DRIVER_OBJECT *udev_driver_obj = NULL;
 
 static const WCHAR hidraw_busidW[] = {'H','I','D','R','A','W',0};
 
-typedef struct _device_info_scardsvr
+typedef struct _device_info_
 {
 	struct list entry;
 	DWORD vid;
@@ -85,9 +84,9 @@ typedef struct _device_info_scardsvr
 	char *interfacename;
 	char *serialnum;
 	char *syspath;
-}device_info_scardsvr;
+}device_info_;
 
-static struct list device_info_scardsvr_list = LIST_INIT(device_info_scardsvr_list);
+static struct list device_info_list = LIST_INIT(device_info_list);
 
 #include "initguid.h"
 DEFINE_GUID(GUID_DEVCLASS_HIDRAW, 0x3def44ad,0x242e,0x46e5,0x82,0x6d,0x70,0x72,0x13,0xf3,0xaa,0x81);
@@ -413,11 +412,11 @@ static const platform_vtbl hidraw_vtbl =
     hidraw_set_feature_report,
 };
 
-static device_info_scardsvr* getDeviceInfoFromCache(struct udev_device *dev)
+static device_info_* getDeviceInfoFromCache(struct udev_device *dev)
 {
 	const char *syspath;
-	device_info_scardsvr *device_info = NULL;
-	device_info_scardsvr *ret = NULL;
+	device_info_ *device_info = NULL;
+	device_info_ *ret = NULL;
 
 	if(dev == NULL)
 	{
@@ -425,14 +424,14 @@ static device_info_scardsvr* getDeviceInfoFromCache(struct udev_device *dev)
 		return NULL;
 	}
 
-	TRACE_(scardsvr)("dev=%p\n", dev);
+	TRACE("dev=%p\n", dev);
 
 	syspath = udev_device_get_syspath(dev);
 
 	if(syspath == NULL)
 		return NULL;
 
-	LIST_FOR_EACH_ENTRY(device_info, &device_info_scardsvr_list, device_info_scardsvr, entry)
+	LIST_FOR_EACH_ENTRY(device_info, &device_info_list, device_info_, entry)
 	{
 		if(lstrcmpA(device_info->syspath, syspath) == 0)
 		{
@@ -443,7 +442,7 @@ static device_info_scardsvr* getDeviceInfoFromCache(struct udev_device *dev)
 
 	if(ret!=NULL)
 	{
-		TRACE_(scardsvr)("Get Device Event Info From Cache: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",ret->vid,ret->pid,ret->interfacenum,ret->devpath,ret->sysname,ret->interfacename,ret->serialnum,ret->syspath);
+		TRACE("Get Device Event Info From Cache: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",ret->vid,ret->pid,ret->interfacenum,ret->devpath,ret->sysname,ret->interfacename,ret->serialnum,ret->syspath);
 	}
 
 	return ret;
@@ -456,13 +455,13 @@ static char *strdupA( const char *str )
 		strcpy(ret,str);
 	return ret;
 }
-static device_info_scardsvr* cacheDeviceInfo(struct udev_device *dev, struct udev_device *usbdev)
+static device_info_* cacheDeviceInfo(struct udev_device *dev, struct udev_device *usbdev)
 {
 	char *devpath, *sysname, *interface, *serial, *syspath;
 	int vid = -1,pid = -1,interfaceNum = -1;
-	device_info_scardsvr *device_info = NULL;
+	device_info_ *device_info = NULL;
 
-	TRACE_(scardsvr)("dev=%p  usbdev=%p\n", dev, usbdev);
+	TRACE("dev=%p  usbdev=%p\n", dev, usbdev);
 
 	if(dev == NULL || usbdev == NULL)
 	{
@@ -487,7 +486,7 @@ static device_info_scardsvr* cacheDeviceInfo(struct udev_device *dev, struct ude
 		return NULL;
 	}
 
-	TRACE_(scardsvr)("Cache Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",vid,pid,interfaceNum,devpath,sysname,interface,serial,syspath);
+	TRACE("Cache Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",vid,pid,interfaceNum,devpath,sysname,interface,serial,syspath);
 
 	if(device_info == NULL)
 	{
@@ -507,73 +506,20 @@ static device_info_scardsvr* cacheDeviceInfo(struct udev_device *dev, struct ude
 	device_info->serialnum = strdupA(serial);
 	device_info->syspath = strdupA(syspath);
 
-	list_add_tail(&device_info_scardsvr_list, &(device_info->entry));
+	list_add_tail(&device_info_list, &(device_info->entry));
 
 	return device_info;
 }
 
-static void deviceEventRegHandlerA(DWORD dwEventType, device_info_scardsvr *device_info)
+static void sendDeviceEventToPNP(DWORD dwEventType, device_info_ *dev_info)
 {
-	const char *Enum = "System\\CurrentControlSet\\Enum";
-	const char *formatA = "USB\\VID_%04x&PID_%04x\\%s";
-	char *instanceId = NULL;
-	int len,exists;
-	long ret;
-	HKEY enumKey, key = INVALID_HANDLE_VALUE;
-
-	TRACE_(scardsvr)("dwEventType=%04x device_info=%p\n",dwEventType, device_info);
-	
-	if(device_info == NULL)
-		return ;
-
-	TRACE_(scardsvr)("Register Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",device_info->vid,device_info->pid,device_info->interfacenum,device_info->devpath,device_info->sysname,device_info->interfacename,device_info->serialnum,device_info->syspath);
-	len = lstrlenA("USB\\VID_&PID_\\") + 8 + lstrlenA(device_info->sysname) + 1;
-	if((instanceId = HeapAlloc(GetProcessHeap(), 0, len*sizeof(char))))
-	{
-		sprintf(instanceId,formatA,device_info->vid,device_info->pid,device_info->sysname);
-	}
-
-	if(dwEventType == DBT_DEVICEARRIVAL)
-		exists = 1;
-	else
-		exists = 0;
-
-	ret = RegCreateKeyExA(HKEY_LOCAL_MACHINE,Enum,0,NULL,0,KEY_ALL_ACCESS, NULL, &enumKey, NULL);
-	if(!ret)
-	{
-		ret = RegCreateKeyExA(enumKey,instanceId,0,NULL,0,KEY_READ|KEY_WRITE, NULL, &key, NULL);
-		if(!ret)
-		{
-			if(device_info->vid != -1)
-				RegSetValueExA(key,"VID",0,REG_DWORD,(BYTE *)&(device_info->vid),sizeof(device_info->vid));
-			if(device_info->pid != -1)
-				RegSetValueExA(key,"PID",0,REG_DWORD,(BYTE *)&(device_info->pid),sizeof(device_info->pid));
-			if(device_info->sysname != NULL)
-				RegSetValueExA(key,"SysName",0,REG_SZ,(BYTE *)(device_info->sysname),sizeof(char)*(lstrlenA(device_info->sysname)+1));
-			if(device_info->interfacenum != -1)
-				RegSetValueExA(key,"InterfaceNum",0,REG_DWORD,(BYTE *)&(device_info->interfacenum),sizeof(device_info->interfacenum));
-			if(device_info->interfacename != NULL)
-				RegSetValueExA(key,"InterfaceName",0,REG_SZ,(BYTE *)(device_info->interfacename),sizeof(char)*(lstrlenA(device_info->interfacename)+1));
-			if(device_info->serialnum != NULL)
-				RegSetValueExA(key,"SerialNum",0,REG_SZ,(BYTE *)(device_info->serialnum),sizeof(char)*(lstrlenA(device_info->serialnum)+1));
-			if(device_info->devpath != NULL)
-				RegSetValueExA(key,"DevPath",0,REG_SZ,(BYTE *)(device_info->devpath),sizeof(char)*(lstrlenA(device_info->devpath)+1));
-			if(device_info->syspath != NULL)
-				RegSetValueExA(key,"SysPath",0,REG_SZ,(BYTE *)(device_info->syspath),sizeof(char)*(lstrlenA(device_info->syspath)+1));
-			RegSetValueExA(key,"Exists",0,REG_DWORD,(BYTE *)&exists,sizeof(exists));
-		}
-	}
-}
-
-static void sendDeviceEventToSCardSvr(DWORD dwEventType, device_info_scardsvr *dev_info)
-{
-    WCHAR scardsvrW[] = {'S','C','a','r','d','S','v','r',0};
+    WCHAR plugplayW[] = {'P','l','u','g','P','l','a','y',0};
 	SC_HANDLE scm, service;
 	SERVICE_STATUS_PROCESS ssStatus;
 	DWORD dwBytesNeeded;
-	const char *devpath, *sysname, *interface, *serial;
+	const char *devpath, *sysname, *interface, *serial, *syspath;
 	int vid,pid,interfaceNum;
-	TRACE_(scardsvr)("dwEventType=%04x device_info=%p\n",dwEventType, dev_info);
+	TRACE("dwEventType=%04x device_info=%p\n",dwEventType, dev_info);
 	if(dev_info == NULL)
 	{
 		ERR("device_info is NULL\n");
@@ -586,10 +532,10 @@ static void sendDeviceEventToSCardSvr(DWORD dwEventType, device_info_scardsvr *d
         WARN("failed to open SCM (%u)\n", GetLastError());
         return;
 	}
-    service = OpenServiceW(scm, scardsvrW, SERVICE_ALL_ACCESS);
+    service = OpenServiceW(scm, plugplayW, SERVICE_ALL_ACCESS);
 	if(!service)
 	{
-        WARN("failed to open SCardSvr (%u)\n", GetLastError());
+        WARN("failed to open PNP (%u)\n", GetLastError());
 		CloseServiceHandle(scm);
         return;
 	}
@@ -616,10 +562,11 @@ static void sendDeviceEventToSCardSvr(DWORD dwEventType, device_info_scardsvr *d
 	vid = dev_info->vid;
 	pid = dev_info->pid;
 	interfaceNum = dev_info->interfacenum;
+    syspath = dev_info->syspath;
 
-	TRACE_(scardsvr)("Send Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s\n",vid,pid,interfaceNum,devpath,sysname,interface,serial);
+	TRACE("Send Device Event Info: vid:%04x  pid:%04x  interfaceNum:%d  devpath:%s  sysname:%s interface:%s serial:%s syspath:%s\n",vid,pid,interfaceNum,devpath,sysname,interface,serial,syspath);
 
-	if(!ControlDeviceEventA(service,dwEventType,vid,pid,interfaceNum,devpath,sysname,interface,serial))
+	if(!ControlDeviceEventA(service,dwEventType,vid,pid,interfaceNum,devpath,sysname,interface,serial,syspath))
 	{
 		WARN("control device event failed(%u)\n", GetLastError());
 	}
@@ -634,7 +581,7 @@ static void try_add_device(struct udev_device *dev)
     DEVICE_OBJECT *device = NULL;
     const char *devnode;
     WCHAR *serial = NULL;
-	device_info_scardsvr* dev_info_scardsvr = NULL;
+	device_info_* dev_info = NULL;
     int fd;
 
     usbdev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
@@ -658,11 +605,9 @@ static void try_add_device(struct udev_device *dev)
     TRACE("Found udev device %s (vid %04x, pid %04x, version %u, serial %s)\n",
           debugstr_a(devnode), vid, pid, version, debugstr_w(serial));
 	//Cache Device Event Info
-	dev_info_scardsvr = cacheDeviceInfo(dev,usbdev);
-    //Send Device Event to  SCardSvr
-	sendDeviceEventToSCardSvr(DBT_DEVICEARRIVAL,dev_info_scardsvr);
-	//RegisterDeviceEvent
-	deviceEventRegHandlerA(DBT_DEVICEARRIVAL,dev_info_scardsvr);
+	dev_info = cacheDeviceInfo(dev,usbdev);
+    //Send Device Event to  PNP
+	sendDeviceEventToPNP(DBT_DEVICEARRIVAL,dev_info);
 	interfaceclass = get_sysattr_dword(dev,"bInterfaceClass",10);
 	if(interfaceclass == 3)
 	{
@@ -690,13 +635,11 @@ static void try_remove_device(struct udev_device *dev)
 {
     DEVICE_OBJECT *device = bus_find_hid_device(&hidraw_vtbl, dev);
     struct platform_private *private;
-	device_info_scardsvr *dev_info_scardsvr = NULL;
+	device_info_ *dev_info = NULL;
 	//Get Cached Device Info
-	dev_info_scardsvr = getDeviceInfoFromCache(dev);
-	//Send Device Event to SCardSvr
-	sendDeviceEventToSCardSvr(DBT_DEVICEREMOVECOMPLETE, dev_info_scardsvr);
-	//UnRegisterDeviceEvent
-	deviceEventRegHandlerA(DBT_DEVICEREMOVECOMPLETE,dev_info_scardsvr);
+	dev_info = getDeviceInfoFromCache(dev);
+	//Send Device Event to PNP
+	sendDeviceEventToPNP(DBT_DEVICEREMOVECOMPLETE, dev_info);
     if (!device) return;
 
     IoInvalidateDeviceRelations(device, RemovalRelations);
