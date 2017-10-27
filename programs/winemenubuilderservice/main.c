@@ -4166,12 +4166,26 @@ static void delete_event(int epollfd, int fd, int state)
 	epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
 
 }
-static void parse_cmdline(LPWSTR cmdline)
+
+static LPCSTR wchar_to_char(LPWSTR wstr)
+{
+	LPCSTR  cstr;
+	DWORD   len;
+	
+	len = WideCharToMultiByte(CP_ACP, 0, wstr, lstrlenW(wstr), NULL, 0, NULL, NULL);
+	cstr = HeapAlloc(GetProcessHeap(), 0, len * sizeof(CHAR));
+	WideCharToMultiByte(CP_ACP, 0, wstr, lstrlenW(wstr), cstr, len, NULL, NULL);
+
+	return cstr;
+}
+
+static int parse_cmdline(LPWSTR cmdline)
 {
     static const WCHAR dash_aW[] = {'-','a',0};
     static const WCHAR dash_tW[] = {'-','t',0};
     static const WCHAR dash_uW[] = {'-','u',0};
     static const WCHAR dash_wW[] = {'-','w',0};
+	static const WCHAR dash_sW[] = {'-','s',0};
     LPWSTR token = NULL, p;
     BOOL bWait = FALSE;
     BOOL bURL = FALSE;
@@ -4212,6 +4226,20 @@ static void parse_cmdline(LPWSTR cmdline)
                      thumbnail_lnk(lnkFile, outputFile);
             }
         }
+		else if ( !strcmpW( token, dash_sW) )
+		{
+			WCHAR *from_w = next_token( &p );
+			WCHAR *to_w = next_token( &p );
+			if ( !from_w || !to_w )
+			{
+				break;
+			}
+			LPCSTR from_c = wchar_to_char(from_w);
+			LPCSTR to_c = wchar_to_char(to_w);
+			remove(to_c);
+			symlink(from_c, to_c);
+			break;
+		}
 		else if( token[0] == '-' )
 		{
 			WINE_ERR( "unknown option %s\n", wine_dbgstr_w(token) );

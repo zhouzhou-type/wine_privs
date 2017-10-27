@@ -33,6 +33,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "wine/debug.h"
 #include "windef.h"
 #include "winbase.h"
@@ -4368,6 +4370,83 @@ static inline BOOL _SHAppendToUnixPath(char *szBasePath, LPCWSTR pwszSubPath) {
     return TRUE;
 }
 
+static void handle_connection(int sockfd, LPWSTR buffer, long len)
+{
+	int ret,pid;
+	ret = write(sockfd, buffer, len);
+}
+
+static int unix_socket_conn(const char *servername, LPWSTR buffer, long lenth)
+{
+
+	int fd, len, rval;
+	struct sockaddr_un addr;
+	const char *server_dir = wine_get_server_dir();
+	const char *socket_name ="/foosock";
+	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
+
+	if((fd = socket(AF_UNIX, SOCK_STREAM,0)) < 0 ) return(-1);
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(addr.sun_path, socket_addr);
+
+	len = sizeof(addr) - sizeof(addr.sun_path) +strlen(addr.sun_path)+1;
+
+	int conn;
+	conn = connect(fd,(struct sockaddr *)&addr, len);
+	if (conn < 0)
+	{
+		rval = -4;
+	}
+	else
+	{
+		handle_connection(fd, buffer, lenth);
+	}
+
+	close(fd);
+	HeapFree(GetProcessHeap(), 0, socket_addr);
+	return rval;
+}
+
+static WCHAR * char_to_wchar(LPCSTR str)
+{
+	LPWSTR  wstr;
+	DWORD   len;
+	
+	len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+	wstr = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+	MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, len);
+
+	return wstr;
+}
+
+static BOOL create_symlink_by_winemenubuilder( LPCSTR from, LPCSTR to )
+{
+    //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
+    static const WCHAR szFormat[] = {' ','-','s',' ','"','%','s','"',' ','"','%','s','"',0 };
+    
+    LONG len;
+    LPWSTR buffer, pszFromW, pszToW;
+    BOOL ret;
+
+	pszFromW = char_to_wchar(from);
+	pszToW = char_to_wchar(to);
+    len = sizeof(szFormat) + (lstrlenW( pszFromW )+5) * sizeof(WCHAR) +(lstrlenW( pszToW )+5) * sizeof(WCHAR);
+    buffer = HeapAlloc( GetProcessHeap(), 0, len );
+    if( !buffer )
+        return FALSE;
+    wsprintfW(buffer,szFormat, pszFromW, pszToW);
+    unix_socket_conn("foosock",buffer,len);
+
+	HeapFree(GetProcessHeap(), 0, pszFromW);
+	HeapFree(GetProcessHeap(), 0, pszToW);
+	HeapFree(GetProcessHeap(), 0, buffer);
+    return ret;
+}
+
 /******************************************************************************
  * _SHCreateSymbolicLinks  [Internal]
  * 
@@ -4463,8 +4542,9 @@ static void _SHCreateSymbolicLinks(void)
         }
 
         /* Replace 'My Documents' directory with a symlink or fail silently if not empty. */
-        remove(pszPersonal);
-        symlink(szPersonalTarget, pszPersonal);
+        //remove(pszPersonal);
+        //symlink(szPersonalTarget, pszPersonal);
+        create_symlink_by_winemenubuilder(szPersonalTarget, pszPersonal);
     }
     else
     {
@@ -4519,8 +4599,9 @@ static void _SHCreateSymbolicLinks(void)
             strcpy(szMyStuffTarget, szPersonalTarget);
             break;
         }
-        remove(pszMyStuff);
-        symlink(szMyStuffTarget, pszMyStuff);
+        //remove(pszMyStuff);
+        //symlink(szMyStuffTarget, pszMyStuff);
+        create_symlink_by_winemenubuilder(szMyStuffTarget, pszMyStuff);
         HeapFree(GetProcessHeap(), 0, pszMyStuff);
     }
 
@@ -4540,12 +4621,18 @@ static void _SHCreateSymbolicLinks(void)
                               SHGFP_TYPE_DEFAULT, wszTempPath);
         if (SUCCEEDED(hr) && (pszDesktop = wine_get_unix_file_name(wszTempPath))) 
         {
-            remove(pszDesktop);
+            //remove(pszDesktop);
             if (xdg_desktop_dir)
-                symlink(xdg_desktop_dir, pszDesktop);
-            else
-                symlink(szDesktopTarget, pszDesktop);
-            HeapFree(GetProcessHeap(), 0, pszDesktop);
+            {
+                //symlink(xdg_desktop_dir, pszDesktop);
+                create_symlink_by_winemenubuilder(xdg_desktop_dir, pszDesktop);
+            }
+			else
+			{
+                //symlink(szDesktopTarget, pszDesktop);
+                create_symlink_by_winemenubuilder(szDesktopTarget, pszDesktop);
+			}
+			HeapFree(GetProcessHeap(), 0, pszDesktop);
         }
     }
 
