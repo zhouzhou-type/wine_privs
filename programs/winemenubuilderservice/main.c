@@ -375,6 +375,7 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
     HRESULT hr = E_FAIL;
 
     dosOutputFileName = wine_get_dos_file_name(outputFileName);
+    fprintf(stderr,"dosOutputFileName:%s\n",debugstr_w(dosOutputFileName));
     if (dosOutputFileName == NULL)
     {
         WINE_ERR("error converting %s to DOS file name\n", outputFileName);
@@ -415,6 +416,7 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
         WINE_ERR("error 0x%08X creating output file %s\n", hr, wine_dbgstr_w(dosOutputFileName));
         goto end;
     }
+     
     hr = IWICBitmapEncoder_Initialize(encoder, outputFile, GENERIC_WRITE);
     if (FAILED(hr))
     {
@@ -488,7 +490,9 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
             WINE_ERR("error 0x%08X setting destination bitmap resolution\n", hr);
             goto endloop;
         }
+	
         hr = IWICBitmapFrameEncode_WriteSource(dstFrame, sourceBitmap, NULL);
+	
         if (FAILED(hr))
         {
             WINE_ERR("error 0x%08X copying bitmaps\n", hr);
@@ -914,6 +918,8 @@ static HRESULT open_module_icon(LPCWSTR szFileName, int nIndex, IStream **ppStre
     else
     {
         WINE_WARN("found no icon\n");
+        fprintf(stderr,"\n************\nfound no icon\n********\n");
+	
         FreeLibrary(hModule);
         return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
     }
@@ -1073,6 +1079,7 @@ static HRESULT open_default_icon(IStream **ppStream)
 static HRESULT open_icon(LPCWSTR filename, int index, BOOL bWait, IStream **ppStream, ICONDIRENTRY **ppIconDirEntries, int *numEntries)
 {
     HRESULT hr;
+    fprintf(stderr,"-------22222----\n");
 
     hr = open_module_icon(filename, index, ppStream);
     if (FAILED(hr))
@@ -1100,6 +1107,7 @@ static HRESULT open_icon(LPCWSTR filename, int index, BOOL bWait, IStream **ppSt
     }
     if (FAILED(hr) && !bWait)
     {
+	    fprintf(stderr,"\n------------\nvalidate_icon\n----------\n\n");
         hr = open_default_icon(ppStream);
         if (SUCCEEDED(hr))
             hr = validate_ico(ppStream, ppIconDirEntries, numEntries);
@@ -1230,6 +1238,7 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
+    
     if (*nativeIdentifier == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -1238,7 +1247,7 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
     if (!(tmpdir = getenv("TMPDIR"))) tmpdir = "/tmp";
     icnsPath = heap_printf("%s/%s.icns", tmpdir, *nativeIdentifier);
     if (icnsPath == NULL)
-    {
+    
         hr = E_OUTOFMEMORY;
         WINE_WARN("out of memory creating ICNS path\n");
         goto end;
@@ -1297,6 +1306,9 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
+
+    fprintf(stderr,"__PP__platform_iconPathw:%s\n nativeIdentifier:%s\n ",debugstr_w(icoPathW),*nativeIdentifier);
+
     if (*nativeIdentifier == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -1353,6 +1365,7 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         }
         create_directories(iconDir);
         pngPath = heap_printf("%s/%s.png", iconDir, *nativeIdentifier);
+	fprintf(stderr,"\n\nSS__pngPath%s\n",pngPath);
         if (pngPath == NULL)
         {
             hr = E_OUTOFMEMORY;
@@ -1387,6 +1400,8 @@ static char *extract_icon(LPCWSTR icoPathW, int index, const char *destFilename,
     char *nativeIdentifier = NULL;
 
     WINE_TRACE("path=[%s] index=%d destFilename=[%s]\n", wine_dbgstr_w(icoPathW), index, wine_dbgstr_a(destFilename));
+    fprintf(stderr,"path=[%s] index=%d destFilename=[%s]\n", wine_dbgstr_w(icoPathW), index, wine_dbgstr_a(destFilename));
+    
 
     hr = open_icon(icoPathW, index, bWait, &stream, &pIconDirEntries, &numEntries);
     if (FAILED(hr))
@@ -3003,7 +3018,8 @@ BOOL isDesktopFile(const char *path)
 //xiaoya
 static BOOL transmitePath(char *pszFileName,char **pszFileNameAfterTrans) 
 {
-	char home[] = { '/','h','o','m','e','/',0 };
+	//char home[] = { '/','h','o','m','e','/',0 };
+	char home[]={'/','o','p','t',0};
 	char wine[] = { '/','.','w','i','n','e','/','d','o','s','d','e','v','i','c','e','s','/',0 };
 
 	char c_users[] = { 'c',':','/','u','s','e','r','s','/',0 };
@@ -3026,31 +3042,31 @@ static BOOL transmitePath(char *pszFileName,char **pszFileNameAfterTrans)
 		desktop = desktops[index];
 
 		//construct c_user_$username_desktop
-		preSize = lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(userName) + lstrlenA(desktop);
+		preSize = lstrlenA(home) + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(userName) + lstrlenA(desktop);
 	
 		cud = HeapAlloc(GetProcessHeap(), 0, (preSize + 1) * sizeof(char));
 
 		lstrcpyA(cud, home);
-		lstrcpyA(cud + lstrlenA(home), userName);
-		lstrcpyA(cud + lstrlenA(home) + lstrlenA(userName), wine);
-		lstrcpyA(cud + lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine), c_users);
-		lstrcpyA(cud + lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine) + lstrlenA(c_users), userName);
-		lstrcpyA(cud + lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(userName), desktop);
+	//	lstrcpyA(cud + lstrlenA(home), userName);
+		lstrcpyA(cud + lstrlenA(home) , wine);
+		lstrcpyA(cud + lstrlenA(home) + lstrlenA(wine), c_users);
+		lstrcpyA(cud + lstrlenA(home) + lstrlenA(wine) + lstrlenA(c_users), userName);
+		lstrcpyA(cud + lstrlenA(home) + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(userName), desktop);
 
 		//check if filename start with c_user_$username_desktop
 		if (pathPreCompare(cud, pszFileName, preSize))
 		{
 			
 			// construct c_user_Public_desktop
-			dstPreSize = lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(public) + lstrlenA(desktop);
+			dstPreSize = lstrlenA(home)  + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(public) + lstrlenA(desktop);
 			cupd = HeapAlloc(GetProcessHeap(), 0, (dstPreSize + 1) * sizeof(char));
 
 			lstrcpyA(cupd, home);
-			lstrcpyA(cupd + lstrlenA(home), userName);
-			lstrcpyA(cupd + lstrlenA(home) + lstrlenA(userName), wine);
-			lstrcpyA(cupd + lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine), c_users);
-			lstrcpyA(cupd + lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine) + lstrlenA(c_users), public);
-			lstrcpyA(cupd + lstrlenA(home) + lstrlenA(userName) + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(public), desktop);
+		//strcpyA(cupd + lstrlenA(home), userName);
+			lstrcpyA(cupd + lstrlenA(home) , wine);
+			lstrcpyA(cupd + lstrlenA(home)  + lstrlenA(wine), c_users);
+			lstrcpyA(cupd + lstrlenA(home)  + lstrlenA(wine) + lstrlenA(c_users), public);
+			lstrcpyA(cupd + lstrlenA(home)  + lstrlenA(wine) + lstrlenA(c_users) + lstrlenA(public), desktop);
 
 			//change filename to c_user_Public_desktop
 			*pszFileNameAfterTrans = HeapAlloc(GetProcessHeap(), 0, (nameSize - preSize + dstPreSize + 1) * sizeof(char));
@@ -3086,7 +3102,7 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
     char *link_name = NULL, *icon_name = NULL, *work_dir = NULL;
     char *escaped_path = NULL, *escaped_args = NULL, *description = NULL;
     WCHAR szTmp[INFOTIPSIZE];
-    WCHAR szDescription[INFOTIPSIZE], szPath[MAX_PATH], szWorkDir[MAX_PATH];
+    WCHAR szDescription[INFOTIPSIZE], szIconPath1[MAX_PATH],szPath[MAX_PATH], szWorkDir[MAX_PATH];
     WCHAR szArgs[INFOTIPSIZE], szIconPath[MAX_PATH];
     int iIconId = 0, r = -1;
     DWORD csidl = -1;
@@ -3129,9 +3145,10 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
 
     szTmp[0] = 0;
     IShellLinkW_GetIconLocation( sl, szTmp, MAX_PATH, &iIconId );
-    ExpandEnvironmentStringsW(szTmp, szIconPath, MAX_PATH);
+    ExpandEnvironmentStringsW(szTmp, szIconPath,MAX_PATH);
     WINE_TRACE("icon file  : %s\n", wine_dbgstr_w(szIconPath) );
-
+    //sprintf(szIconPath,"/opt/.wine/dosdevice/%s",szIconPath1);
+fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",szIconPath);
     if( !szPath[0] )
     {
         LPITEMIDLIST pidl = NULL;
@@ -3141,10 +3158,15 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
     }
 
     /* extract the icon */
-    if( szIconPath[0] )
+    if( szIconPath[0] ){
         icon_name = extract_icon( szIconPath , iIconId, NULL, bWait );
-    else
+    }
+    else{
+
+
         icon_name = extract_icon( szPath, iIconId, NULL, bWait );
+    }
+    fprintf(stderr,"II__icon_name:%s\n",icon_name);
 
     /* fail - try once again after parent process exit */
     if( !icon_name )
@@ -3193,9 +3215,12 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
 
             GetWindowsDirectoryW(szPath, MAX_PATH);
             lstrcatW(szPath, startW);
+	fprintf(stderr,"CC__szArgs:%s\nlink:%s\nszPath:%s\nstartW:%s",debugstr_w(szArgs),debugstr_w(link),debugstr_w(szPath),debugstr_w(startW));
+	    
         }
 
         /* convert app working dir */
+	fprintf(stderr,"CC__szWorkDir:%s\n",debugstr_w(szWorkDir));
         if (szWorkDir[0])
             work_dir = wine_get_unix_file_name( szWorkDir );
     }
@@ -3205,7 +3230,9 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         lstrcpynW(szArgs, link, MAX_PATH);
         GetWindowsDirectoryW(szPath, MAX_PATH);
         lstrcatW(szPath, startW);
+
     }
+	fprintf(stderr,"CC33__szArgs:%s\nlink:%s\nszPath:%s\nstartW:%s",debugstr_w(szArgs),debugstr_w(link),debugstr_w(szPath),debugstr_w(startW));
 
     /* escape the path and parameters */
     escaped_path = escape(szPath);
@@ -3260,17 +3287,21 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
 	    	
 	    //xiaoya
 		char *pszFileNameAfterTrance=NULL;
-		transmitePath(unix_link,&pszFileNameAfterTrance);
      		char cmdline[100];
+
+		transmitePath(unix_link,&pszFileNameAfterTrance);
+		fprintf(stderr,"@@__unix_link: %s\n",unix_link);
+		fprintf(stderr,"@@__pszFileNameAfterTrance: %s\n", pszFileNameAfterTrance );
+		
 		sprintf(cmdline,"mv \"%s\" \"%s\"",unix_link,pszFileNameAfterTrance);
 		system(cmdline);
 		
 		r = !write_desktop_entry(pszFileNameAfterTrance, location, lastEntry, escaped_path, escaped_args, description, work_dir, icon_name);
 		
-            if (r == 0)
-                chmod(location, 0755);
+            	if (r == 0)
+                	chmod(location, 0755);
 	    
-            HeapFree(GetProcessHeap(), 0, location);
+            	HeapFree(GetProcessHeap(), 0, location);
 	    }
         }
     }
@@ -3722,7 +3753,7 @@ static void cleanup_desktop(void){
 					char deskiconpath[200];
 					sprintf(deskiconpath,"rm %s",desktop_name);
 						
-						remove(desktop_name);	
+					remove(desktop_name);	
 					       
                         		RegDeleteValueW(hkey, value_subkey);
                 	      }
@@ -3972,9 +4003,32 @@ static WCHAR *next_token( LPWSTR *p )
 static BOOL init_xdg(void)
 {
     WCHAR shellDesktopPath[MAX_PATH];
+    WCHAR wszTempPath[MAX_PATH];
+    char *pszDesktop;
     HRESULT hr = SHGetFolderPathW(NULL, CSIDL_DESKTOP, NULL, SHGFP_TYPE_CURRENT, shellDesktopPath);
     if (SUCCEEDED(hr))
+    {
         xdg_desktop_dir = wine_get_unix_file_name(shellDesktopPath);
+    	
+    	fprintf(stderr,"@@__xdg_desktop_dir: %s\n",xdg_desktop_dir);
+    	fprintf(stderr,"@@__shellDesktopPath %s\n",debugstr_w(shellDesktopPath));
+	
+	strcat(xdg_desktop_dir,"/LinuxDesktop");
+	mkdir(xdg_desktop_dir,0777);
+	HRESULT hres = SHGetFolderPathW(NULL,CSIDL_DESKTOPDIRECTORY|CSIDL_FLAG_CREATE,NULL,SHGFP_TYPE_DEFAULT,wszTempPath);
+	if (SUCCEEDED(hres))
+	{
+		pszDesktop = wine_get_unix_file_name(wszTempPath);
+    		fprintf(stderr,"@@__pszDesktop_dir: %s\n",pszDesktop);
+    		fprintf(stderr,"@@__wszTempPath:%s\n",debugstr_w(wszTempPath));
+	
+		if(xdg_desktop_dir)
+		{
+			int ret = symlink(xdg_desktop_dir,pszDesktop);
+			fprintf(stderr,"ret%d , %s",ret,strerror(errno));
+		}	
+	}
+    }			
     if (xdg_desktop_dir == NULL)
     {
         WINE_ERR("error looking up the desktop directory\n");
@@ -3985,9 +4039,12 @@ static BOOL init_xdg(void)
         xdg_config_dir = heap_printf("%s/menus/applications-merged", getenv("XDG_CONFIG_HOME"));
     else
         xdg_config_dir = heap_printf("%s/.config/menus/applications-merged", getenv("HOME"));
+
     if (xdg_config_dir)
     {
         create_directories(xdg_config_dir);
+    	fprintf(stderr,"@@__xdg_config_dir: %s\n",xdg_config_dir);
+	
         if (getenv("XDG_DATA_HOME"))
             xdg_data_dir = strdupA(getenv("XDG_DATA_HOME"));
         else
@@ -4009,6 +4066,95 @@ static BOOL init_xdg(void)
     WINE_ERR("out of memory\n");
 return FALSE;
 
+}
+struct processInfo {
+	DWORD processId;
+	WCHAR exeFile[MAX_MODULE_NAME32+1];
+	WCHAR exeFilePath[MAX_PATH];
+};
+
+static int getParentProcessInfo(struct processInfo* buff) 
+{
+	int count = 0;
+	HANDLE hSnapshort = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);  
+	PROCESSENTRY32W pe32;  
+	BOOL  bRet;
+	if( hSnapshort==INVALID_HANDLE_VALUE )  
+	{  
+		ERR("CreateToolhelp32Snapshot (of process fail\n");  
+		return 0;
+	}		
+	pe32.dwSize = sizeof(pe32);  
+
+	bRet = Process32FirstW(hSnapshort, &pe32);  
+
+	while (bRet)  
+	{  
+		HANDLE hModuleSnap = INVALID_HANDLE_VALUE;
+		MODULEENTRY32W me32;
+		hModuleSnap = CreateToolhelp32Snapshot(
+			TH32CS_SNAPMODULE, 
+			pe32.th32ProcessID );
+
+		TRACE("%s\n", debugstr_w(pe32.szExeFile));
+
+		if( hModuleSnap == INVALID_HANDLE_VALUE )
+		{ 
+			ERR("CreateToolhelp32Snapshot (of modules) fail\n");
+		}
+		else
+		{
+			me32.dwSize = sizeof(me32);
+	      		if( !Module32FirstW( hModuleSnap, &me32 ))
+			{
+				ERR("Module32First fail\n");
+			}
+			else
+			{
+				strcpyW(buff[count].exeFilePath, me32.szExePath );
+			}
+		}
+		CloseHandle(hModuleSnap);
+		buff[count].processId = pe32.th32ProcessID;			
+		strcpyW(buff[count].exeFile, pe32.szExeFile);
+		count ++;
+		bRet = Process32NextW(hSnapshort, &pe32);  
+		if (count > MAX_PROCESS_INFO) break;
+	}  
+		CloseHandle(hSnapshort);  
+		return count;
+}
+
+static void checkProcessTerminate(
+	struct processInfo *parentInfoBuff, int parentInfoCount,
+	struct processInfo *previousInfoBuff, int previousInfoCount )
+{
+	int i, j;
+	static const WCHAR system32Wchar[] = {'s','y','s','t','e','m','3','2','0'};
+	static const WCHAR msiexecWchar[] = {'m','s','i','e','x','e','c','0'};
+	
+	for (i=0; i< previousInfoCount; i++)
+	{
+		
+		BOOL processAlive = FALSE;
+		for (j=0; j<parentInfoCount; j++)
+		{
+			if(previousInfoBuff[i].processId == parentInfoBuff[j].processId)
+			{
+				processAlive =TRUE;
+				break;
+			}
+		}
+		if(!processAlive)
+		{
+			if(!strstrW(previousInfoBuff[i].exeFilePath,system32Wchar) || strstrW(previousInfoBuff[i].exeFilePath,msiexecWchar) )
+			{
+				TRACE("%s closed\n", debugstr_w(previousInfoBuff[i].exeFilePath));
+				cleanup_desktop();
+				cleanup_menus();
+			}
+		}
+	}
 }
 
 
