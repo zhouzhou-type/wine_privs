@@ -4423,10 +4423,10 @@ static WCHAR * char_to_wchar(LPCSTR str)
 	return wstr;
 }
 
-static BOOL create_symlink_by_winemenubuilder( LPCSTR from, LPCSTR to )
+static BOOL create_symlink_by_winemenubuilder( LPSTR from, LPSTR to )
 {
     //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
-    static const WCHAR szFormat[] = {' ','-','s',' ','"','%','s','"',' ','"','%','s','"',0 };
+    static const WCHAR szFormat[] = {'-','s',' ','%','s',' ','%','s',0};
     
     LONG len;
     LPWSTR buffer, pszFromW, pszToW;
@@ -4434,7 +4434,7 @@ static BOOL create_symlink_by_winemenubuilder( LPCSTR from, LPCSTR to )
 
 	pszFromW = char_to_wchar(from);
 	pszToW = char_to_wchar(to);
-    len = sizeof(szFormat) + (lstrlenW( pszFromW )+5) * sizeof(WCHAR) +(lstrlenW( pszToW )+5) * sizeof(WCHAR);
+    len = (5 + lstrlenW( pszFromW ) + lstrlenW( pszToW )) * sizeof(WCHAR);
     buffer = HeapAlloc( GetProcessHeap(), 0, len );
     if( !buffer )
         return FALSE;
@@ -4625,7 +4625,7 @@ static void _SHCreateSymbolicLinks(void)
             if (xdg_desktop_dir)
             {
                 //symlink(xdg_desktop_dir, pszDesktop);
-                create_symlink_by_winemenubuilder(xdg_desktop_dir, pszDesktop);
+               	create_symlink_by_winemenubuilder(xdg_desktop_dir, pszDesktop);
             }
 			else
 			{

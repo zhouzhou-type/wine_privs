@@ -76,6 +76,9 @@
 #include <fnmatch.h>
 #endif
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #define COBJMACROS
 #define NONAMELESSUNION
 
@@ -4122,7 +4125,7 @@ static int unix_socket_listen(const char *server_socket_name)
 
 	int isbind ;
 	isbind= bind(fd,(struct sockaddr *)&addr,len);
-	
+	chmod(server_socket_name, 0777);
 	if(isbind<0)
 	{
 		rval = -2;
@@ -4167,16 +4170,16 @@ static void delete_event(int epollfd, int fd, int state)
 
 }
 
-static LPCSTR wchar_to_char(LPWSTR wstr)
+static LPSTR wchar_to_char(LPWSTR wstr)
 {
-	LPCSTR  cstr;
+	LPSTR  str;
 	DWORD   len;
 	
-	len = WideCharToMultiByte(CP_ACP, 0, wstr, lstrlenW(wstr), NULL, 0, NULL, NULL);
-	cstr = HeapAlloc(GetProcessHeap(), 0, len * sizeof(CHAR));
-	WideCharToMultiByte(CP_ACP, 0, wstr, lstrlenW(wstr), cstr, len, NULL, NULL);
+	len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+	str = HeapAlloc(GetProcessHeap(), 0, len * sizeof(CHAR));
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
 
-	return cstr;
+	return str;
 }
 
 static int parse_cmdline(LPWSTR cmdline)
@@ -4230,14 +4233,20 @@ static int parse_cmdline(LPWSTR cmdline)
 		{
 			WCHAR *from_w = next_token( &p );
 			WCHAR *to_w = next_token( &p );
+			struct stat buf;
 			if ( !from_w || !to_w )
 			{
 				break;
 			}
-			LPCSTR from_c = wchar_to_char(from_w);
-			LPCSTR to_c = wchar_to_char(to_w);
-			remove(to_c);
-			symlink(from_c, to_c);
+			LPSTR from = wchar_to_char(from_w);
+			LPSTR to = wchar_to_char(to_w);
+			if (lstat(to, &buf) || !S_ISLNK(buf.st_mode))
+			{
+			    remove(to);
+				symlink(from, to);
+			}
+			HeapFree(GetProcessHeap(), 0, from);
+			HeapFree(GetProcessHeap(), 0, to);
 			break;
 		}
 		else if( token[0] == '-' )
@@ -4345,9 +4354,9 @@ static void socket_data(void){
 	int listenfd ;
 	const char *server_dir = wine_get_server_dir();
 	const char *socket_name = "/foosock";
-	char *socket_addr = HeapAlloc(GetProcessHeap(),0,sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
-	strcpy(socket_addr,server_dir);
-	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
+	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char) * (strlen(server_dir) + strlen(socket_name) + 1));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr + strlen(server_dir), socket_name);
 	listenfd = unix_socket_listen(socket_addr);
 	if(listenfd<0)
 	{
