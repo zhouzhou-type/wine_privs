@@ -16,7 +16,8 @@
 
 #include "wine/prestart_util.h"
 
-static const char prestart_config_dir[] = "/.wine"; // config dir relative to $HOME
+//static const char prestart_config_dir[] = "/.wine"; // config dir relative to $HOME
+static const char prestart_config_dir[] = "/opt/.wine";
 static const char prestart_root_prefix[] = "/tmp/.wine-prestart";
 static const char prestart_dir_prefix[] = "/prestart-";
 static const char prestart_socket_name[] = "socket";
@@ -114,10 +115,11 @@ int prestart_initialize(void)
 	if (!wineprefix)
 	{
 		//fprintf(stderr, "WINEPREFIX not specified\n");
-		pwd = getpwuid(getuid());
-		strcpy(wine_config_path, pwd->pw_dir);
-		remove_trailing_slashes(wine_config_path);
-		strcat(wine_config_path, prestart_config_dir);
+		//pwd = getpwuid(getuid());
+		//strcpy(wine_config_path, pwd->pw_dir);
+		//remove_trailing_slashes(wine_config_path);
+		//strcat(wine_config_path, prestart_config_dir);
+		strcpy(wine_config_path, prestart_config_dir);
 	}
 	else
 	{
@@ -135,11 +137,13 @@ int prestart_initialize(void)
 		fprintf(stderr, "%s is not a directory\n", wine_config_path);
 		return -1;
 	}
+	/*
 	if (statbuf.st_uid != getuid())
 	{
 		fprintf(stderr, "%s is not owned by you\n", wine_config_path);
 		return -1;
 	}
+	*/
 
 	init_prestart_socket_dir(statbuf.st_dev, statbuf.st_ino);
 	if (setup_prestart_socket_dir() == -1)
