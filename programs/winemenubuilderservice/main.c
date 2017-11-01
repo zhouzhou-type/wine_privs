@@ -105,8 +105,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/epoll.h>
+#include <sys/types.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <dirent.h>
 
 #define MAX_PROCESS_INFO 256
 #define MAX_CONNECTION_NUMBER 5
@@ -375,7 +377,7 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
     HRESULT hr = E_FAIL;
 
     dosOutputFileName = wine_get_dos_file_name(outputFileName);
-    fprintf(stderr,"dosOutputFileName:%s\n",debugstr_w(dosOutputFileName));
+    //fprintf(stderr,"dosOutputFileName:%s\n",debugstr_w(dosOutputFileName));
     if (dosOutputFileName == NULL)
     {
         WINE_ERR("error converting %s to DOS file name\n", outputFileName);
@@ -918,8 +920,6 @@ static HRESULT open_module_icon(LPCWSTR szFileName, int nIndex, IStream **ppStre
     else
     {
         WINE_WARN("found no icon\n");
-        fprintf(stderr,"\n************\nfound no icon\n********\n");
-	
         FreeLibrary(hModule);
         return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
     }
@@ -1107,7 +1107,6 @@ static HRESULT open_icon(LPCWSTR filename, int index, BOOL bWait, IStream **ppSt
     }
     if (FAILED(hr) && !bWait)
     {
-	    fprintf(stderr,"\n------------\nvalidate_icon\n----------\n\n");
         hr = open_default_icon(ppStream);
         if (SUCCEEDED(hr))
             hr = validate_ico(ppStream, ppIconDirEntries, numEntries);
@@ -1293,6 +1292,200 @@ static void refresh_icon_cache(const char *iconsDir)
     }
 }
 
+
+//by xiaoya: Create dir
+static int mkdirs(char *baseDir)
+{
+	int i,len,ret;  
+	char str[512];      
+	strcpy(str, baseDir);  
+	len=strlen(str);  
+	for( i=0; i<len; i++ )  
+	{  
+		if( str[i]=='/' )  
+		{  
+			str[i] = '\0';  
+			if( access(str,0)!=0 )  
+			{  
+				ret = mkdir( str, 0777 );  
+			}		 
+			str[i]='/';  
+		}  
+	}  
+	if( len>0 && access(str,0)!=0 )  
+	{  
+		ret = mkdir( str, 0777 );  
+	}
+	return ret ;
+}
+
+
+//by xiaoya:Create a soft link to file(root) and target file(user)
+static void createSoftLink(const char *filePath){
+	DIR *dirptr=NULL;
+	int i=1,ret;
+	struct dirent *entry;
+	char *localsdir_rel, *menusdir_rel, *winedir_rel;
+	char *filename;
+	char filePath_abs[300],dir_abs[300];
+	char dir_rel_Tmp[300],filenameTmp[100];
+	
+	
+	
+	if ( (dirptr = opendir("/home")) == NULL )
+	{
+		fprintf(stderr,"opendir failed!!!");		
+	}
+	else
+	{
+
+		while( (entry = readdir(dirptr)) != NULL )
+		{
+			if(strncmp(entry->d_name,".",1) == 0 )
+				continue;
+			
+		//	menusdir_rel= strstr(filePath,".config");
+		//	winedir_rel= strstr(filePath,".wine");
+
+		//	fprintf(stderr,"SS-------------filePath2:%s :%s\n",filePath,winedir_rel);
+	
+				
+
+			struct stat buf;
+		//	if(localsdir_rel != NULL)
+		 	if((localsdir_rel=strstr(filePath,".local") ) != NULL)
+
+			{
+				fprintf(stderr,"opendir successful11:%s filename:\n",localsdir_rel);		
+
+				strcpy(dir_rel_Tmp,localsdir_rel);	
+				filename = strrchr(dir_rel_Tmp,'/');
+				strcpy(filenameTmp,filename);
+				*filename =0;
+
+				sprintf( dir_abs,"/home/%s/%s",entry->d_name,dir_rel_Tmp);
+				
+				if ( stat(dir_abs, &buf) == 0 ) //iconDir exist
+				{
+					
+					sprintf( filePath_abs,"%s%s",dir_abs,filenameTmp);
+			
+					//pngfile exist : pass
+					if(access(filePath_abs,0) == 0 ){
+						fprintf(stderr,"****SS_create Over****pass: %s*\n",filePath_abs);	
+						continue;
+					}else{
+						//pngfile not exist : createSoftlink 
+						ret = symlink(filePath,filePath_abs);
+						fprintf(stderr,"****SS_create succesful: %s****\n",filePath_abs);	
+					}
+
+				}else{ //create iconDir
+				
+					mkdirs(dir_abs);	
+					sprintf( filePath_abs,"%s/%s",dir_abs,filenameTmp);
+					ret = symlink(filePath,filePath_abs);	
+					fprintf(stderr,"****SS_create dir succesful: %s****\n",filePath_abs);	
+				}
+
+			}else if( (winedir_rel = strstr(filePath,".wine")) != NULL){
+				
+				fprintf(stderr,"opendir successful11:%s filename:\n",winedir_rel);		
+				
+
+				strcpy(dir_rel_Tmp,winedir_rel);	
+				filename = strrchr(dir_rel_Tmp,'/');
+				strcpy(filenameTmp,filename);
+				*filename =0;
+				
+				sprintf( dir_abs,"/home/%s/%s",entry->d_name,dir_rel_Tmp);
+			
+				if ( stat(dir_abs, &buf) == 0 ) //iconDir exist
+				{
+					
+					sprintf( filePath_abs,"%s%s",dir_abs,filenameTmp);
+			
+					//pngfile exist : pass
+					if(access(filePath_abs,0) == 0 ){
+						fprintf(stderr,"****SS_create Over****pass: %s*\n",filePath_abs);	
+						continue;
+					}else{
+						//pngfile not exist : createSoftlink 
+						ret = symlink(filePath,filePath_abs);
+						fprintf(stderr,"****SS_create succesful: %s****\n",filePath_abs);	
+					}
+
+				}else{ //create iconDir
+				
+					mkdirs(dir_abs);
+					sprintf( filePath_abs,"%s/%s",dir_abs,filenameTmp);
+					ret = symlink(filePath,filePath_abs);
+				/*	sprintf(filePath_abs,"/home/%s/桌面/%s",entry->d_name,filenameTmp);
+					symlink(filePath,filePath_abs);	
+					fprintf(stderr,"****SS_create dir succesful: %s****\n",filePath_abs);	*/
+				}
+
+			}else if((menusdir_rel =strstr(filePath,".config")) != NULL){
+
+				strcpy(dir_rel_Tmp,menusdir_rel);	
+				filename = strrchr(dir_rel_Tmp,'/');
+				strcpy(filenameTmp,filename);
+				*filename =0;
+				
+				sprintf( dir_abs,"/home/%s/%s",entry->d_name,dir_rel_Tmp);
+				
+				if ( stat(dir_abs, &buf) == 0 ) //iconDir exist
+				{
+					
+					sprintf( filePath_abs,"%s%s",dir_abs,filenameTmp);
+			
+					//pngfile exist : pass
+					if(access(filePath_abs,0) == 0 ){
+						fprintf(stderr,"****SS_create Over****pass: %s*\n",filePath_abs);	
+						continue;
+					}else{
+						//pngfile not exist : createSoftlink 
+						ret = symlink(filePath,filePath_abs);
+						fprintf(stderr,"****SS_create succesful: %s****\n",filePath_abs);	
+					}
+
+				}else{ //create iconDir
+				
+					mkdirs(dir_abs);	
+					sprintf( filePath_abs,"%s/%s",dir_abs,filenameTmp);
+					ret = symlink(filePath,filePath_abs);	
+					fprintf(stderr,"****SS_create dir succesful: %s****\n",filePath_abs);	
+				}
+				
+				
+
+				
+			}
+						
+			filename = strstr(pngPath,".local");
+			fprintf( iconsPath,"/home/%s/%s/%s",entry->d_name,iconsdir_rel,pngname);
+			struct stat buf;
+			if( stat(filePath, &buf) == 0 )
+			{
+				i++;
+			}
+			else if(erron == ENOENT )
+			{
+				
+			}
+
+			ret = symlink(pngPath,iconsPath);	
+			fprintf(stderr,"\n-------------\nfilename%d=%s, filePath:%s\n,ret:%d\n,error:%s\n-------------\n\n",i,iconsdir_rel,iconsPath,ret,strerror(errno));
+
+			
+			fprintf(stderr,"filename%d=%s **ret:%d\n, error:%s",i,entry->d_name,ret,strerror(errno));
+			
+			i++;
+		}
+		closedir(dirptr);
+	}	
+} 
+
 static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntries,
                                    int numEntries, int exeIndex, LPCWSTR icoPathW,
                                    const char *destFilename, char **nativeIdentifier)
@@ -1306,8 +1499,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
-
-    fprintf(stderr,"__PP__platform_iconPathw:%s\n nativeIdentifier:%s\n ",debugstr_w(icoPathW),*nativeIdentifier);
 
     if (*nativeIdentifier == NULL)
     {
@@ -1365,7 +1556,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         }
         create_directories(iconDir);
         pngPath = heap_printf("%s/%s.png", iconDir, *nativeIdentifier);
-	fprintf(stderr,"\n\nSS__pngPath%s\n",pngPath);
         if (pngPath == NULL)
         {
             hr = E_OUTOFMEMORY;
@@ -1377,6 +1567,9 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
             goto endloop;
         hr = convert_to_native_icon(icoStream, &bestIndex, 1, &CLSID_WICPngEncoder,
                                     pngPath, icoPathW);
+	//change by xiaoya:ln -s pngPath /home/user/.local
+//	createSoftLink( pngPath);
+	
 
     endloop:
         HeapFree(GetProcessHeap(), 0, iconDir);
@@ -1400,8 +1593,6 @@ static char *extract_icon(LPCWSTR icoPathW, int index, const char *destFilename,
     char *nativeIdentifier = NULL;
 
     WINE_TRACE("path=[%s] index=%d destFilename=[%s]\n", wine_dbgstr_w(icoPathW), index, wine_dbgstr_a(destFilename));
-    fprintf(stderr,"path=[%s] index=%d destFilename=[%s]\n", wine_dbgstr_w(icoPathW), index, wine_dbgstr_a(destFilename));
-    
 
     hr = open_icon(icoPathW, index, bWait, &stream, &pIconDirEntries, &numEntries);
     if (FAILED(hr))
@@ -1571,6 +1762,10 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 
     fclose(file);
 
+    //by xiaoya:createSoftLink
+    fprintf(stderr,"SS---location:%s\n",location);
+    createSoftLink(location);
+
     if (unix_link)
     {
 	//xiaoya:desktopname->desktopInfo to regedit
@@ -1610,6 +1805,10 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 
 		register_desktopInfo_entry(location,starticonpath);
 		
+			
+	}else{
+	
+	
 	}
 	//------------------------------------------------------------------------
         DWORD ret = register_menus_entry(location, unix_link);
@@ -1624,6 +1823,7 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 static BOOL write_directory_entry(const char *directory, const char *location)
 {
     FILE *file;
+    fprintf(stderr,"write_directory_entry--directory:%s\n location :%s--\n",directory,location);
 
     WINE_TRACE("(%s,%s)\n", wine_dbgstr_a(directory), wine_dbgstr_a(location));
 
@@ -1645,6 +1845,11 @@ static BOOL write_directory_entry(const char *directory, const char *location)
     }
 
     fclose(file);
+	
+    //by xiaoya:createSoftLink
+    fprintf(stderr,"AA-location--%s\n",location);
+    createSoftLink(location);
+
     return TRUE;
 }
 
@@ -1664,6 +1869,7 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
     while (1)
     {
         tempfilename = heap_printf("%s/wine-menu-XXXXXX", xdg_config_dir);
+	fprintf(stderr,"wine menu file111_--:%s-----\n",tempfilename);
         if (tempfilename)
         {
             int tempfd = mkstemps(tempfilename, 0);
@@ -1691,6 +1897,7 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
     fprintf(tempfile, "  <Name>Applications</Name>\n");
 
     name = HeapAlloc(GetProcessHeap(), 0, lstrlenA(filename) + 1);
+    fprintf(stderr,"-------------------write menu file: %s\n",filename);
     if (name == NULL) goto end;
     lastEntry = name;
     for (i = 0; filename[i]; i++)
@@ -1710,10 +1917,13 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
             fprintf(tempfile, ".directory</Directory>\n");
             dir_file_name = heap_printf("%s/desktop-directories/%s%s.directory",
                 xdg_data_dir, count ? "" : "wine-", name);
+
             if (dir_file_name)
             {
-                if (stat(dir_file_name, &st) != 0 && errno == ENOENT)
+                if (stat(dir_file_name, &st) != 0 && errno == ENOENT){
                     write_directory_entry(lastEntry, dir_file_name);
+			fprintf(stderr,"-----------dir_file_name:%s\n--------------lastentry:%s\n",dir_file_name,lastEntry);
+		}
                 HeapFree(GetProcessHeap(), 0, dir_file_name);
             }
             name[i] = '-';
@@ -1733,9 +1943,15 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
     fprintf(tempfile, "</Menu>\n");
 
     menuPath = heap_printf("%s/%s", xdg_config_dir, name);
+    fprintf(stderr,"menuPath-----------:%s-----\n",menuPath);
     if (menuPath == NULL) goto end;
     strcpy(menuPath + strlen(menuPath) - strlen(".desktop"), ".menu");
+    fprintf(stderr,"menuPath22-----------:%s-----\n",menuPath);
+
     ret = TRUE;
+
+//	by xiaoya:createSoftLink
+	createSoftLink(menuPath);
 
 end:
     if (tempfile)
@@ -1778,6 +1994,8 @@ static BOOL write_menu_entry(const char *unix_link, const char *link, const char
         goto end;
     }
     desktopDir = strrchr(desktopPath, '/');
+
+    fprintf(stderr,"------------desktopPath:%s  desktopDir:%s\n",desktopPath,desktopDir);
     
     *desktopDir = 0;
     if (!create_directories(desktopPath))
@@ -2589,6 +2807,10 @@ static BOOL write_freedesktop_mime_type_entry(const char *packages_dir, const ch
             fprintf(packageFile, "</mime-info>\n");
             ret = TRUE;
             fclose(packageFile);
+
+	   // by xiaoya:create soft link
+	   fprintf(stderr,"FF---filename:%s\n",filename);
+	   createSoftLink(filename);
         }
         else
             WINE_ERR("error writing file %s\n", filename);
@@ -2646,6 +2868,8 @@ static BOOL write_freedesktop_association_entry(const char *desktopPath, const c
             fprintf(desktop, "Icon=%s\n", openWithIcon);
         ret = TRUE;
         fclose(desktop);
+	//by xiaoya:create Soft link
+	createSoftLink(desktopPath);
     }
     else
         WINE_ERR("error writing association file %s\n", wine_dbgstr_a(desktopPath));
@@ -2909,7 +3133,7 @@ LPWSTR WINAPI MultiByteToUnicode(LPCSTR lpMultiByteStr, UINT uCodePage)
 {
 	LPWSTR lpUnicodeStr;
 	        int nLength;
-	fprintf(stderr,"multibytestr:%s\n",lpMultiByteStr);
+	//fprintf(stderr,"multibytestr:%s\n",lpMultiByteStr);
 		    nLength = MultiByteToWideChar(uCodePage, 0, lpMultiByteStr,
 				                                      -1, NULL, 0);
 		        if (nLength == 0)
@@ -2997,15 +3221,15 @@ BOOL isDesktopFile(const char *path)
 {
 
 	char c_users[] = { 'c',':','/','u','s','e','r','s','/',0 };
-	char *desktop ="/桌面";
-	char *userName = NULL;
-	userName = wine_get_user_name();
+	const char *desktop ="/桌面";
+	const char *userName = NULL;
 	char cmdline[500];
+	
+	userName = wine_get_user_name();
 	sprintf(cmdline,"%s%s%s",c_users,userName,desktop);
 	if(strstr(path,cmdline)!=NULL)
 	{
 		return TRUE;
-	
 	}
 	else
 	{
@@ -3102,7 +3326,7 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
     char *link_name = NULL, *icon_name = NULL, *work_dir = NULL;
     char *escaped_path = NULL, *escaped_args = NULL, *description = NULL;
     WCHAR szTmp[INFOTIPSIZE];
-    WCHAR szDescription[INFOTIPSIZE], szIconPath1[MAX_PATH],szPath[MAX_PATH], szWorkDir[MAX_PATH];
+    WCHAR szDescription[INFOTIPSIZE], szPath[MAX_PATH], szWorkDir[MAX_PATH];
     WCHAR szArgs[INFOTIPSIZE], szIconPath[MAX_PATH];
     int iIconId = 0, r = -1;
     DWORD csidl = -1;
@@ -3147,8 +3371,7 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
     IShellLinkW_GetIconLocation( sl, szTmp, MAX_PATH, &iIconId );
     ExpandEnvironmentStringsW(szTmp, szIconPath,MAX_PATH);
     WINE_TRACE("icon file  : %s\n", wine_dbgstr_w(szIconPath) );
-    //sprintf(szIconPath,"/opt/.wine/dosdevice/%s",szIconPath1);
-fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",szIconPath);
+	//fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",debugstr_w(szIconPath));
     if( !szPath[0] )
     {
         LPITEMIDLIST pidl = NULL;
@@ -3166,7 +3389,7 @@ fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",s
 
         icon_name = extract_icon( szPath, iIconId, NULL, bWait );
     }
-    fprintf(stderr,"II__icon_name:%s\n",icon_name);
+    //fprintf(stderr,"II__icon_name:%s\n",icon_name);
 
     /* fail - try once again after parent process exit */
     if( !icon_name )
@@ -3215,12 +3438,10 @@ fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",s
 
             GetWindowsDirectoryW(szPath, MAX_PATH);
             lstrcatW(szPath, startW);
-	fprintf(stderr,"CC__szArgs:%s\nlink:%s\nszPath:%s\nstartW:%s",debugstr_w(szArgs),debugstr_w(link),debugstr_w(szPath),debugstr_w(startW));
 	    
         }
 
         /* convert app working dir */
-	fprintf(stderr,"CC__szWorkDir:%s\n",debugstr_w(szWorkDir));
         if (szWorkDir[0])
             work_dir = wine_get_unix_file_name( szWorkDir );
     }
@@ -3232,7 +3453,6 @@ fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",s
         lstrcatW(szPath, startW);
 
     }
-	fprintf(stderr,"CC33__szArgs:%s\nlink:%s\nszPath:%s\nstartW:%s",debugstr_w(szArgs),debugstr_w(link),debugstr_w(szPath),debugstr_w(startW));
 
     /* escape the path and parameters */
     escaped_path = escape(szPath);
@@ -3289,12 +3509,12 @@ fprintf(stderr,"_____________________\nszIconPath:%s\n___________________\n\n",s
 		char *pszFileNameAfterTrance=NULL;
      		char cmdline[100];
 
-		transmitePath(unix_link,&pszFileNameAfterTrance);
-		fprintf(stderr,"@@__unix_link: %s\n",unix_link);
-		fprintf(stderr,"@@__pszFileNameAfterTrance: %s\n", pszFileNameAfterTrance );
+	//	transmitePath(unix_link,&pszFileNameAfterTrance);
+	//	fprintf(stderr,"@@__unix_link: %s\n",unix_link);
+	//	fprintf(stderr,"@@__pszFileNameAfterTrance: %s\n", pszFileNameAfterTrance );
 		
-		sprintf(cmdline,"mv \"%s\" \"%s\"",unix_link,pszFileNameAfterTrance);
-		system(cmdline);
+	//	sprintf(cmdline,"mv \"%s\" \"%s\"",unix_link,pszFileNameAfterTrance);
+	//	system(cmdline);
 		
 		r = !write_desktop_entry(pszFileNameAfterTrance, location, lastEntry, escaped_path, escaped_args, description, work_dir, icon_name);
 		
@@ -3486,8 +3706,8 @@ static BOOL WaitForParentProcess( int pid )
 {
     PROCESSENTRY32 procentry;
     HANDLE hsnapshot = NULL, hprocess = NULL;
-    DWORD ourpid = GetCurrentProcessId();
-    BOOL ret = FALSE, rc;
+    //DWORD ourpid = GetCurrentProcessId();
+    BOOL ret = FALSE ;//rc;
 
     WINE_TRACE("Waiting for parent process\n");
 
@@ -4003,31 +4223,15 @@ static WCHAR *next_token( LPWSTR *p )
 static BOOL init_xdg(void)
 {
     WCHAR shellDesktopPath[MAX_PATH];
-    WCHAR wszTempPath[MAX_PATH];
-    char *pszDesktop;
     HRESULT hr = SHGetFolderPathW(NULL, CSIDL_DESKTOP, NULL, SHGFP_TYPE_CURRENT, shellDesktopPath);
     if (SUCCEEDED(hr))
     {
         xdg_desktop_dir = wine_get_unix_file_name(shellDesktopPath);
     	
-    	fprintf(stderr,"@@__xdg_desktop_dir: %s\n",xdg_desktop_dir);
-    	fprintf(stderr,"@@__shellDesktopPath %s\n",debugstr_w(shellDesktopPath));
-	
 	strcat(xdg_desktop_dir,"/LinuxDesktop");
+//	mkdirs(xdg_desktop_dir);
 	mkdir(xdg_desktop_dir,0777);
-	HRESULT hres = SHGetFolderPathW(NULL,CSIDL_DESKTOPDIRECTORY|CSIDL_FLAG_CREATE,NULL,SHGFP_TYPE_DEFAULT,wszTempPath);
-	if (SUCCEEDED(hres))
-	{
-		pszDesktop = wine_get_unix_file_name(wszTempPath);
-    		fprintf(stderr,"@@__pszDesktop_dir: %s\n",pszDesktop);
-    		fprintf(stderr,"@@__wszTempPath:%s\n",debugstr_w(wszTempPath));
-	
-		if(xdg_desktop_dir)
-		{
-			int ret = symlink(xdg_desktop_dir,pszDesktop);
-			fprintf(stderr,"ret%d , %s",ret,strerror(errno));
-		}	
-	}
+	//fprintf(stderr,"*********create ret:%d\n error:%s=%d",ret,strerror(errno),errno);
     }			
     if (xdg_desktop_dir == NULL)
     {
@@ -4043,7 +4247,6 @@ static BOOL init_xdg(void)
     if (xdg_config_dir)
     {
         create_directories(xdg_config_dir);
-    	fprintf(stderr,"@@__xdg_config_dir: %s\n",xdg_config_dir);
 	
         if (getenv("XDG_DATA_HOME"))
             xdg_data_dir = strdupA(getenv("XDG_DATA_HOME"));
@@ -4223,7 +4426,7 @@ static void delete_event(int epollfd, int fd, int state)
 	epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
 
 }
-static void parse_cmdline(LPWSTR cmdline)
+static int parse_cmdline(LPWSTR cmdline)
 {
     static const WCHAR dash_aW[] = {'-','a',0};
     static const WCHAR dash_tW[] = {'-','t',0};
@@ -4301,12 +4504,9 @@ static void parse_cmdline(LPWSTR cmdline)
 
 static void unix_socket_accept(int listenfd, int epollfd)
 {
-	int clifd, len,rval;
+	int clifd, len;
 	struct sockaddr_un addr;
-	struct stat statbuf;
 	len = sizeof(addr);
-	LPWSTR buffer[MAXSIZE];
-	char buffer1[4];
 	clifd = accept(listenfd,(struct sockaddr *)&addr ,&len);
 	if (clifd  < 0){
 		fprintf(stderr,"accept error:\n");
@@ -4382,7 +4582,7 @@ static void socket_data(void){
 	listenfd = unix_socket_listen(socket_addr);
 	if(listenfd<0)
 	{
-		return 0;
+		exit(0);
 	}
 	
 	do_epoll(listenfd);
