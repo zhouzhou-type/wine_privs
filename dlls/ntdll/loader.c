@@ -44,6 +44,9 @@
 #include "ntdll_misc.h"
 #include "ddk/wdm.h"
 
+#include <sys/socket.h>
+#include <sys/un.h>
+
 WINE_DEFAULT_DEBUG_CHANNEL(module);
 WINE_DECLARE_DEBUG_CHANNEL(relay);
 WINE_DECLARE_DEBUG_CHANNEL(snoop);
@@ -1691,7 +1694,7 @@ static void set_security_cookie( void *module, SIZE_T len )
             break;
     }
 }
-/*
+/****
 static NTSTATUS perform_relocations( void *module, SIZE_T len )
 {
     IMAGE_NT_HEADERS *nt;
@@ -1707,7 +1710,7 @@ static NTSTATUS perform_relocations( void *module, SIZE_T len )
 
     assert( module != base );
 
-    /* no relocations are performed on non page-aligned binaries */
+    // no relocations are performed on non page-aligned binaries
     if (nt->OptionalHeader.SectionAlignment < page_size)
         return STATUS_SUCCESS;
 
@@ -1770,6 +1773,7 @@ static NTSTATUS perform_relocations( void *module, SIZE_T len )
     return STATUS_SUCCESS;
 }
 */
+
 /******************************************************************************
  *	load_native_dll  (internal)
  */
@@ -2500,7 +2504,7 @@ IMAGE_BASE_RELOCATION * WINAPI LdrProcessRelocationBlock( void *page, UINT count
         }
         relocs++;
     }
-    return (IMAGE_BASE_RELOCATION *)relocs;  /* return address of next block */
+    return (IMAGE_BASE_RELOCATION *)relocs;  // return address of next block
     */
 }
 
@@ -3287,7 +3291,6 @@ void CDECL __wine_init_windows_dir( const WCHAR *windir, const WCHAR *sysdir )
     }
 }
 
-
 /***********************************************************************
  *           __wine_process_init
  */
@@ -3299,7 +3302,7 @@ void __wine_process_init(void)
     NTSTATUS status;
     ANSI_STRING func_name;
     void (* DECLSPEC_NORETURN CDECL init_func)(void);
-
+	
     main_exe_file = thread_init();
 
     /* retrieve current umask */

@@ -4189,6 +4189,8 @@ static int parse_cmdline(LPWSTR cmdline)
     static const WCHAR dash_uW[] = {'-','u',0};
     static const WCHAR dash_wW[] = {'-','w',0};
 	static const WCHAR dash_sW[] = {'-','s',0};
+	static const WCHAR updateW[] = {'u','p','d','a','t','e',0};
+	
     LPWSTR token = NULL, p;
     BOOL bWait = FALSE;
     BOOL bURL = FALSE;
@@ -4248,6 +4250,10 @@ static int parse_cmdline(LPWSTR cmdline)
 			HeapFree(GetProcessHeap(), 0, from);
 			HeapFree(GetProcessHeap(), 0, to);
 			break;
+		}
+		else if (!strcmpW( token, updateW))
+		{
+		    system("winuxupdater");
 		}
 		else if( token[0] == '-' )
 		{

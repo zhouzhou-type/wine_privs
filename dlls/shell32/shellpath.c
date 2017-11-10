@@ -4423,7 +4423,7 @@ static WCHAR * char_to_wchar(LPCSTR str)
 	return wstr;
 }
 
-static BOOL create_symlink_by_winemenubuilder( LPSTR from, LPSTR to )
+static BOOL create_symlink_by_winemenubuilder( LPCSTR from, LPCSTR to )
 {
     //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
     static const WCHAR szFormat[] = {'-','s',' ','%','s',' ','%','s',0};
