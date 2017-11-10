@@ -215,8 +215,6 @@ DEFINE_GUID(CLSID_WICIcnsEncoder, 0x312fb6f1,0xb767,0x409d,0x8a,0x6d,0x0f,0xc1,0
 static char *xdg_config_dir;
 static char *xdg_data_dir;
 static char *xdg_desktop_dir;
-static char *xdg_data_usr_dir = "/usr/share/";
-static char *xdg_config_menu_dir = "/etc/xdg/menus/applications-merged";
 
 
 /* Utility routines */
@@ -381,7 +379,6 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
     HRESULT hr = E_FAIL;
 
     dosOutputFileName = wine_get_dos_file_name(outputFileName);
-    //fprintf(stderr,"dosOutputFileName:%s\n",debugstr_w(dosOutputFileName));
     if (dosOutputFileName == NULL)
     {
         WINE_ERR("error converting %s to DOS file name\n", outputFileName);
@@ -1083,7 +1080,6 @@ static HRESULT open_default_icon(IStream **ppStream)
 static HRESULT open_icon(LPCWSTR filename, int index, BOOL bWait, IStream **ppStream, ICONDIRENTRY **ppIconDirEntries, int *numEntries)
 {
     HRESULT hr;
-    fprintf(stderr,"-------22222----\n");
 
     hr = open_module_icon(filename, index, ppStream);
     if (FAILED(hr))
@@ -1410,7 +1406,11 @@ static void createSoftLink(const char *filePath){
 					}else{
 						//pngfile not exist : createSoftlink 
 						ret = symlink(filePath,filePath_abs);
-						fprintf(stderr,"****SS_create succesful: %s****\n",filePath_abs);	
+						if (ret != 0)
+						{
+							WINE_ERR("create soft link failed!");
+							exit(0);
+						}
 					}
 
 				}else{ //create iconDir
@@ -1418,25 +1418,27 @@ static void createSoftLink(const char *filePath){
 					mkdirs(dir_abs);	
 					sprintf( filePath_abs,"%s/%s",dir_abs,filenameTmp);
 					ret = symlink(filePath,filePath_abs);	
-					fprintf(stderr,"****SS_create dir succesful: %s****\n",filePath_abs);	
+					if (ret != 0)
+					{
+						WINE_ERR("create soft link failed!");
+						exit(0);
+					}
 				}
 
 			}else if( (winedir_rel = strstr(filePath,".wine")) != NULL){
+
 
 				strcpy(dir_rel_Tmp,winedir_rel);	
 				filename = strrchr(dir_rel_Tmp,'/');
 				strcpy(filenameTmp,filename);
 				*filename =0;
-
 				sprintf(filePath_abs,"/home/%s/桌面%s",entry->d_name,filenameTmp);
-			//	symlink(filePath,filePath_abs);	
-				int a = copyFile(filePath,filePath_abs);
+				copyFile(filePath,filePath_abs);
 				pw = getpwnam(entry->d_name);
-				int b =chown(filePath_abs,pw->pw_uid,pw->pw_uid);
+				chown(filePath_abs,pw->pw_uid,pw->pw_uid);
 				chmod(filePath_abs,0777);
 				
 
-				fprintf(stderr,"****SS_create dir succesful: %s**%d**\n",filePath_abs,b);	
 
 			}else if((menusdir_rel =strstr(filePath,".config")) != NULL){
 
@@ -1459,7 +1461,12 @@ static void createSoftLink(const char *filePath){
 					}else{
 						//pngfile not exist : createSoftlink 
 						ret = symlink(filePath,filePath_abs);
-						fprintf(stderr,"****SS_create succesful: %s****\n",filePath_abs);	
+						if (ret != 0)
+						{
+							WINE_ERR("create soft link failed!");
+							exit(0);
+						}
+
 					}
 
 				}else{ //create iconDir
@@ -1467,11 +1474,13 @@ static void createSoftLink(const char *filePath){
 					mkdirs(dir_abs);	
 					sprintf( filePath_abs,"%s/%s",dir_abs,filenameTmp);
 					ret = symlink(filePath,filePath_abs);	
-					fprintf(stderr,"****SS_create dir succesful: %s****\n",filePath_abs);	
+					if (ret != 0)
+					{
+						WINE_ERR("create soft link failed!");
+						exit(0);
+					}
 				}
-				
 			}
-			
 		}
 		closedir(dirptr);
 	}	
@@ -1558,9 +1567,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
             goto endloop;
         hr = convert_to_native_icon(icoStream, &bestIndex, 1, &CLSID_WICPngEncoder,
                                     pngPath, icoPathW);
-	//change by xiaoya:ln -s pngPath /home/user/.local
-//	createSoftLink( pngPath);
-	
 
     endloop:
         HeapFree(GetProcessHeap(), 0, iconDir);
@@ -1754,7 +1760,6 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
     fclose(file);
 
     //by xiaoya:createSoftLink
-    fprintf(stderr,"SS---location:%s----unix_link:%s\n",location,unix_link);
     createSoftLink(location);
 
     if (unix_link)
@@ -1789,13 +1794,10 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 	    index_n++;
 	}
 
-
+	
 	sprintf(starticonpath,"%s/dosdevices/%s",wine_get_config_dir(),path_dup);
-	fprintf(stderr,"WW---starticonPath:%s\n",starticonpath);
 
 	if(isDesktopFile(location)==TRUE){
-		fprintf(stderr,"WW-2-starticonPath:%s\n",starticonpath);
-
 
 		register_desktopInfo_entry(location,starticonpath);
 			
@@ -1813,7 +1815,6 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 static BOOL write_directory_entry(const char *directory, const char *location)
 {
     FILE *file;
-    fprintf(stderr,"write_directory_entry--directory:%s\n location :%s--\n",directory,location);
 
     WINE_TRACE("(%s,%s)\n", wine_dbgstr_a(directory), wine_dbgstr_a(location));
 
@@ -1836,10 +1837,6 @@ static BOOL write_directory_entry(const char *directory, const char *location)
 
     fclose(file);
 	
-    //by xiaoya:createSoftLink
-    //fprintf(stderr,"AA-location--%s\n",location);
-    //createSoftLink(location);
-
     return TRUE;
 }
 
@@ -1860,7 +1857,6 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
     {
 	//change by xiaoya:change menu dir
         tempfilename = heap_printf("%s/wine-menu-XXXXXX", xdg_config_dir);
-	fprintf(stderr,"wine menu file111_--:%s-----\n",tempfilename);
         if (tempfilename)
         {
             int tempfd = mkstemps(tempfilename, 0);
@@ -1888,7 +1884,6 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
     fprintf(tempfile, "  <Name>Applications</Name>\n");
 
     name = HeapAlloc(GetProcessHeap(), 0, lstrlenA(filename) + 1);
-    fprintf(stderr,"-------------------write menu file: %s\n",filename);
     if (name == NULL) goto end;
     lastEntry = name;
     for (i = 0; filename[i]; i++)
@@ -1913,7 +1908,6 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
             {
                 if (stat(dir_file_name, &st) != 0 && errno == ENOENT){
                     write_directory_entry(lastEntry, dir_file_name);
-			fprintf(stderr,"-----------dir_file_name:%s\n--------------lastentry:%s\n",dir_file_name,lastEntry);
 		}
                 HeapFree(GetProcessHeap(), 0, dir_file_name);
             }
@@ -1934,15 +1928,10 @@ static BOOL write_menu_file(const char *unix_link, const char *filename)
     fprintf(tempfile, "</Menu>\n");
 
     menuPath = heap_printf("%s/%s", xdg_config_dir, name);
-    fprintf(stderr,"menuPath-----------:%s-----\n",menuPath);
     if (menuPath == NULL) goto end;
     strcpy(menuPath + strlen(menuPath) - strlen(".desktop"), ".menu");
-    fprintf(stderr,"menuPath22-----------:%s-----\n",menuPath);
 
     ret = TRUE;
-
-//	by xiaoya:createSoftLink
-//	createSoftLink(menuPath);
 
 end:
     if (tempfile)
@@ -1985,8 +1974,6 @@ static BOOL write_menu_entry(const char *unix_link, const char *link, const char
         goto end;
     }
     desktopDir = strrchr(desktopPath, '/');
-
-    fprintf(stderr,"------------desktopPath:%s  desktopDir:%s\n",desktopPath,desktopDir);
     
     *desktopDir = 0;
     if (!create_directories(desktopPath))
@@ -2799,9 +2786,6 @@ static BOOL write_freedesktop_mime_type_entry(const char *packages_dir, const ch
             ret = TRUE;
             fclose(packageFile);
 
-	   // by xiaoya:create soft link
-	   //fprintf(stderr,"FF---filename:%s\n",filename);
-	   //createSoftLink(filename);
         }
         else
             WINE_ERR("error writing file %s\n", filename);
@@ -2859,8 +2843,6 @@ static BOOL write_freedesktop_association_entry(const char *desktopPath, const c
             fprintf(desktop, "Icon=%s\n", openWithIcon);
         ret = TRUE;
         fclose(desktop);
-	//by xiaoya:create Soft link
-	//createSoftLink(desktopPath);
     }
     else
         WINE_ERR("error writing association file %s\n", wine_dbgstr_a(desktopPath));
@@ -3124,7 +3106,6 @@ LPWSTR WINAPI MultiByteToUnicode(LPCSTR lpMultiByteStr, UINT uCodePage)
 {
 	LPWSTR lpUnicodeStr;
 	        int nLength;
-	//fprintf(stderr,"multibytestr:%s\n",lpMultiByteStr);
 		    nLength = MultiByteToWideChar(uCodePage, 0, lpMultiByteStr,
 				                                      -1, NULL, 0);
 		        if (nLength == 0)
@@ -3495,11 +3476,10 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
             else{
 	    	
 	    //xiaoya
-		char *pszFileNameAfterTrance=NULL;
-     		char cmdline[100];
+	//	char *pszFileNameAfterTrance=NULL;
+     	//	char cmdline[100];
 
 	//	transmitePath(unix_link,&pszFileNameAfterTrance);
-	//	fprintf(stderr,"@@__unix_link: %s\n",unix_link);
 	//	fprintf(stderr,"@@__pszFileNameAfterTrance: %s\n", pszFileNameAfterTrance );
 		
 	//	sprintf(cmdline,"mv \"%s\" \"%s\"",unix_link,pszFileNameAfterTrance);
@@ -3519,7 +3499,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         char *link_arg = escape_unix_link_arg(unix_link);
         if (link_arg)
         {
-	   //fprintf(stderr,\\"====menu_entry----:unix_link=%s\n location:%s\n=====link_arg:%s\n\\",unix_link,link_name,link_arg);
             r = !write_menu_entry(unix_link, link_name, start_path, link_arg, description, work_dir, icon_name);
             HeapFree(GetProcessHeap(), 0, link_arg);
         }
@@ -3918,97 +3897,81 @@ static void cleanup_desktop(void){
 	    int i;
 	    LSTATUS lret =ERROR_SUCCESS;
 	    for (i = 0; lret == ERROR_SUCCESS;)
-            {
+        {
 	
-           	 WCHAR *value_subkey;
-	  	 WCHAR *data_subkey;
-	  	 DWORD valueSubkeySize = 4096;
-	 	 DWORD dataSubkeySize = 4096;
-		 while(1)
-		 {
-			 lret = ERROR_OUTOFMEMORY;
-			value_subkey = HeapAlloc(GetProcessHeap(),0,valueSubkeySize * sizeof(WCHAR));
-			if (value_subkey == NULL)
-				break;
-			data_subkey = HeapAlloc(GetProcessHeap(),0,dataSubkeySize * sizeof(WCHAR));
-			if (data_subkey == NULL)
-				break;
+        	WCHAR *value_subkey;
+	  	 	CHAR *data_subkey;
+	  	 	WORD valueSubkeySize = 4096;
+	 	 	WORD dataSubkeySize = 4096;
+		 	while(1)
+		 	{
+				lret = ERROR_OUTOFMEMORY;
+				value_subkey = HeapAlloc(GetProcessHeap(),0,valueSubkeySize * sizeof(WCHAR));
+				if (value_subkey == NULL)
+					break;
+				data_subkey = HeapAlloc(GetProcessHeap(),0,dataSubkeySize * sizeof(WCHAR));
+				if (data_subkey == NULL)
+					break;
 
-			lret = RegEnumValueW(hkey,i,value_subkey,&valueSubkeySize,NULL,NULL,(BYTE*)data_subkey,&dataSubkeySize);
-			if(lret != ERROR_MORE_DATA)
-				break;
-			valueSubkeySize *= 2;
-			dataSubkeySize *= 2;
-			HeapFree(GetProcessHeap(),0,value_subkey);
-			HeapFree(GetProcessHeap(),0,data_subkey);
-			value_subkey = data_subkey = NULL;
-		 }
-          	  if (lret == ERROR_SUCCESS)
-           	 {
+				lret = RegEnumValueW(hkey,i,value_subkey,&valueSubkeySize,NULL,NULL,(BYTE*)data_subkey,&dataSubkeySize);
+				if(lret != ERROR_MORE_DATA)
+					break;
+				
+				valueSubkeySize *= 2;
+				dataSubkeySize *= 2;
+				HeapFree(GetProcessHeap(),0,value_subkey);
+				HeapFree(GetProcessHeap(),0,data_subkey);
+				value_subkey = data_subkey = NULL;
+		 	}
+          		if (lret == ERROR_SUCCESS)
+           		{
 		    
-               		 char *desktop_name;
-              		 char *desktop_info;
-             		 desktop_name = wchars_to_unix_chars(value_subkey);
-               		 desktop_info = wchars_to_unix_chars(data_subkey);
-              		 if (desktop_name != NULL && desktop_info != NULL){
-			 	
-
-
-		 	     struct stat filestats;
-
-				DIR *dirptr=NULL;
-				int ret;
-				struct dirent *entry;
+				char *desktop_name;
+              			char *desktop_info;
+            			desktop_name = wchars_to_unix_chars(value_subkey);
+               			desktop_info = wchars_to_unix_chars(data_subkey);
+              			if (desktop_name != NULL && desktop_info != NULL)
+			 	{
+					struct stat filestats;
+					DIR *dirptr=NULL;
+					struct dirent *entry;
 			     
-                       	     if (stat(desktop_info, &filestats) < 0 && errno == ENOENT)
-                   	     {
-                      		       WINE_TRACE("removing menu related file %s\n", desktop_name);
+                    			if (stat(desktop_info, &filestats) < 0 && errno == ENOENT)
+                   			{
+                    				WINE_TRACE("removing menu related file %s\n", desktop_name);
+					
+						remove(desktop_name);
+                   				RegDeleteValueW(hkey, value_subkey);
 
-				/*har deskiconpath[200];
-					sprintf(deskiconpath,"rm /home/%s/桌面/%s",desktop_name);*/
-						
-					remove(desktop_name);	
-					       
-                        		RegDeleteValueW(hkey, value_subkey);
 
-					//ssssssss
-					if ( (dirptr = opendir("/home")) == NULL)
-					{
-						fprintf(stderr,"opendir failed !!!");
-					}else{
-						
-						while ((entry = readdir(dirptr)) != NULL)
+						if ( (dirptr = opendir("/home")) == NULL)
 						{
-							if (strncmp(entry->d_name,".",1) == 0)
-								continue;
-
-							char deskiconpath[200];
-							char *filename;
-							filename = strrchr(desktop_name,'/');	
-							sprintf(deskiconpath,"/home/%s/桌面%s",entry->d_name,filename);
-							fprintf(stderr,"------------desktopiconpath:%s\n",deskiconpath);
-
-							remove(deskiconpath);
-							
+							fprintf(stderr,"opendir failed !!!");
 						
-						}
-					}
+						}else{
+						
+							while ((entry = readdir(dirptr)) != NULL)
+							{
+								if (strncmp(entry->d_name,".",1) == 0)
+									continue;
 
-                	      }
-                 	      else
-			      {
-                    		    i++;
-			      }
-              	          }
-            		  else
-			  {
-                 		WINE_ERR("out of memory enumerating menus\n");
+								char deskiconpath[200];
+								char *filename;
+								filename = strrchr(desktop_name,'/');	
+								sprintf(deskiconpath,"/home/%s/桌面%s",entry->d_name,filename);
+								remove(deskiconpath);
+							}
+						}
+                 			}else{
+                 	    			i++;
+					}
+              		}else{
+
+                		WINE_ERR("out of memory enumerating menus\n");
                     		lret = ERROR_OUTOFMEMORY;
-			  }
-                		HeapFree(GetProcessHeap(), 0, desktop_name);
-                		HeapFree(GetProcessHeap(), 0, desktop_info);
-		     	      
-			 
+			}
+                	HeapFree(GetProcessHeap(), 0, desktop_name);
+                	HeapFree(GetProcessHeap(), 0, desktop_info);
 			 
 		 }else if(lret != ERROR_NO_MORE_ITEMS)
 		    
@@ -4256,40 +4219,20 @@ static BOOL init_xdg(void)
     }
 
 //add by xiaoya :create dirctiory
-    if (flag == 1)
-    {
-	fprintf(stderr,"changjiang--------------****__________\n");
-   	mkdirs(xdg_config_menu_dir);
-	mkdirs(xdg_data_usr_dir);
-	flag ==0;
 
-    }//end by xiaoya*/
-
-    if (getenv("XDG_CONFIG_HOME"))
-       xdg_config_dir = heap_printf("%s/menus/applications-merged", getenv("XDG_CONFIG_HOME"));
-   
-    fprintf(stderr, "123:%s\n",getenv("/etc/xdg"));
     if ((xdg_config_dir = getenv("XDG_CONFIG_DIRS"))== NULL)
     {
-	fprintf(stderr, "%s\n", getenv("/etc/xdg"));
         xdg_config_dir = heap_printf("%s/menus/applications-merged", "/etc/xdg");
     }
-    else
-        xdg_config_dir = heap_printf("%s/.config/menus/applications-merged", getenv("HOME"));
 
     if (xdg_config_dir)
     {
         create_directories(xdg_config_dir);
 	
-        if (getenv("XDG_DATA_HOME"))
-            xdg_data_dir = strdupA(getenv("XDG_DATA_HOME"));
-        else
-            xdg_data_dir = heap_printf("%s/.local/share", getenv("HOME"));
-
         if ( getenv("XDG_DATA_DIRS") )
             xdg_data_dir = strdupA(getenv("/usr/share"));
 	else 
-	    xdg_data_dir = heap_printf("/usr/share");
+	    xdg_data_dir = heap_printf("/usr/share");//end 
 
 
         if (xdg_data_dir)
@@ -4310,7 +4253,7 @@ static BOOL init_xdg(void)
 return FALSE;
 
 }
-struct processInfo {
+/*struct processInfo {
 	DWORD processId;
 	WCHAR exeFile[MAX_MODULE_NAME32+1];
 	WCHAR exeFilePath[MAX_PATH];
@@ -4398,13 +4341,13 @@ static void checkProcessTerminate(
 			}
 		}
 	}
-}
+}*/
 
 
 static int unix_socket_listen(const char *server_socket_name)
 {
 	int fd;
-	int len,rval;
+	int len,rval,isbind,err;
 	struct sockaddr_un addr;
 
 	if((fd = socket(AF_UNIX,SOCK_STREAM,0))< 0)
@@ -4420,7 +4363,6 @@ static int unix_socket_listen(const char *server_socket_name)
 
 	unlink(addr.sun_path);
 
-	int isbind ;
 	isbind= bind(fd,(struct sockaddr *)&addr,len);
 	
 	if(isbind<0)
@@ -4439,7 +4381,6 @@ static int unix_socket_listen(const char *server_socket_name)
 		}
 	}
 
-	int err;
 	err = errno;
 	close(fd);
 	errno = err;
@@ -4518,11 +4459,13 @@ static int parse_cmdline(LPWSTR cmdline)
 	}
         else
 	{
-		 WCHAR *pid_w= next_token( &p );
-		 if(!pid_w)
-			 break;
-		 int pid = atoiW(pid_w);	
 		 BOOL bRet;
+		 WCHAR *pid_w= next_token( &p );
+		 if(!pid_w){
+		
+			 break;
+		 }
+		 int pid = atoiW(pid_w);	
 		 if (bURL)
 	
 		 	 bRet = Process_URL( token, bWait, pid );
@@ -4708,7 +4651,6 @@ static void WINAPI ServiceMain( DWORD argc, LPWSTR *argv)
 
 void sig_handler(int signo)  
 {  
-    
     cleanup_desktop();
     cleanup_menus();
 }  
