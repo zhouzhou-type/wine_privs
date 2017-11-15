@@ -17,6 +17,7 @@
  */
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <assert.h>
 
 #include "windef.h"
@@ -130,9 +131,12 @@ static BOOL ProvStore_deleteCert(WINECRYPT_CERTSTORE *store, context_t *context)
     TRACE("(%p, %p)\n", store, context);
 
     if (ps->provDeleteCert)
-        ret = ps->provDeleteCert(ps->hStoreProv, context_ptr(context), 0);
+    	ret = ps->provDeleteCert(ps->hStoreProv, context_ptr(context), 0);
+
     if (ret)
-        ret = ps->memStore->vtbl->certs.delete(ps->memStore, context);
+       ret = ps->memStore->vtbl->certs.delete(ps->memStore, context);
+
+    TRACE("returning %d, Thread = %04x\n",ret, GetCurrentThreadId());
     return ret;
 }
 
@@ -200,6 +204,7 @@ static BOOL ProvStore_deleteCRL(WINECRYPT_CERTSTORE *store, context_t *crl)
         ret = ps->provDeleteCrl(ps->hStoreProv, context_ptr(crl), 0);
     if (ret)
         ret = ps->memStore->vtbl->crls.delete(ps->memStore, crl);
+
     return ret;
 }
 

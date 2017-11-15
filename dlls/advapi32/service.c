@@ -50,9 +50,10 @@
 #include "wine/exception.h"
 
 #include "dbt_append.h"
+#include "dbt.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(service);
-WINE_DECLARE_DEBUG_CHANNEL(scardsvr);
+WINE_DECLARE_DEBUG_CHANNEL(plugplay);
 
 void  __RPC_FAR * __RPC_USER MIDL_user_allocate(SIZE_T len)
 {
@@ -410,7 +411,7 @@ static void DeviceEventBufferToStruct(device_event_info *dei, DEV_BROADCAST_WINE
 	
 	if(dei == NULL)
 		return;
-	
+
 	dbcw->dbcw_size = sizeof(DEV_BROADCAST_WINE);
 	dbcw->dbcw_devicetype = DBT_DEVTYP_WINE;
 	dbcw->dbcw_vid = dei->vid;
@@ -448,19 +449,39 @@ static void DeviceEventBufferToStruct(device_event_info *dei, DEV_BROADCAST_WINE
 	{
 		dbcw->dbcw_serialnum = HeapAlloc(GetProcessHeap(),0,dei->serialnum_size+sizeof(CHAR));
 		memcpy(dbcw->dbcw_serialnum,dei->string_var+current_size,dei->serialnum_size);
+		current_size = current_size + dei->serialnum_size;
 		*(dbcw->dbcw_serialnum+dei->serialnum_size/sizeof(CHAR))=0;
 	}else
 		dbcw->dbcw_serialnum = NULL;
+
+	if(dei->syspath_size)
+	{
+		dbcw->dbcw_syspath = HeapAlloc(GetProcessHeap(),0,dei->syspath_size+sizeof(CHAR));
+		memcpy(dbcw->dbcw_syspath,dei->string_var+current_size,dei->syspath_size);
+		*(dbcw->dbcw_syspath+dei->syspath_size/sizeof(CHAR))=0;
+	}else
+		dbcw->dbcw_syspath = NULL;
 }
 
+static void bufferFree(DEV_BROADCAST_WINE dbcw)
+{
+	if(dbcw.dbcw_devpath)
+        HeapFree(GetProcessHeap(),0,dbcw.dbcw_devpath);
+	if(dbcw.dbcw_sysname)
+        HeapFree(GetProcessHeap(),0,dbcw.dbcw_sysname);
+	if(dbcw.dbcw_interfacename)
+        HeapFree(GetProcessHeap(),0,dbcw.dbcw_interfacename);
+	if(dbcw.dbcw_serialnum)
+        HeapFree(GetProcessHeap(),0,dbcw.dbcw_serialnum);
+	if(dbcw.dbcw_syspath)
+        HeapFree(GetProcessHeap(),0,dbcw.dbcw_syspath);
+}
 /******************************************************************************
  * service_handle_control
  */
 static DWORD service_handle_control(service_data *service, DWORD control, const void *data, DWORD data_size)
 {
     DWORD ret = ERROR_INVALID_SERVICE_CONTROL;
-	device_event_info *dei = NULL;
-	DEV_BROADCAST_WINE dbcw;
 
     TRACE("%s control %u data %p data_size %u\n", debugstr_w(service->name), control, data, data_size);
 
@@ -470,10 +491,39 @@ static DWORD service_handle_control(service_data *service, DWORD control, const 
 	{
 		if(control == SERVICE_CONTROL_DEVICEEVENT && data != NULL)
 		{
-            dei = (device_event_info *)data;
-			DeviceEventBufferToStruct(dei,&dbcw);
-			ret = service->handler(control, dei->eventtype, (void *)&dbcw, service->context);
-		}else
+            void * event_data = NULL;
+            dev_notification_info *dni = NULL;
+            device_event_info *dei = NULL;
+	        DEV_BROADCAST_WINE dbcw;
+            DEV_NOTIFICATION_INFO dni_send;
+            control_header *ch = (control_header *)data;
+            switch(ch->eventtype)
+            {
+                case DBT_REGDEVNOTIF:
+                case DBT_UNREGDEVNOTIF:
+                    dni = (dev_notification_info *)data;
+                    dni_send.eventtype = dni->eventtype;
+                    dni_send.registed_handle = dni->registed_handle;
+                    dni_send.flags = dni->flags;
+                    dni_send.wnd = dni->wnd;
+                    dni_send.service_name = (WCHAR *)dni->service_name;
+                    event_data = (void *)&dni_send;
+                    break;
+                case DBT_DEVICEARRIVAL:
+                case DBT_DEVICEREMOVECOMPLETE:
+                    dei = (device_event_info *)data;
+			        DeviceEventBufferToStruct(dei,&dbcw);
+                    event_data = (void *)&dbcw;
+                    break;
+                default:
+                    break;
+            }
+			ret = service->handler(control, ch->eventtype, event_data, service->context);
+            bufferFree(dbcw);
+		}else if(control == SERVICE_CONTROL_DEVICEEVENT && data != NULL)
+        {
+        
+        }else
 			ret = service->handler(control, 0, (void *)data, service->context);
 	}
     return ret;
@@ -1002,16 +1052,90 @@ BOOL WINAPI ControlService( SC_HANDLE hService, DWORD dwControl,
     return TRUE;
 }
 
-
-BOOL WINAPI ControlDeviceEventA_Impl( SC_HANDLE hService, DWORD dwEventType,DWORD dwVid,DWORD dwPid,DWORD dwInterfaceNum,LPSTR pszDevPath, LPSTR pszSysName, LPSTR pszInterfaceName, LPSTR pszSerialNum)
+BOOL WINAPI UnRegDevNotificationW( SC_HANDLE hService, HDEVNOTIFY hnd)
 {
     DWORD err;
 
-    TRACE_(scardsvr)("rpc-C: hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+    TRACE_(plugplay)("rpc-C: hService=%p hnd=%d\n", hService,(DWORD)hnd);
 
     __TRY
     {
-        err = svcctl_ControlDeviceEventA(hService, dwEventType, dwVid, dwPid, dwInterfaceNum, pszDevPath, pszSysName, pszInterfaceName, pszSerialNum);
+        err = svcctl_UnRegDevNotificationW(hService, DBT_UNREGDEVNOTIF, (DWORD)hnd);
+    }
+    __EXCEPT(rpc_filter)
+    {
+        err = map_exception_code(GetExceptionCode());
+    }
+    __ENDTRY
+
+    if(err != ERROR_SUCCESS)
+    {
+        SetLastError(err);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+HDEVNOTIFY WINAPI RegDevNotificationW( SC_HANDLE hService, HANDLE recipient, DWORD dwFlags)
+{
+    DWORD err;
+    int i = 0;
+
+    TRACE_(plugplay)("rpc-C: hService=%p recipient=%px dwFlags=%d\n", hService,recipient,dwFlags);
+
+    if((dwFlags & DEVICE_NOTIFY_SERVICE_HANDLE) == DEVICE_NOTIFY_SERVICE_HANDLE)
+    {
+        for(i = 0; i < nb_services; i++)
+            if(services[i]->handle == recipient)
+                break;
+            //ERR("******services[%d].name=%s, handle=%d(%p)  recipient=%d(%p)\n",i,debugstr_w(services[i]->name),services[i]->handle,services[i]->handle,recipient,recipient);
+        if(i == nb_services && !(services[i]->name))
+            return NULL;
+        
+        __TRY
+        {
+            err = svcctl_RegDevNotificationW(hService, DBT_REGDEVNOTIF, services[i]->name, 0, dwFlags);
+        }
+        __EXCEPT(rpc_filter)
+        {
+            err = map_exception_code(GetExceptionCode());
+        }
+        __ENDTRY
+    }else if((dwFlags & DEVICE_NOTIFY_WINDOW_HANDLE) == DEVICE_NOTIFY_WINDOW_HANDLE)
+    {
+        WCHAR wNULL[] = {'n','u','l','l',0};
+        __TRY
+        {
+            err = svcctl_RegDevNotificationW(hService, DBT_REGDEVNOTIF, wNULL, (DWORD)recipient, dwFlags);
+        }
+        __EXCEPT(rpc_filter)
+        {
+            err = map_exception_code(GetExceptionCode());
+        }
+        __ENDTRY
+
+    }
+
+    if((int)err > 0)
+    {
+        SetLastError(err);
+        return NULL;
+    }
+
+    err = 0 - err;
+    return (HDEVNOTIFY)(INT_PTR)(int)err;
+}
+
+BOOL WINAPI ControlDeviceEventA_Impl( SC_HANDLE hService, DWORD dwEventType,DWORD dwVid,DWORD dwPid,DWORD dwInterfaceNum,LPSTR pszDevPath, LPSTR pszSysName, LPSTR pszInterfaceName, LPSTR pszSerialNum, LPSTR pszSysPath)
+{
+    DWORD err;
+
+    TRACE_(plugplay)("rpc-C: hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s  pszSysPath=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
+
+    __TRY
+    {
+        err = svcctl_ControlDeviceEventA(hService, dwEventType, dwVid, dwPid, dwInterfaceNum, pszDevPath, pszSysName, pszInterfaceName, pszSerialNum, pszSysPath);
     }
     __EXCEPT(rpc_filter)
     {
@@ -1027,21 +1151,24 @@ BOOL WINAPI ControlDeviceEventA_Impl( SC_HANDLE hService, DWORD dwEventType,DWOR
     return TRUE;
 }
 
-BOOL WINAPI ControlDeviceEventA( SC_HANDLE hService, DWORD dwEventType,DWORD dwVid,DWORD dwPid,DWORD dwInterfaceNum,LPSTR pszDevPath, LPSTR pszSysName, LPSTR pszInterfaceName, LPSTR pszSerialNum)
+BOOL WINAPI ControlDeviceEventA( SC_HANDLE hService, DWORD dwEventType,DWORD dwVid,DWORD dwPid,DWORD dwInterfaceNum,LPSTR pszDevPath, LPSTR pszSysName, LPSTR pszInterfaceName, LPSTR pszSerialNum,LPSTR pszSysPath)
 {
-    TRACE("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
-    TRACE_(scardsvr)("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+    CHAR cNull[] = "null";
+    TRACE("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s pszSysPath=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
+    TRACE_(plugplay)("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s pszSysPath=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
 
 	//rpc transmit string == NULL error
 	if(pszDevPath == NULL)
-		pszDevPath = "null";
+		pszDevPath = cNull;
 	if(pszSysName == NULL)
-		pszSysName = "null";
+		pszSysName = cNull;
 	if(pszInterfaceName == NULL)
-		pszInterfaceName = "null";
+		pszInterfaceName = cNull;
 	if(pszSerialNum == NULL)
-		pszSerialNum = "null";
-	return ControlDeviceEventA_Impl(hService, dwEventType,dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+		pszSerialNum = cNull;
+	if(pszSysPath == NULL)
+		pszSysPath = cNull;
+	return ControlDeviceEventA_Impl(hService, dwEventType,dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
 }
 
 /******************************************************************************

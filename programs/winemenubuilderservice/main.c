@@ -76,7 +76,6 @@
 #include <fnmatch.h>
 #endif
 
-#include <sys/stat.h>
 
 #define COBJMACROS
 #define NONAMELESSUNION
@@ -107,6 +106,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -421,7 +421,6 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
         WINE_ERR("error 0x%08X creating output file %s\n", hr, wine_dbgstr_w(dosOutputFileName));
         goto end;
     }
-     
     hr = IWICBitmapEncoder_Initialize(encoder, outputFile, GENERIC_WRITE);
     if (FAILED(hr))
     {
@@ -495,9 +494,7 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
             WINE_ERR("error 0x%08X setting destination bitmap resolution\n", hr);
             goto endloop;
         }
-	
         hr = IWICBitmapFrameEncode_WriteSource(dstFrame, sourceBitmap, NULL);
-	
         if (FAILED(hr))
         {
             WINE_ERR("error 0x%08X copying bitmaps\n", hr);
@@ -1239,7 +1236,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
-    
     if (*nativeIdentifier == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -1293,6 +1289,7 @@ static void refresh_icon_cache(const char *iconsDir)
         HeapFree(GetProcessHeap(), 0, filename);
     }
 }
+
 /**bu xiaoya:copy file
  *arg:
  *	sourceFileNameWithPath: origin file( path)
@@ -1501,7 +1498,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
-
     if (*nativeIdentifier == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -2787,7 +2783,6 @@ static BOOL write_freedesktop_mime_type_entry(const char *packages_dir, const ch
             fprintf(packageFile, "</mime-info>\n");
             ret = TRUE;
             fclose(packageFile);
-
         }
         else
             WINE_ERR("error writing file %s\n", filename);
@@ -3358,8 +3353,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         icon_name = extract_icon( szIconPath , iIconId, NULL, bWait );
     }
     else{
-
-
         icon_name = extract_icon( szPath, iIconId, NULL, bWait );
     }
 
@@ -3410,7 +3403,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
 
             GetWindowsDirectoryW(szPath, MAX_PATH);
             lstrcatW(szPath, startW);
-	    
         }
 
         /* convert app working dir */
@@ -3423,7 +3415,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         lstrcpynW(szArgs, link, MAX_PATH);
         GetWindowsDirectoryW(szPath, MAX_PATH);
         lstrcatW(szPath, startW);
-
     }
 
     /* escape the path and parameters */
@@ -4344,7 +4335,6 @@ static void checkProcessTerminate(
 		}
 	}
 }*/
-
 
 static int unix_socket_listen(const char *server_socket_name)
 {

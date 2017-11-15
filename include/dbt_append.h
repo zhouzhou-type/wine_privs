@@ -20,6 +20,8 @@
 #define __WINE_DBT_APPEND_H
 
 #define DBT_DEVTYP_WINE					0x00000007
+#define DBT_REGDEVNOTIF                 0x8007
+#define DBT_UNREGDEVNOTIF                 0x8008
 
 typedef struct _DEV_BROADCAST_WINE
 {
@@ -33,6 +35,17 @@ typedef struct _DEV_BROADCAST_WINE
 	char*		dbcw_sysname;
 	char*		dbcw_interfacename;
 	char*		dbcw_serialnum;
+	char*		dbcw_syspath;
 } DEV_BROADCAST_WINE, *PDEV_BROADCAST_WINE;
+
+typedef struct DEV_NOTIFICATION_INFO_T
+{
+	DWORD       size;
+    DWORD       eventtype;
+    DWORD       registed_handle;
+    DWORD       flags;
+    DWORD       wnd;
+	LPWSTR      service_name;
+} DEV_NOTIFICATION_INFO;
 
 #endif /* __WINE_DBT_APPEND_H */

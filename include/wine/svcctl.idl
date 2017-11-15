@@ -38,6 +38,12 @@ cpp_quote("#define SERVICE_PROTOCOL_MAGIC 0x57494e45")
 cpp_quote("#define SERVICE_CONTROL_START 0")
 cpp_quote("#define SERVICE_CONTROL_FORWARD_FLAG 0x80000000")
 
+typedef struct control_header_t
+{
+	DWORD       size;
+	DWORD		eventtype;
+}control_header;
+
 typedef struct device_event_info_t
 {
 	DWORD       size;
@@ -49,8 +55,20 @@ typedef struct device_event_info_t
 	DWORD		sysname_size;
 	DWORD		interfacename_size;
 	DWORD		serialnum_size;
+	DWORD		syspath_size;
 	BYTE		string_var[1]; /*all string storage here:devpath sysname interfacename serialnum*/
 } device_event_info;
+
+typedef struct dev_notification_info_t
+{
+	DWORD       size;
+    DWORD       eventtype;
+    DWORD       registed_handle;
+    DWORD       flags;
+    DWORD       name_size;
+    DWORD       wnd;
+    BYTE        service_name[1];
+} dev_notification_info;
 
 typedef struct service_start_info_t
 {
@@ -809,6 +827,23 @@ typedef [switch_type(DWORD)] union _SC_RPC_SERVICE_CONTROL_OUT_PARAMSW {
 		[in, string] LPSTR pszDevPath,
 		[in, string] LPSTR pszSysName,
 		[in, string] LPSTR pszInterfaceName,
-		[in, string] LPSTR pszSerialNum
+		[in, string] LPSTR pszSerialNum,
+		[in, string] LPSTR pszSysPath
+    );
+
+    /* Function 58 add for device event*/
+    DWORD svcctl_RegDevNotificationW(
+        [in] SC_RPC_HANDLE hService,
+        [in] DWORD dwEventType,
+        [in] LPWSTR pszServiceName,
+        [in] DWORD hwnd,
+        [in] DWORD dwFlags
+    );
+
+    /* Function 59 add for device event*/
+    DWORD svcctl_UnRegDevNotificationW(
+        [in] SC_RPC_HANDLE hService,
+        [in] DWORD dwEventType,
+        [in] DWORD hRegistedHandle
     );
 }
