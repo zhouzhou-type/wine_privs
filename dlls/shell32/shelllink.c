@@ -398,10 +398,10 @@ static void unix_socket_conn(const char *servername, LPWSTR buffer, long lenth)
 
 static BOOL StartLinkProcessor( LPCOLESTR szLink )
 {
-    //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
+   //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
     static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',' ','"','%','d','"',0 };
     
-    LONG len;
+	LONG len;
     LPWSTR buffer;
     BOOL ret;
 
@@ -410,13 +410,13 @@ static BOOL StartLinkProcessor( LPCOLESTR szLink )
     if( !buffer )
         return FALSE;
 
-    /*wsprintfW( buffer, szFormat, szLink );
+   /*wsprintfW( buffer, szFormat, szLink );
     ret = run_winemenubuilder( buffer );
     HeapFree( GetProcessHeap(), 0, buffer );*/
-
-    //change by xiaoya 
-    wsprintfW(buffer,szFormat, szLink, GetCurrentProcessId());
-    unix_socket_conn("foosock",buffer,len);
+	 
+	//change by xiaoya 
+	wsprintfW(buffer,szFormat, szLink, GetCurrentProcessId());
+	unix_socket_conn("foosock",buffer,len);
 
     return ret;
 }

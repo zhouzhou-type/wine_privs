@@ -76,7 +76,6 @@
 #include <fnmatch.h>
 #endif
 
-
 #define COBJMACROS
 #define NONAMELESSUNION
 
@@ -115,7 +114,7 @@
 
 #define MAX_PROCESS_INFO 256
 #define MAX_CONNECTION_NUMBER 5
-#define MAXSIZE 4096 
+#define MAXSIZE 4096
 #define FDSIZE 1000
 #define EPOLLEVENTS 100
 #define BUFFER_SIZE 4096
@@ -1430,7 +1429,6 @@ static void createSoftLink(const char *filePath){
 				filename = strrchr(dir_rel_Tmp,'/');
 				strcpy(filenameTmp,filename);
 				*filename =0;
-
 				sprintf(filePath_abs,"/home/%s/桌面%s",entry->d_name,filenameTmp);
 				copyFile(filePath,filePath_abs);
 				pw = getpwnam(entry->d_name);
@@ -1791,7 +1789,6 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 	    index++;
 	    index_n++;
 	}
-
 
 	sprintf(starticonpath,"%s/dosdevices/%s",wine_get_config_dir(),path_dup);
 
@@ -3890,7 +3887,7 @@ static void cleanup_desktop(void){
 	    int i;
 	    LSTATUS lret =ERROR_SUCCESS;
 	    for (i = 0; lret == ERROR_SUCCESS;)
-            {
+        {
 	
         	WCHAR *value_subkey;
 	  	 	CHAR *data_subkey;
