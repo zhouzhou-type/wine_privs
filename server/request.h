@@ -395,6 +395,7 @@ DECL_HANDLER(process_in_job);
 DECL_HANDLER(set_job_limits);
 DECL_HANDLER(set_job_completion_port);
 DECL_HANDLER(terminate_job);
+DECL_HANDLER(register_pid);
 
 #ifdef WANT_REQUEST_HANDLERS
 
@@ -684,6 +685,7 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
     (req_handler)req_set_job_limits,
     (req_handler)req_set_job_completion_port,
     (req_handler)req_terminate_job,
+    (req_handler)req_register_pid,
 };
 
 C_ASSERT( sizeof(affinity_t) == 8 );

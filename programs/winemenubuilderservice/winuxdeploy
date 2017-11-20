@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ ! -x ~/.cache/wine ]; then 
+    install -dp ~/.cache/wine
+    if [ -x /usr/local/deploy/packages/addons ]; then
+        cp /usr/local/deploy/packages/addons/* ~/.cache/wine/
+    elif [ -x ./packages/addons ]; then
+        cp ./packages/addons/* ~/.cache/wine/
+    fi
+fi 
+
+
+userdir="/home/$USER/桌面/"
+desktopdir="/opt/.wine/drive_c/users/root/桌面/LinuxDesktop/"
+cd $desktopdir
+for app_name in *.desktop
+do
+	if  [ ! -f "$userdir$app_name" ]; then
+		cp "${desktopdir}${app_name}" $userdir
+		chown $USER:$USER "$userdir$app_name"
+		chmod 777 "$userdir$app_name"
+	fi
+done
+
+wine wineboot
+
