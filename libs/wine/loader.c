@@ -957,6 +957,55 @@ void wine_init( int argc, char *argv[], char *error, int error_size )
 #endif
 }
 
+/***********************************************************************
+ *           wine_init_container
+ *
+ * Wine-container initialisation.
+ */
+void wine_init_container( int argc, char *argv[], char *error, int error_size )
+{
+    struct dll_path_context context;
+    char *path;
+    void *ntdll = NULL;
+    void (*init_func)(void);
+
+    /* force a few limits that are set too low on some platforms */
+#ifdef RLIMIT_NOFILE
+    set_max_limit( RLIMIT_NOFILE );
+#endif
+#ifdef RLIMIT_AS
+    set_max_limit( RLIMIT_AS );
+#endif
+
+    if(strstr(argv[0],"wine-container"))
+        argv[0][strlen(argv[0])-strlen("-container")] = 0;
+
+    wine_init_argv0_path( argv[0] );
+    build_dll_path();
+    __wine_main_argc = argc;
+    __wine_main_argv = argv;
+    __wine_main_environ = __wine_get_main_environment();
+    mmap_init();
+
+    for (path = first_dll_path( "ntdll.dll", 0, &context ); path; path = next_dll_path( &context ))
+    {
+        if ((ntdll = wine_dlopen( path, RTLD_NOW, error, error_size )))
+        {
+            /* if we didn't use the default dll dir, remove it from the search path */
+            if (default_dlldir[0] && context.index < nb_dll_paths + 2) nb_dll_paths--;
+            break;
+        }
+    }
+    free_dll_path( &context );
+
+    if (!ntdll) return;
+    if (!(init_func = wine_dlsym( ntdll, "__wine_process_init_container", error, error_size ))) return;
+#ifdef __APPLE__
+    apple_main_thread( init_func );
+#else
+    init_func();
+#endif
+}
 
 /*
  * These functions provide wrappers around dlopen() and associated

@@ -466,8 +466,9 @@ static void process_died( struct process *process )
     if (debug_level) fprintf( stderr, "%04x: *process killed*\n", process->id );
     if (!process->is_system)
     {
-        if (!--user_processes && !shutdown_stage && master_socket_timeout != TIMEOUT_INFINITE)
-            shutdown_timeout = add_timeout_user( master_socket_timeout, server_shutdown_timeout, NULL );
+        user_processes = user_processes - 1;
+        //if (!--user_processes && !shutdown_stage && master_socket_timeout != TIMEOUT_INFINITE)
+        //    shutdown_timeout = add_timeout_user( master_socket_timeout, server_shutdown_timeout, NULL );
     }
     release_object( process );
     if (!--running_processes && shutdown_stage) close_master_socket( 0 );
@@ -1540,8 +1541,9 @@ DECL_HANDLER(make_process_system)
     {
         process->is_system = 1;
         close_process_desktop( process );
-        if (!--user_processes && !shutdown_stage && master_socket_timeout != TIMEOUT_INFINITE)
-            shutdown_timeout = add_timeout_user( master_socket_timeout, server_shutdown_timeout, NULL );
+        user_processes = user_processes - 1;
+        //if (!--user_processes && !shutdown_stage && master_socket_timeout != TIMEOUT_INFINITE)
+        //    shutdown_timeout = add_timeout_user( master_socket_timeout, server_shutdown_timeout, NULL );
     }
 }
 

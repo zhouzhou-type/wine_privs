@@ -12,6 +12,7 @@ EXPORTS
     atoiW
     atolW
     get_char_typeW
+    get_prestart_socket_path
     isalnumW
     isalphaW
     iscntrlW
@@ -26,6 +27,7 @@ EXPORTS
     memchrW
     memicmpW
     memrchrW
+    prestart_initialize
     snprintfW
     sprintfW
     strcatW

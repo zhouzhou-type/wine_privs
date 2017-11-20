@@ -1,0 +1,8 @@
+PROGRAMS = wineprestart
+
+C_SRCS = \
+	main.c
+
+EXTRALIBS = -lwine $(POLL_LIBS) $(RT_LIBS)
+
+INSTALL_LIB = $(PROGRAMS)

@@ -33,6 +33,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "wine/debug.h"
 #include "windef.h"
 #include "winbase.h"
@@ -3322,6 +3324,7 @@ static HRESULT _SHGetDefaultValue(BYTE folder, LPWSTR pszPath)
     if (CSIDL_Data[folder].szDefaultPath &&
      IS_INTRESOURCE(CSIDL_Data[folder].szDefaultPath))
     {
+        //get path through resource
         if (LoadStringW(shell32_hInstance,
          LOWORD(CSIDL_Data[folder].szDefaultPath), resourcePath, MAX_PATH))
         {
@@ -3689,7 +3692,7 @@ static HRESULT _SHExpandEnvironmentStrings(LPCWSTR szSrc, LPWSTR szDest)
             DWORD userLen = MAX_PATH;
 
             strcpyW(szDest, szProfilesPrefix);
-            GetUserNameW(userName, &userLen);
+            GetUserNameW(userName, &userLen); //get current user name
             PathAppendW(szDest, userName);
             PathAppendW(szDest, szTemp + strlenW(UserProfileW));
         }
@@ -3980,6 +3983,85 @@ HRESULT WINAPI SHGetFolderPathA(
     return hr;
 }
 
+static HRESULT _SHResetFolders(HKEY hRootKey, HANDLE hToken,
+								  LPCWSTR szUserShellFolderPath, LPCWSTR szShellFolderPath, const UINT folders[],
+								  UINT foldersLen)
+{
+    const WCHAR *szValueName;
+    WCHAR buffer[40];
+    UINT i;
+    WCHAR path[MAX_PATH];
+    HRESULT hr = S_OK;
+    HKEY hUserKey = NULL, hKey = NULL;
+    LONG ret;
+
+    TRACE("%p,%p,%s,%p,%u\n", hRootKey, hToken,
+		  debugstr_w(szUserShellFolderPath), folders, foldersLen);
+
+    ret = RegCreateKeyW(hRootKey, szUserShellFolderPath, &hUserKey);
+    if (ret)
+        hr = HRESULT_FROM_WIN32(ret);
+    else
+    {
+        ret = RegCreateKeyW(hRootKey, szShellFolderPath, &hKey);
+        if (ret)
+            hr = HRESULT_FROM_WIN32(ret);
+    }
+    for (i = 0; SUCCEEDED(hr) && i < foldersLen; i++)
+    {
+        /* For CSIDL_Type_User we also use the GUID if no szValueName is provided */
+        szValueName = CSIDL_Data[folders[i]].szValueName;
+        if (!szValueName && CSIDL_Data[folders[i]].type == CSIDL_Type_User)
+        {
+            StringFromGUID2( CSIDL_Data[folders[i]].id, buffer, 39 );
+            szValueName = &buffer[0];
+        }
+
+        *path = '\0';
+        if (CSIDL_Data[folders[i]].type == CSIDL_Type_User)
+            _SHGetUserProfilePath(hToken, SHGFP_TYPE_DEFAULT, folders[i],
+							path);
+        else if (CSIDL_Data[folders[i]].type == CSIDL_Type_AllUsers)
+            _SHGetAllUsersProfilePath(SHGFP_TYPE_DEFAULT, folders[i], path);
+        else if (CSIDL_Data[folders[i]].type == CSIDL_Type_WindowsPath)
+        {
+            GetWindowsDirectoryW(path, MAX_PATH);
+            if (CSIDL_Data[folders[i]].szDefaultPath &&
+				!IS_INTRESOURCE(CSIDL_Data[folders[i]].szDefaultPath))
+            {
+                PathAddBackslashW(path);
+                strcatW(path, CSIDL_Data[folders[i]].szDefaultPath);
+            }
+        }
+        else
+            hr = E_FAIL;
+        if (*path)
+        {
+            ret = RegSetValueExW(hUserKey, szValueName, 0, REG_EXPAND_SZ,
+								(LPBYTE)path, (strlenW(path) + 1) * sizeof(WCHAR));
+            if (ret)
+                hr = HRESULT_FROM_WIN32(ret);
+            else
+            {
+                hr = SHGetFolderPathW(NULL, folders[i] | CSIDL_FLAG_CREATE,
+								hToken, SHGFP_TYPE_DEFAULT, path);
+                ret = RegSetValueExW(hKey, szValueName, 0, REG_SZ,
+								(LPBYTE)path, (strlenW(path) + 1) * sizeof(WCHAR));
+                if (ret)
+                    hr = HRESULT_FROM_WIN32(ret);
+            }
+        }
+    }
+    if (hUserKey)
+        RegCloseKey(hUserKey);
+    if (hKey)
+        RegCloseKey(hKey);
+
+    TRACE("returning 0x%08x\n", hr);
+    return hr;
+}
+
+
 /* For each folder in folders, if its value has not been set in the registry,
  * calls _SHGetUserProfilePath or _SHGetAllUsersProfilePath (depending on the
  * folder's type) to get the unexpanded value first.
@@ -4070,6 +4152,71 @@ static HRESULT _SHRegisterFolders(HKEY hRootKey, HANDLE hToken,
     if (hKey)
         RegCloseKey(hKey);
 
+    TRACE("returning 0x%08x\n", hr);
+    return hr;
+}
+
+static HRESULT _SHResetUserShellFolders(BOOL bDefault)
+{
+    static const UINT folders[] = {
+		CSIDL_PROGRAMS,
+		CSIDL_PERSONAL,
+		CSIDL_FAVORITES,
+		CSIDL_APPDATA,
+		CSIDL_STARTUP,
+		CSIDL_RECENT,
+		CSIDL_SENDTO,
+		CSIDL_STARTMENU,
+		CSIDL_MYMUSIC,
+		CSIDL_MYVIDEO,
+		CSIDL_DESKTOPDIRECTORY,
+		CSIDL_NETHOOD,
+		CSIDL_TEMPLATES,
+		CSIDL_PRINTHOOD,
+		CSIDL_LOCAL_APPDATA,
+		CSIDL_INTERNET_CACHE,
+		CSIDL_COOKIES,
+		CSIDL_HISTORY,
+		CSIDL_MYPICTURES,
+		CSIDL_FONTS,
+		CSIDL_ADMINTOOLS,
+		CSIDL_CONTACTS,
+		CSIDL_DOWNLOADS,
+		CSIDL_LINKS,
+		CSIDL_APPDATA_LOCALLOW,
+		CSIDL_SAVED_GAMES,
+		CSIDL_SEARCHES
+    };
+    WCHAR userShellFolderPath[MAX_PATH], shellFolderPath[MAX_PATH];
+    LPCWSTR pUserShellFolderPath, pShellFolderPath;
+    HRESULT hr = S_OK;
+    HKEY hRootKey;
+    HANDLE hToken;
+
+    TRACE("%s\n", bDefault ? "TRUE" : "FALSE");
+    if (bDefault)
+    {
+        hToken = (HANDLE)-1;
+        hRootKey = HKEY_USERS;
+        strcpyW(userShellFolderPath, DefaultW);
+        PathAddBackslashW(userShellFolderPath);
+        strcatW(userShellFolderPath, szSHUserFolders);
+        pUserShellFolderPath = userShellFolderPath;
+        strcpyW(shellFolderPath, DefaultW);
+        PathAddBackslashW(shellFolderPath);
+        strcatW(shellFolderPath, szSHFolders);
+        pShellFolderPath = shellFolderPath;
+    }
+    else
+    {
+        hToken = NULL;
+        hRootKey = HKEY_CURRENT_USER;
+        pUserShellFolderPath = szSHUserFolders;
+        pShellFolderPath = szSHFolders;
+    }
+
+    hr = _SHResetFolders(hRootKey, hToken, pUserShellFolderPath,
+							pShellFolderPath, folders, sizeof(folders) / sizeof(folders[0]));
     TRACE("returning 0x%08x\n", hr);
     return hr;
 }
@@ -4223,6 +4370,83 @@ static inline BOOL _SHAppendToUnixPath(char *szBasePath, LPCWSTR pwszSubPath) {
     return TRUE;
 }
 
+static void handle_connection(int sockfd, LPWSTR buffer, long len)
+{
+	int ret,pid;
+	ret = write(sockfd, buffer, len);
+}
+
+static int unix_socket_conn(const char *servername, LPWSTR buffer, long lenth)
+{
+
+	int fd, len, rval;
+	struct sockaddr_un addr;
+	const char *server_dir = wine_get_server_dir();
+	const char *socket_name ="/foosock";
+	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
+
+	if((fd = socket(AF_UNIX, SOCK_STREAM,0)) < 0 ) return(-1);
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(addr.sun_path, socket_addr);
+
+	len = sizeof(addr) - sizeof(addr.sun_path) +strlen(addr.sun_path)+1;
+
+	int conn;
+	conn = connect(fd,(struct sockaddr *)&addr, len);
+	if (conn < 0)
+	{
+		rval = -4;
+	}
+	else
+	{
+		handle_connection(fd, buffer, lenth);
+	}
+
+	close(fd);
+	HeapFree(GetProcessHeap(), 0, socket_addr);
+	return rval;
+}
+
+static WCHAR * char_to_wchar(LPCSTR str)
+{
+	LPWSTR  wstr;
+	DWORD   len;
+	
+	len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+	wstr = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+	MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, len);
+
+	return wstr;
+}
+
+static BOOL create_symlink_by_winemenubuilder( LPCSTR from, LPCSTR to )
+{
+    //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
+    static const WCHAR szFormat[] = {'-','s',' ','%','s',' ','%','s',0};
+    
+    LONG len;
+    LPWSTR buffer, pszFromW, pszToW;
+    BOOL ret;
+
+	pszFromW = char_to_wchar(from);
+	pszToW = char_to_wchar(to);
+    len = (5 + lstrlenW( pszFromW ) + lstrlenW( pszToW )) * sizeof(WCHAR);
+    buffer = HeapAlloc( GetProcessHeap(), 0, len );
+    if( !buffer )
+        return FALSE;
+    wsprintfW(buffer,szFormat, pszFromW, pszToW);
+    unix_socket_conn("foosock",buffer,len);
+
+	HeapFree(GetProcessHeap(), 0, pszFromW);
+	HeapFree(GetProcessHeap(), 0, pszToW);
+	HeapFree(GetProcessHeap(), 0, buffer);
+    return ret;
+}
+
 /******************************************************************************
  * _SHCreateSymbolicLinks  [Internal]
  * 
@@ -4318,8 +4542,9 @@ static void _SHCreateSymbolicLinks(void)
         }
 
         /* Replace 'My Documents' directory with a symlink or fail silently if not empty. */
-        remove(pszPersonal);
-        symlink(szPersonalTarget, pszPersonal);
+        //remove(pszPersonal);
+        //symlink(szPersonalTarget, pszPersonal);
+        create_symlink_by_winemenubuilder(szPersonalTarget, pszPersonal);
     }
     else
     {
@@ -4374,8 +4599,9 @@ static void _SHCreateSymbolicLinks(void)
             strcpy(szMyStuffTarget, szPersonalTarget);
             break;
         }
-        remove(pszMyStuff);
-        symlink(szMyStuffTarget, pszMyStuff);
+        //remove(pszMyStuff);
+        //symlink(szMyStuffTarget, pszMyStuff);
+        create_symlink_by_winemenubuilder(szMyStuffTarget, pszMyStuff);
         HeapFree(GetProcessHeap(), 0, pszMyStuff);
     }
 
@@ -4395,12 +4621,18 @@ static void _SHCreateSymbolicLinks(void)
                               SHGFP_TYPE_DEFAULT, wszTempPath);
         if (SUCCEEDED(hr) && (pszDesktop = wine_get_unix_file_name(wszTempPath))) 
         {
-            remove(pszDesktop);
+            //remove(pszDesktop);
             if (xdg_desktop_dir)
-                symlink(xdg_desktop_dir, pszDesktop);
-            else
-                symlink(szDesktopTarget, pszDesktop);
-            HeapFree(GetProcessHeap(), 0, pszDesktop);
+            {
+                //symlink(xdg_desktop_dir, pszDesktop);
+               	create_symlink_by_winemenubuilder(xdg_desktop_dir, pszDesktop);
+            }
+			else
+			{
+                //symlink(szDesktopTarget, pszDesktop);
+                create_symlink_by_winemenubuilder(szDesktopTarget, pszDesktop);
+			}
+			HeapFree(GetProcessHeap(), 0, pszDesktop);
         }
     }
 
@@ -4411,6 +4643,44 @@ static void _SHCreateSymbolicLinks(void)
             HeapFree(GetProcessHeap(), 0, xdg_results[i]);
         HeapFree(GetProcessHeap(), 0, xdg_results);
     }
+}
+
+/******************************************************************************
+ * reset_extra_folders  [Internal]
+ *
+ * reset some extra folders that don't have a standard CSIDL definition.
+ */
+static HRESULT reset_extra_folders(void)
+{
+    static const WCHAR environW[] = {'E','n','v','i','r','o','n','m','e','n','t',0};
+    static const WCHAR microsoftW[] = {'M','i','c','r','o','s','o','f','t',0};
+    static const WCHAR TempW[]    = {'T','e','m','p',0};
+    static const WCHAR TEMPW[]    = {'T','E','M','P',0};
+    static const WCHAR TMPW[]     = {'T','M','P',0};
+    WCHAR path[MAX_PATH+5];
+    HRESULT hr;
+    HKEY hkey;
+    DWORD ret;
+
+    ret = RegCreateKeyW( HKEY_CURRENT_USER, environW, &hkey );
+    if (ret) return HRESULT_FROM_WIN32( ret );
+
+    /* FIXME: should be under AppData, but we don't want spaces in the temp path */
+    hr = SHGetFolderPathAndSubDirW( 0, CSIDL_PROFILE | CSIDL_FLAG_CREATE, NULL,
+                                    SHGFP_TYPE_DEFAULT, TempW, path );
+    if (SUCCEEDED(hr))
+    {
+        RegSetValueExW( hkey, TEMPW, 0, REG_SZ, (LPBYTE)path, (strlenW(path) + 1) * sizeof(WCHAR) );
+        RegSetValueExW( hkey, TMPW, 0, REG_SZ, (LPBYTE)path, (strlenW(path) + 1) * sizeof(WCHAR) );
+    }
+    RegCloseKey( hkey );
+
+    if (SUCCEEDED(hr))
+    {
+        hr = SHGetFolderPathAndSubDirW( 0, CSIDL_COMMON_APPDATA | CSIDL_FLAG_CREATE, NULL,
+                                        SHGFP_TYPE_DEFAULT, microsoftW, path );
+    }
+    return hr;
 }
 
 /******************************************************************************
@@ -5953,6 +6223,26 @@ static void register_system_knownfolders(void)
             register_folder(folder->id, &kfd);
         }
     }
+}
+
+HRESULT SHELL_ResetShellFolders(void)
+{
+    HRESULT hr;
+
+    _SHCreateSymbolicLinks(); //create user profile dir, set symlinks
+
+    hr = _SHResetUserShellFolders(TRUE);
+    if (SUCCEEDED(hr))
+        hr = _SHResetUserShellFolders(FALSE);
+    if (SUCCEEDED(hr))
+        hr = _SHRegisterCommonShellFolders(); //optional
+    if (SUCCEEDED(hr))
+        hr = reset_extra_folders();
+    if (SUCCEEDED(hr))
+        hr = set_folder_attributes();
+    if (SUCCEEDED(hr))
+        register_system_knownfolders();
+    return hr;
 }
 
 HRESULT SHELL_RegisterShellFolders(void)

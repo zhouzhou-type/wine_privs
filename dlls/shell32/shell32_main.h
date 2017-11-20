@@ -178,6 +178,9 @@ extern const GUID CLSID_UnixDosFolder DECLSPEC_HIDDEN;
 
 extern BOOL run_winemenubuilder( const WCHAR *args ) DECLSPEC_HIDDEN;
 
+/* Create shell folders for current user(if not exist), set registry according to current user */
+HRESULT SHELL_ResetShellFolders(void) DECLSPEC_HIDDEN;
+
 /* Default shell folder value registration */
 HRESULT SHELL_RegisterShellFolders(void) DECLSPEC_HIDDEN;
 

@@ -41,6 +41,15 @@
 #include "wine/library.h"
 #include "main.h"
 
+#include <wchar.h>
+#include <iconv.h>
+
+#ifdef _WINE_PRESTART_
+#include "wine/prestart_util.h"
+#include <netinet/in.h>
+#include <sys/un.h>
+#endif // ~_WINE_PRESTART_
+
 #ifdef __APPLE__
 
 #ifndef __clang__
@@ -219,6 +228,202 @@ static int pre_exec(void)
 
 #endif
 
+#ifdef _WINE_PRESTART_
+
+#define MAXLINE 4096
+
+/*
+  * ret
+  *	-1: error
+  *	0: no prestarted app
+  *	1: start
+  */
+static int query_prestart(int argc, char *argv[])
+{
+	int retry = 3;
+	int done = 0;
+	const char *sock_path;
+	int sockfd;
+	struct sockaddr_un svr_addr;
+	int sndlen = 0, rcvlen = 0;
+	char data[MAXLINE] = {0};
+	int ret = 0;
+
+	sockfd = socket(PF_UNIX, SOCK_STREAM, 0);
+	if (sockfd < 0)
+	{
+		fprintf(stderr, "socket: %s\n", strerror(errno));
+		return -1;
+	}
+
+	memset(&svr_addr, 0, sizeof(svr_addr));
+	svr_addr.sun_family = AF_UNIX;
+	if (!(sock_path = get_prestart_socket_path()))
+	{
+		ret = -1;
+		goto LB_EXIT;
+	}
+	strcpy(svr_addr.sun_path, sock_path);
+
+	if (connect(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) < 0)
+	{
+		fprintf(stderr, "connect: %s\n", strerror(errno));
+		ret = -1;
+		goto LB_EXIT;
+	}
+
+	if (!realpath(argv[1], data))
+	{
+		fprintf(stderr, "realpath: %s\n", strerror(errno));
+		ret = -1;
+		goto LB_EXIT;
+	}
+
+	while (retry--)
+	{
+		sndlen = send(sockfd, data, sizeof(data), 0);
+		if (sndlen < 0)
+		{
+			if (errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK)
+				continue;
+			else // send error
+			{
+				fprintf(stderr, "send: %s\n", strerror(errno));
+				break;
+			}
+		}
+		else if (sndlen == 0)
+		{
+			// empty
+		}
+		else
+		{
+			fprintf(stderr, "sent %s\n", data);
+			done = 1;
+			break;
+		}
+	} // while retry
+	if (!done)
+	{
+		ret = -1;
+		goto LB_EXIT;
+	}
+
+	rcvlen = recv(sockfd, data, MAXLINE, 0);
+	if (rcvlen < 0)
+	{
+		fprintf(stderr, "send: %s\n", strerror(errno));
+		ret = -1;
+		goto LB_EXIT;
+	}
+	else
+	{
+		if (data[0] == '0')
+		{
+			ret = 0;
+		}
+		else if (data[0] == '1')
+		{
+			ret = 1;
+		}
+		else
+		{
+			ret = -1;
+		}
+	}
+
+LB_EXIT:
+	close(sockfd);
+	return ret;
+}
+
+#endif // _WINE_PRESTART_
+
+static void handle_connection(int sockfd, const void* buffer, size_t len)
+{
+    /*
+    //print every byte of buffer for check
+    for(int i = 0; i < len; i++)
+        printf("%02X ",((unsigned char*)buffer)[i]);
+    printf("\n");
+    */
+	write(sockfd, buffer, len);
+}
+
+static void send_data_by_socket(const char *servername, const void* buffer, int lenth)
+{
+	int fd;
+	struct sockaddr_un addr;
+	const char *server_dir = wine_get_server_dir();
+	const char *socket_name ="/foosock";
+	char *socket_addr = (char *)malloc(sizeof(char) * (strlen(server_dir) + strlen(socket_name)));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr + sizeof(char) * strlen(server_dir), socket_name);
+
+	if((fd = socket(AF_UNIX, SOCK_STREAM,0)) < 0) 
+		return -1;
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(addr.sun_path, socket_addr);
+	
+	int result = connect(fd,(struct sockaddr *)&addr, sizeof(addr));
+	if (result < 0)
+	{
+		fprintf(stderr, "connect: %s\n", strerror(errno));
+	}
+	else
+	{
+		handle_connection(fd, buffer, lenth);
+	}
+
+	close(fd);
+	free(socket_addr);
+}
+
+int encodingConvert(const char *tocode, const char *fromcode,  
+                    char *inbuf, size_t inlength, char *outbuf, size_t outlength)  
+{  
+    char **inbuffer = &inbuf;  
+    char **outbuffer = &outbuf;  
+  
+    iconv_t cd;  
+    size_t ret;  
+    cd = iconv_open(tocode, fromcode);  
+    if((size_t)cd == -1)  
+        return -1;  
+    ret = iconv(cd, inbuffer, &inlength, outbuffer, &outlength);  
+    if(ret == -1)  
+        return -1;  
+    iconv_close(cd);  
+	
+    return 0;  
+}  
+
+int convert_utf32le_to_utf16le(const wchar_t* str, void** buffer)  
+{  
+    int inLength = (wcslen(str) + 1) * sizeof(wchar_t);  
+    int outLength = inLength / 2;
+    char *inBuffer = (char *)str;
+    char *outBuffer = (char *)malloc(outLength);
+	*buffer = malloc(outLength);
+    
+    encodingConvert("UTF-16LE", "UTF-32LE", inBuffer, inLength, outBuffer, outLength);  
+    memcpy(*buffer, outBuffer, outLength);
+
+	free(outBuffer);
+	
+    return outLength;  
+}  
+
+static void check_wingear_update()
+{
+    const wchar_t cmd[] = L"update";
+	void * buffer;
+	int len = convert_utf32le_to_utf16le(cmd, &buffer);
+    send_data_by_socket("foosock", buffer, len);
+	free(buffer);
+}
 
 /**********************************************************************
  *           main
@@ -234,12 +439,32 @@ int main( int argc, char *argv[] )
 
         putenv( noexec );
         check_command_line( argc, argv );
+		check_wingear_update();
         if (pre_exec())
         {
             wine_init_argv0_path( argv[0] );
-            wine_exec_wine_binary( NULL, argv, getenv( "WINELOADER" ));
-            fprintf( stderr, "wine: could not exec the wine loader\n" );
-            exit(1);
+#ifdef _WINE_PRESTART_
+	if (!getenv("WINEPRESTART")) // env unset, from normal startup
+	{
+		int q = query_prestart(argc, argv);
+		if (q == -1) // error
+		{
+			// empty
+		}
+		else if (q == 0) // no prestarted app
+		{
+			// empty
+		}
+		else // q = 1
+		{
+			exit(0);
+		}
+	}
+#endif // _WINE_PRESTART_
+
+        wine_exec_wine_binary( NULL, argv, getenv( "WINELOADER" ));
+        fprintf( stderr, "wine: could not exec the wine loader\n" );
+        exit(1);
         }
     }
 

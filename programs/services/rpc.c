@@ -39,7 +39,7 @@
 extern HANDLE CDECL __wine_make_process_system(void);
 
 WINE_DEFAULT_DEBUG_CHANNEL(service);
-WINE_DECLARE_DEBUG_CHANNEL(scardsvr);
+WINE_DECLARE_DEBUG_CHANNEL(plugplay);
 
 static const GENERIC_MAPPING g_scm_generic =
 {
@@ -90,6 +90,126 @@ struct sc_lock
 static const WCHAR emptyW[] = {0};
 static PTP_CLEANUP_GROUP cleanup_group;
 HANDLE exit_event;
+
+#define FIRST_REGISTED_HANDLE 0x0020
+#define LAST_REGISTED_HANDLE 0xffef
+#define STATE_REGISTED      1
+#define STATE_UNREGISTED    2
+#define REGISTED_WINDOW     1
+#define REGISTED_SERVICE    2
+
+typedef unsigned int registed_handle_t;
+struct registed_handle
+{
+    LPWSTR  service_name;
+    DWORD   hwnd;
+    DWORD   type;
+    DWORD   state;
+};
+static struct registed_handle *handles;
+static int nb_handles=0;
+static int allocated_handles=0;
+
+static struct registed_handle *handle_to_entry( registed_handle_t handle )
+{
+        int index = (handle - FIRST_REGISTED_HANDLE) >> 1;
+        if (index < 0 || index >= nb_handles) return NULL;
+        if (handles[index].type == 0) return NULL;
+        return &handles[index];
+}
+
+static inline registed_handle_t entry_to_handle( struct registed_handle *ptr )
+{
+    unsigned int index = ptr - handles;
+    return (index << 1) + FIRST_REGISTED_HANDLE;
+}
+
+static inline struct registed_handle *alloc_registed_entry(void)
+{
+    struct registed_handle *handle;
+    int index = 0;
+    for(;index < nb_handles;index++)
+        if(handles[index].state == STATE_UNREGISTED)
+        {
+            HeapFree(GetProcessHeap(),0,handles[index].service_name);
+            handles[index].hwnd = 0;
+            handles[index].type = 0;
+            return &handles[index];
+        }
+    if (nb_handles >= allocated_handles)  /* need to grow the array */
+    {
+        struct registed_handle *new_handles;
+        /* grow array by 50% (but at minimum 32 entries) */
+        int growth = max( 32, allocated_handles / 2 );
+        int new_size = min( allocated_handles + growth, (LAST_REGISTED_HANDLE-FIRST_REGISTED_HANDLE+1) >> 1 );
+        if (new_size <= allocated_handles) return NULL;
+        if(handles == NULL)
+            handles = HeapAlloc(GetProcessHeap(),0,new_size * sizeof(*handles));
+        else
+        {
+            if (!(new_handles = HeapReAlloc( GetProcessHeap(), 0, handles, new_size * sizeof(*handles) )))
+                return NULL;
+            handles = new_handles;
+        }
+        allocated_handles = new_size;
+    }
+    handle = &handles[nb_handles++];
+    return handle;
+}
+
+static struct registed_handle *get_registed_entry(LPWSTR service_name, DWORD hwnd, DWORD type)
+{
+    int index = 0;
+    for( ; index < nb_handles; index++)
+    {
+        if(handles[index].type == type)
+        {
+            if(type == REGISTED_WINDOW)
+            {
+                if(handles[index].hwnd == hwnd)
+                    return &handles[index];
+            }else
+            {
+                if(!lstrcmpW(handles[index].service_name, service_name))
+                    return &handles[index];
+            }
+        }
+    }
+    return NULL;
+}
+
+/* allocate a registed handle for a given object */
+static registed_handle_t alloc_registed_handle( LPWSTR service_name, DWORD hwnd, DWORD type)
+{
+    struct registed_handle *entry = get_registed_entry(service_name,hwnd,type);
+    if(!entry)
+    {
+        entry = alloc_registed_entry();
+        if (!entry) return 0;
+        if(type == REGISTED_SERVICE)
+        {
+            entry->service_name = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(service_name)+1));
+            lstrcpyW(entry->service_name,service_name);
+        }else
+            entry->hwnd = hwnd;
+        entry->type = type;
+        entry->state = STATE_REGISTED;
+    }
+    return entry_to_handle( entry );
+}
+
+static BOOL free_registed_handle(registed_handle_t handle)
+{
+    struct registed_handle * entry = handle_to_entry(handle);
+    if(!entry || entry->state != STATE_REGISTED)
+        return FALSE;
+    if(entry->type == REGISTED_SERVICE)
+        HeapFree(GetProcessHeap(),0,entry->service_name);
+    entry->hwnd = 0;
+    entry->type = 0;
+    entry->state = STATE_UNREGISTED;
+    return TRUE;
+}
 
 static void CALLBACK group_cancel_callback(void *object, void *userdata)
 {
@@ -1246,10 +1366,10 @@ DWORD __cdecl svcctl_ControlService(
     return result;
 }
 
-static device_event_info* __cdecl DeviceEventToBuffer(DWORD eventtype, DWORD vid, DWORD pid, DWORD interfacenum, LPCSTR devpath, LPCSTR sysname, LPCSTR interfacename, LPCSTR serialnum)
+static device_event_info* __cdecl DeviceEventToBuffer(DWORD eventtype, DWORD vid, DWORD pid, DWORD interfacenum, LPCSTR devpath, LPCSTR sysname, LPCSTR interfacename, LPCSTR serialnum, LPCSTR syspath)
 {
 	int total_size = 0, current_size = 0;
-	int devpath_size = 0, sysname_size = 0, interfacename_size = 0, serialnum_size = 0;
+	int devpath_size = 0, sysname_size = 0, interfacename_size = 0, serialnum_size = 0, syspath_size = 0;
 	device_event_info *dei = NULL;
 
 	if(devpath != NULL)
@@ -1260,7 +1380,9 @@ static device_event_info* __cdecl DeviceEventToBuffer(DWORD eventtype, DWORD vid
 		interfacename_size = lstrlenA(interfacename)*sizeof(CHAR);
 	if(serialnum != NULL)
 		serialnum_size = lstrlenA(serialnum)*sizeof(CHAR);
-	total_size = sizeof(DWORD)*9+(devpath_size+sysname_size+interfacename_size+serialnum_size);
+	if(syspath != NULL)
+		syspath_size = lstrlenA(syspath)*sizeof(CHAR);
+	total_size = sizeof(DWORD)*10+(devpath_size+sysname_size+interfacename_size+serialnum_size+syspath_size);
 
 	dei = HeapAlloc(GetProcessHeap(),0,total_size);
 	dei->size = total_size;
@@ -1289,7 +1411,13 @@ static device_event_info* __cdecl DeviceEventToBuffer(DWORD eventtype, DWORD vid
 	}
 	dei->serialnum_size = serialnum_size;
 	if(serialnum_size)
+	{
 		memcpy(dei->string_var+current_size,serialnum,dei->serialnum_size);
+		current_size = current_size + dei->serialnum_size;
+	}
+	dei->syspath_size = syspath_size;
+	if(syspath_size)
+		memcpy(dei->string_var+current_size,syspath,dei->syspath_size);
 
 	return dei;
 }
@@ -1297,7 +1425,7 @@ static device_event_info* __cdecl DeviceEventToBuffer(DWORD eventtype, DWORD vid
 DWORD __cdecl svcctl_ControlDeviceEventA(
     SC_RPC_HANDLE hService,DWORD dwEventType,DWORD dwVid, DWORD dwPid,
 	DWORD dwInterfaceNum, LPSTR pszDevPath, LPSTR pszSysName, 
-	LPSTR pszInterfaceName, LPSTR pszSerialNum)
+	LPSTR pszInterfaceName, LPSTR pszSerialNum, LPSTR pszSysPath)
 {
 	struct sc_service_handle *service;
 	struct process_entry *process;
@@ -1306,8 +1434,8 @@ DWORD __cdecl svcctl_ControlDeviceEventA(
 	BOOL shared_process;
 	DWORD result;
 
-    TRACE("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
-    TRACE_(scardsvr)("rpc-S: hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+    TRACE("hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s pszSysPath=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
+    TRACE_(plugplay)("rpc-S: hService=%p dwEventType=%d dwVid=%04x dwPid=%04x dwInterfaceNum=%d pszDevPath=%s  pszSysName=%s  pszInterfaceName=%s  pszSerialNum=%s pszSysPath=%s\n", hService, dwEventType, dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
 
 	//rpc transmit string == NULL error
 	if(lstrcmpA(pszDevPath,"null") == 0)
@@ -1318,11 +1446,13 @@ DWORD __cdecl svcctl_ControlDeviceEventA(
 		pszInterfaceName = NULL;
 	if(lstrcmpA(pszSerialNum,"null") == 0)
 		pszSerialNum = NULL;
+	if(lstrcmpA(pszSysPath,"null") == 0)
+		pszSysPath = NULL;
 
 	if ((result = validate_service_handle(hService, 0, &service)) != 0)
 		return result;
 
-	data = DeviceEventToBuffer(dwEventType,dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum);
+	data = DeviceEventToBuffer(dwEventType,dwVid,dwPid,dwInterfaceNum,pszDevPath,pszSysName,pszInterfaceName,pszSerialNum,pszSysPath);
 	if(data != NULL)
 		data_size = data->size;
 
@@ -1337,9 +1467,120 @@ DWORD __cdecl svcctl_ControlDeviceEventA(
 		release_process(process);
 		return ERROR_SERVICE_REQUEST_TIMEOUT;
 	}
-	if(process_send_control(process, shared_process, service->service_entry->name, SERVICE_CONTROL_DEVICEEVENT, data, data_size, &result))
+	if(process_send_control(process, shared_process, service->service_entry->name, SERVICE_CONTROL_DEVICEEVENT, (BYTE*)data, data_size, &result))
 		result = ERROR_SUCCESS;
 	HeapFree(GetProcessHeap(),0,data);
+	ReleaseMutex(process->control_mutex);
+	release_process(process);
+	return result;
+}
+
+DWORD __cdecl svcctl_UnRegDevNotificationW(SC_RPC_HANDLE hService,DWORD dwEventType,DWORD hRegistedHandle)
+{
+	struct sc_service_handle *service;
+	struct process_entry *process;
+	dev_notification_info *data;
+	int data_size = 0, service_name_size = 0;
+	BOOL shared_process;
+	DWORD result;
+
+    TRACE("hService=%p handle=%d\n", hService, hRegistedHandle);
+    TRACE_(plugplay)("rpc-S: hService=%p handle=%d\n", hService, hRegistedHandle);
+
+    if(free_registed_handle(hRegistedHandle) == FALSE)
+    {
+        return ERROR_INVALID_HANDLE;
+    }
+
+	if ((result = validate_service_handle(hService, 0, &service)) != 0)
+		return result;
+
+    data_size = FIELD_OFFSET(dev_notification_info,service_name[service_name_size]);
+    data = HeapAlloc(GetProcessHeap(),0,data_size);
+    data->size = data_size;
+    data->eventtype = dwEventType;
+    data->registed_handle = hRegistedHandle;
+    data->wnd = 0;
+    data->flags = 0;
+    data->name_size = 0;
+
+	service_lock(service->service_entry);
+	process = grab_process(service->service_entry->process);
+	shared_process = service->service_entry->shared_process;
+	service_unlock(service->service_entry);
+
+    result = WaitForSingleObject(process->control_mutex, 30000);
+	if (result != WAIT_OBJECT_0)
+	{
+        HeapFree(GetProcessHeap(),0,data);
+		release_process(process);
+		return ERROR_SERVICE_REQUEST_TIMEOUT;
+	}
+	if(process_send_control(process, shared_process, service->service_entry->name, SERVICE_CONTROL_DEVICEEVENT, (BYTE*)data, data_size, &result))
+        result = ERROR_SUCCESS;
+
+    HeapFree(GetProcessHeap(),0,data);
+	ReleaseMutex(process->control_mutex);
+	release_process(process);
+    return result;
+}
+DWORD __cdecl svcctl_RegDevNotificationW(SC_RPC_HANDLE hService,DWORD dwEventType,LPWSTR pszServiceName, DWORD dwWnd, DWORD dwFlags)
+{
+	struct sc_service_handle *service;
+	struct process_entry *process;
+	dev_notification_info *data;
+	int data_size = 0, service_name_size = 0;
+	BOOL shared_process;
+    registed_handle_t registed_handle = 0;
+	DWORD result;
+
+    TRACE("hService=%p dwEventType=%d pszServiceName=%s\n", hService, dwEventType, debugstr_w(pszServiceName));
+    TRACE_(plugplay)("rpc-S: hService=%p dwEventType=%d pszServiceName=%s\n", hService, dwEventType, debugstr_w(pszServiceName));
+
+    if((dwFlags & DEVICE_NOTIFY_SERVICE_HANDLE) == DEVICE_NOTIFY_SERVICE_HANDLE)
+        registed_handle = alloc_registed_handle(pszServiceName,0,REGISTED_SERVICE);
+    else if((dwFlags & DEVICE_NOTIFY_WINDOW_HANDLE) == DEVICE_NOTIFY_WINDOW_HANDLE)
+        registed_handle = alloc_registed_handle(NULL,dwWnd,REGISTED_WINDOW);
+    if(registed_handle == 0)
+    {
+        return ERROR_NO_MORE_ITEMS;
+    }
+
+	if ((result = validate_service_handle(hService, 0, &service)) != 0)
+		return result;
+
+    if(pszServiceName != NULL)
+        service_name_size = (lstrlenW(pszServiceName)+1)*sizeof(WCHAR);
+    data_size = FIELD_OFFSET(dev_notification_info,service_name[service_name_size]);
+
+    data = HeapAlloc(GetProcessHeap(),0,data_size);
+    data->size = data_size;
+    data->eventtype = dwEventType;
+    data->registed_handle = registed_handle;
+    data->wnd = dwWnd;
+    data->flags = dwFlags;
+    data->name_size = service_name_size;
+    if(service_name_size)
+    {
+        memcpy(data->service_name,pszServiceName,service_name_size);
+    }
+
+	service_lock(service->service_entry);
+	process = grab_process(service->service_entry->process);
+	shared_process = service->service_entry->shared_process;
+	service_unlock(service->service_entry);
+
+    result = WaitForSingleObject(process->control_mutex, 30000);
+	if (result != WAIT_OBJECT_0)
+	{
+        HeapFree(GetProcessHeap(),0,data);
+		release_process(process);
+		return ERROR_SERVICE_REQUEST_TIMEOUT;
+	}
+	if(process_send_control(process, shared_process, service->service_entry->name, SERVICE_CONTROL_DEVICEEVENT, (BYTE*)data, data_size, &result))
+        result = (0-data->registed_handle);
+
+    HeapFree(GetProcessHeap(),0,data);
 	ReleaseMutex(process->control_mutex);
 	release_process(process);
 	return result;

@@ -12,6 +12,7 @@ WINE_1.0
     atoiW;
     atolW;
     get_char_typeW;
+    get_prestart_socket_path;
     isalnumW;
     isalphaW;
     iscntrlW;
@@ -26,6 +27,7 @@ WINE_1.0
     memchrW;
     memicmpW;
     memrchrW;
+    prestart_initialize;
     snprintfW;
     sprintfW;
     strcatW;
@@ -91,6 +93,7 @@ WINE_1.0
     wine_get_user_name;
     wine_get_version;
     wine_init;
+    wine_init_container;
     wine_init_argv0_path;
     wine_is_dbcs_leadbyte;
     wine_ldt_alloc_entries;

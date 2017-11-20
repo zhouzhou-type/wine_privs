@@ -113,6 +113,27 @@ static char *get_wine_inf_path(void)
     }
     return name;
 }
+static char *get_container_inf_path(void)
+{
+    const char *build_dir, *data_dir;
+    char *name = NULL;
+
+    if ((data_dir = wine_get_data_dir()))
+    {
+        if (!(name = HeapAlloc( GetProcessHeap(), 0, strlen(data_dir) + sizeof("/container.inf") )))
+            return NULL;
+        strcpy( name, data_dir );
+        strcat( name, "/container.inf" );
+    }
+    else if ((build_dir = wine_get_build_dir()))
+    {
+        if (!(name = HeapAlloc( GetProcessHeap(), 0, strlen(build_dir) + sizeof("/loader/container.inf") )))
+            return NULL;
+        strcpy( name, build_dir );
+        strcat( name, "/loader/container.inf" );
+    }
+    return name;
+}
 
 /* update the timestamp if different from the reference time */
 static BOOL update_timestamp( const char *config_dir, unsigned long timestamp )
@@ -990,6 +1011,7 @@ static void update_wineprefix( BOOL force )
 {
     const char *config_dir = wine_get_config_dir();
     char *inf_path = get_wine_inf_path();
+    char *container_inf_path = get_container_inf_path();
     int fd;
     struct stat st;
 
@@ -1030,9 +1052,31 @@ static void update_wineprefix( BOOL force )
         }
         WINE_MESSAGE( "wine: configuration in '%s' has been updated.\n", config_dir );
     }
+    if (container_inf_path)
+    {
+        HANDLE process;
+        DWORD count = 0;
 
+        if ((process = start_rundll32( container_inf_path, FALSE )))
+        {
+            HWND hwnd = show_wait_window();
+            for (;;)
+            {
+                MSG msg;
+                DWORD res = MsgWaitForMultipleObjects( 1, &process, FALSE, INFINITE, QS_ALLINPUT );
+                if (res == WAIT_OBJECT_0)
+                {
+                    CloseHandle( process );
+                    if (count++ || !(process = start_rundll32( container_inf_path, TRUE ))) break;
+                }
+                else while (PeekMessageW( &msg, 0, 0, 0, PM_REMOVE )) DispatchMessageW( &msg );
+            }
+            DestroyWindow( hwnd );
+        }
+    }
 done:
     HeapFree( GetProcessHeap(), 0, inf_path );
+    HeapFree( GetProcessHeap(), 0, container_inf_path );
 }
 
 /* Process items in the StartUp group of the user's Programs under the Start Menu. Some installers put
@@ -1244,6 +1288,7 @@ int main( int argc, char *argv[] )
         ProcessRunKeys( HKEY_LOCAL_MACHINE, RunServicesW, FALSE, FALSE );
         start_services_process();
     }
+
     if (init || update) update_wineprefix( update );
 
     create_volatile_environment_registry_key();

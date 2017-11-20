@@ -44,6 +44,9 @@
 #include "ntdll_misc.h"
 #include "ddk/wdm.h"
 
+#include <sys/socket.h>
+#include <sys/un.h>
+
 WINE_DEFAULT_DEBUG_CHANNEL(module);
 WINE_DECLARE_DEBUG_CHANNEL(relay);
 WINE_DECLARE_DEBUG_CHANNEL(snoop);
@@ -1691,7 +1694,7 @@ static void set_security_cookie( void *module, SIZE_T len )
             break;
     }
 }
-
+/****
 static NTSTATUS perform_relocations( void *module, SIZE_T len )
 {
     IMAGE_NT_HEADERS *nt;
@@ -1707,7 +1710,7 @@ static NTSTATUS perform_relocations( void *module, SIZE_T len )
 
     assert( module != base );
 
-    /* no relocations are performed on non page-aligned binaries */
+    // no relocations are performed on non page-aligned binaries
     if (nt->OptionalHeader.SectionAlignment < page_size)
         return STATUS_SUCCESS;
 
@@ -1769,6 +1772,7 @@ static NTSTATUS perform_relocations( void *module, SIZE_T len )
 
     return STATUS_SUCCESS;
 }
+*/
 
 /******************************************************************************
  *	load_native_dll  (internal)
@@ -1798,7 +1802,8 @@ static NTSTATUS load_native_dll( LPCWSTR load_path, LPCWSTR name, HANDLE file,
     /* perform base relocation, if necessary */
 
     if (status == STATUS_IMAGE_NOT_AT_BASE)
-        status = perform_relocations( module, len );
+        //status = perform_relocations( module, len );
+        status = rebase_perform_relocations(module, len);
 
     if (status != STATUS_SUCCESS)
     {
@@ -2430,6 +2435,9 @@ NTSTATUS WINAPI LdrAddRefDll( ULONG flags, HMODULE module )
 IMAGE_BASE_RELOCATION * WINAPI LdrProcessRelocationBlock( void *page, UINT count,
                                                           USHORT *relocs, INT_PTR delta )
 {
+    //MESSAGE("ntdll  ldrProcessRelocationBlocks\n");
+    return LdrProcessRelocationBlock_rebase( page, count, relocs, delta );
+    /*
     while (count--)
     {
         USHORT offset = *relocs & 0xfff;
@@ -2496,7 +2504,8 @@ IMAGE_BASE_RELOCATION * WINAPI LdrProcessRelocationBlock( void *page, UINT count
         }
         relocs++;
     }
-    return (IMAGE_BASE_RELOCATION *)relocs;  /* return address of next block */
+    return (IMAGE_BASE_RELOCATION *)relocs;  // return address of next block
+    */
 }
 
 
@@ -3282,7 +3291,6 @@ void CDECL __wine_init_windows_dir( const WCHAR *windir, const WCHAR *sysdir )
     }
 }
 
-
 /***********************************************************************
  *           __wine_process_init
  */
@@ -3294,7 +3302,7 @@ void __wine_process_init(void)
     NTSTATUS status;
     ANSI_STRING func_name;
     void (* DECLSPEC_NORETURN CDECL init_func)(void);
-
+	
     main_exe_file = thread_init();
 
     /* retrieve current umask */
@@ -3319,6 +3327,47 @@ void __wine_process_init(void)
                                           0, (void **)&init_func )) != STATUS_SUCCESS)
     {
         MESSAGE( "wine: could not find __wine_kernel_init in kernel32.dll, status %x\n", status );
+        exit(1);
+    }
+    init_func();
+}
+
+/***********************************************************************
+ *           __wine_process_init_container
+ */
+void __wine_process_init_container(void)
+{
+    static const WCHAR kernel32W[] = {'k','e','r','n','e','l','3','2','.','d','l','l',0};
+
+    WINE_MODREF *wm;
+    NTSTATUS status;
+    ANSI_STRING func_name;
+    void (* DECLSPEC_NORETURN CDECL init_func)(void);
+
+    main_exe_file = thread_init_container();
+
+    /* retrieve current umask */
+    FILE_umask = umask(0777);
+    umask( FILE_umask );
+
+    load_global_options();
+
+    /* setup the load callback and create ntdll modref */
+    wine_dll_set_callback( load_builtin_callback );
+
+    if ((status = load_builtin_dll( NULL, kernel32W, 0, 0, &wm )) != STATUS_SUCCESS)
+    {
+        MESSAGE( "wine: could not load kernel32.dll, status %x\n", status );
+        exit(1);
+    }
+    RtlInitAnsiString( &func_name, "UnhandledExceptionFilter" );
+    LdrGetProcedureAddress( wm->ldr.BaseAddress, &func_name, 0, (void **)&unhandled_exception_filter );
+
+    RtlInitAnsiString( &func_name, "__wine_kernel_init_container" );
+    if ((status = LdrGetProcedureAddress( wm->ldr.BaseAddress, &func_name,
+                                          0, (void **)&init_func )) != STATUS_SUCCESS)
+    {
+        MESSAGE( "wine: could not find __wine_kernel_init_container in kernel32.dll, status %x\n", status );
         exit(1);
     }
     init_func();

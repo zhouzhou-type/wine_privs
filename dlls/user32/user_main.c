@@ -32,6 +32,10 @@
 #include "wine/unicode.h"
 #include "wine/debug.h"
 
+#ifdef _WINE_PRESTART_
+#include "prestart.h"
+#endif // _WINE_PRESTART_
+
 WINE_DEFAULT_DEBUG_CHANNEL(graphics);
 
 #define DESKTOP_ALL_ACCESS 0x01ff
@@ -334,6 +338,13 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
         ret = process_attach();
         if(ret)
             imm32_module = LoadLibraryW(imm32_dllW);
+#ifdef _WINE_PRESTART_
+	if (getenv("WINEPRESTART"))
+	{
+		TRACE("post_prestart_init\n");
+		post_prestart_init();
+	}
+#endif // _WINE_PRESTART_
         break;
     case DLL_THREAD_DETACH:
         thread_detach();
@@ -342,6 +353,14 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
         USER_unload_driver();
         FreeLibrary(imm32_module);
         DeleteCriticalSection(&user_section);
+#ifdef _WINE_PRESTART_
+	if (getenv("WINEPRESTART"))
+	{
+		TRACE("post_prestart_cleanup\n");
+		post_prestart_cleanup();
+	}
+#endif // _WINE_PRESTART_
+
         break;
     }
     return ret;

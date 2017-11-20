@@ -2642,6 +2642,9 @@ WINE_CONFIG_SYMLINK(loader,loader,[l_intl.nls])
 WINE_CONFIG_SYMLINK(,tools,[wine],,winewrapper)
 WINE_CONFIG_SYMLINK(,tools,[wine64],enable_win64,winewrapper)
 
+WINE_CONFIG_MAKEFILE([container])
+WINE_CONFIG_MAKEFILE([container],,[clean,install-lib])
+WINE_CONFIG_MAKEFILE([container],,[clean,install-lib])
 WINE_CONFIG_DLL(acledit)
 WINE_CONFIG_DLL(aclui,,[implib])
 WINE_CONFIG_DLL(activeds,,[implib])
@@ -3662,6 +3665,7 @@ WINE_CONFIG_TOOL(tools/winegcc,[clean,install-dev])
 WINE_CONFIG_TOOL(tools/winemaker,[clean,install-dev])
 WINE_CONFIG_TOOL(tools/wmc,[clean,install-dev])
 WINE_CONFIG_TOOL(tools/wrc,[clean,install-dev])
+WINE_CONFIG_MAKEFILE([wineprestart],,[clean,install-lib])
 dnl End of auto-generated output commands
 
 dnl Main ignore file

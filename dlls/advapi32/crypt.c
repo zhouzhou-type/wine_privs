@@ -360,6 +360,7 @@ BOOL WINAPI CryptAcquireContextW (HCRYPTPROV *phProv, LPCWSTR pszContainer,
 	PSTR provnameA = NULL, pszContainerA = NULL;
 	DWORD keytype, type, len;
 	ULONG r;
+	ULONG Err = ERROR_SUCCESS;
 	static const WCHAR nameW[] = {'N','a','m','e',0};
 	static const WCHAR typeW[] = {'T','y','p','e',0};
 	static const WCHAR imagepathW[] = {'I','m','a','g','e',' ','P','a','t','h',0};
@@ -515,6 +516,9 @@ BOOL WINAPI CryptAcquireContextW (HCRYPTPROV *phProv, LPCWSTR pszContainer,
 		/* CRYPT_UnicodeToANSI calls SetLastError */
 		goto error;
 	}
+	TRACE("Finish load Dll, last error(%08x)\n",GetLastError());
+
+        TRACE("CPAcquireContext (%s),(%08x)\n",pszContainerA, dwFlags);
 	if (pProv->pFuncs->pCPAcquireContext(&pProv->hPrivate, pszContainerA, dwFlags, pProv->pVTable))
 	{
 		/* MSDN: When this flag is set, the value returned in phProv is undefined,
@@ -536,7 +540,14 @@ BOOL WINAPI CryptAcquireContextW (HCRYPTPROV *phProv, LPCWSTR pszContainer,
 		CRYPT_Free(provname);
 		CRYPT_Free(temp);
 		CRYPT_Free(imagepath);
+		TRACE("(%p, %s, %s, %d) return TRUE\n", phProv, debugstr_w(pszContainer),
+						debugstr_w(pszProvider), dwProvType);
 		return TRUE;
+	}
+	else 
+	{
+		Err = GetLastError();
+		TRACE("CPAcquireContext return Err(%08x)\n",Err);
 	}
 	/* FALLTHROUGH TO ERROR IF FALSE - CSP internal error! */
 error:
@@ -554,6 +565,12 @@ error:
 	CRYPT_Free(provname);
 	CRYPT_Free(temp);
 	CRYPT_Free(imagepath);
+	if(Err)
+	{
+		SetLastError(Err);
+		TRACE("(%p, %s, %s, %d) returning FALSE, Err(%08x)\n", phProv, debugstr_w(pszContainer),
+						debugstr_w(pszProvider), dwProvType, Err);
+	}
 	return FALSE;
 }
 

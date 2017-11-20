@@ -1,6 +1,6 @@
 MODULE    = comdlg32.dll
 IMPORTLIB = comdlg32
-IMPORTS   = uuid shell32 shlwapi comctl32 winspool user32 gdi32 advapi32
+IMPORTS   = uuid shell32 shlwapi comctl32 winspool user32 gdi32 advapi32 $(LIBS)
 DELAYIMPORTS = ole32
 
 C_SRCS = \
@@ -23,3 +23,7 @@ SVG_SRCS = \
 	pd32_portrait.svg
 
 IDL_SRCS = comdlg32_classes.idl
+
+LIBS = gtk-3 gdk-3 pangocairo-1.0 pango-1.0 atk-1.0 cairo-gobject cairo gdk_pixbuf-2.0 gio-2.0 gobject-2.0 glib-2.0
+
+CFLAGS = `pkg-config --cflags gtk+-3.0` 

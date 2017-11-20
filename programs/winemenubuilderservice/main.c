@@ -105,6 +105,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -419,7 +420,6 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
         WINE_ERR("error 0x%08X creating output file %s\n", hr, wine_dbgstr_w(dosOutputFileName));
         goto end;
     }
-     
     hr = IWICBitmapEncoder_Initialize(encoder, outputFile, GENERIC_WRITE);
     if (FAILED(hr))
     {
@@ -493,9 +493,7 @@ static HRESULT convert_to_native_icon(IStream *icoFile, int *indices, int numInd
             WINE_ERR("error 0x%08X setting destination bitmap resolution\n", hr);
             goto endloop;
         }
-	
         hr = IWICBitmapFrameEncode_WriteSource(dstFrame, sourceBitmap, NULL);
-	
         if (FAILED(hr))
         {
             WINE_ERR("error 0x%08X copying bitmaps\n", hr);
@@ -1237,7 +1235,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
-    
     if (*nativeIdentifier == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -1246,7 +1243,7 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
     if (!(tmpdir = getenv("TMPDIR"))) tmpdir = "/tmp";
     icnsPath = heap_printf("%s/%s.icns", tmpdir, *nativeIdentifier);
     if (icnsPath == NULL)
-    
+    {
         hr = E_OUTOFMEMORY;
         WINE_WARN("out of memory creating ICNS path\n");
         goto end;
@@ -1291,6 +1288,7 @@ static void refresh_icon_cache(const char *iconsDir)
         HeapFree(GetProcessHeap(), 0, filename);
     }
 }
+
 /**bu xiaoya:copy file
  *arg:
  *	sourceFileNameWithPath: origin file( path)
@@ -1427,7 +1425,6 @@ static void createSoftLink(const char *filePath){
 
 			}else if( (winedir_rel = strstr(filePath,".wine")) != NULL){
 
-
 				strcpy(dir_rel_Tmp,winedir_rel);	
 				filename = strrchr(dir_rel_Tmp,'/');
 				strcpy(filenameTmp,filename);
@@ -1499,7 +1496,6 @@ static HRESULT platform_write_icon(IStream *icoStream, ICONDIRENTRY *iconDirEntr
         *nativeIdentifier = heap_printf("%s", destFilename);
     else
         *nativeIdentifier = compute_native_identifier(exeIndex, icoPathW);
-
     if (*nativeIdentifier == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -1794,7 +1790,6 @@ static BOOL write_desktop_entry(const char *unix_link, const char *location, con
 	    index_n++;
 	}
 
-	
 	sprintf(starticonpath,"%s/dosdevices/%s",wine_get_config_dir(),path_dup);
 
 	if(isDesktopFile(location)==TRUE){
@@ -2785,7 +2780,6 @@ static BOOL write_freedesktop_mime_type_entry(const char *packages_dir, const ch
             fprintf(packageFile, "</mime-info>\n");
             ret = TRUE;
             fclose(packageFile);
-
         }
         else
             WINE_ERR("error writing file %s\n", filename);
@@ -3356,8 +3350,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         icon_name = extract_icon( szIconPath , iIconId, NULL, bWait );
     }
     else{
-
-
         icon_name = extract_icon( szPath, iIconId, NULL, bWait );
     }
 
@@ -3408,7 +3400,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
 
             GetWindowsDirectoryW(szPath, MAX_PATH);
             lstrcatW(szPath, startW);
-	    
         }
 
         /* convert app working dir */
@@ -3421,7 +3412,6 @@ static BOOL InvokeShellLinker( IShellLinkW *sl, LPCWSTR link, BOOL bWait )
         lstrcpynW(szArgs, link, MAX_PATH);
         GetWindowsDirectoryW(szPath, MAX_PATH);
         lstrcatW(szPath, startW);
-
     }
 
     /* escape the path and parameters */
@@ -4343,7 +4333,6 @@ static void checkProcessTerminate(
 	}
 }*/
 
-
 static int unix_socket_listen(const char *server_socket_name)
 {
 	int fd;
@@ -4407,12 +4396,27 @@ static void delete_event(int epollfd, int fd, int state)
 	epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
 
 }
+
+static LPSTR wchar_to_char(LPWSTR wstr)
+{
+	LPSTR  str;
+	DWORD   len;
+	
+	len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+	str = HeapAlloc(GetProcessHeap(), 0, len * sizeof(CHAR));
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
+
+	return str;
+}
 static int parse_cmdline(LPWSTR cmdline)
 {
     static const WCHAR dash_aW[] = {'-','a',0};
     static const WCHAR dash_tW[] = {'-','t',0};
     static const WCHAR dash_uW[] = {'-','u',0};
     static const WCHAR dash_wW[] = {'-','w',0};
+    static const WCHAR dash_sW[] = {'-','s',0};
+    static const WCHAR updateW[] = {'u','p','d','a','t','e',0};
+	
     LPWSTR token = NULL, p;
     BOOL bWait = FALSE;
     BOOL bURL = FALSE;
@@ -4453,36 +4457,56 @@ static int parse_cmdline(LPWSTR cmdline)
                      thumbnail_lnk(lnkFile, outputFile);
             }
         }
-	else if( token[0] == '-' )
-	{
-	    WINE_ERR( "unknown option %s\n", wine_dbgstr_w(token) );
-	}
+		else if ( !strcmpW( token, dash_sW) )
+		{
+			WCHAR *from_w = next_token( &p );
+			WCHAR *to_w = next_token( &p );
+			struct stat buf;
+			if ( !from_w || !to_w )
+			{
+				break;
+			}
+			LPSTR from = wchar_to_char(from_w);
+			LPSTR to = wchar_to_char(to_w);
+			if (lstat(to, &buf) || !S_ISLNK(buf.st_mode))
+			{
+			    remove(to);
+				symlink(from, to);
+			}
+			HeapFree(GetProcessHeap(), 0, from);
+			HeapFree(GetProcessHeap(), 0, to);
+			break;
+		}
+		else if (!strcmpW( token, updateW))
+		{
+		    system("winuxupdater");
+		}
+		else if( token[0] == '-' )
+		{
+			WINE_ERR( "unknown option %s\n", wine_dbgstr_w(token) );
+		}
         else
-	{
-		 BOOL bRet;
-		 WCHAR *pid_w= next_token( &p );
-		 if(!pid_w){
-		
-			 break;
-		 }
-		 int pid = atoiW(pid_w);	
-		 if (bURL)
-	
-		 	 bRet = Process_URL( token, bWait, pid );
-		 else{
-			 
-		 	 bRet = Process_Link( token, bWait, pid );
-		 }
-		 if (!bRet)
-		 {
-		     WINE_ERR( "failed to build menu item for %s\n", wine_dbgstr_w(token) );
-		     ret = 1;
-		 }
+		{
+			WCHAR *pid_w= next_token( &p );
+		 	if(!pid_w)
+				break;
+		 	int pid = atoiW(pid_w);	
+		 	BOOL bRet;
+		 	if (bURL)
+				bRet = Process_URL( token, bWait, pid );
+			else
+			{ 
+				bRet = Process_Link( token, bWait, pid );
+			}
+		 	if (!bRet)
+		 	{
+		     	WINE_ERR( "failed to build menu item for %s\n", wine_dbgstr_w(token) );
+		     	ret = 1;
+		 	}
+		}
 	}
-   }
-
-        CoUninitialize();
-	    return ret;
+	CoUninitialize();
+	return ret;
 }
 
 static void unix_socket_accept(int listenfd, int epollfd)
@@ -4559,9 +4583,9 @@ static void socket_data(void){
 	int listenfd ;
 	const char *server_dir = wine_get_server_dir();
 	const char *socket_name = "/foosock";
-	char *socket_addr = HeapAlloc(GetProcessHeap(),0,sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
-	strcpy(socket_addr,server_dir);
-	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
+	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char) * (strlen(server_dir) + strlen(socket_name) + 1));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr + strlen(server_dir), socket_name);
 	listenfd = unix_socket_listen(socket_addr);
 	if(listenfd<0)
 	{

@@ -12,7 +12,8 @@ C_SRCS = \
 	port.c \
 	sortkey.c \
 	string.c \
-	wctype.c
+	wctype.c \
+	prestart_util.c
 
 EXTRA_OBJS = version.o
 

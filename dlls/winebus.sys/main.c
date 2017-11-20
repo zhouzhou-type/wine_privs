@@ -676,7 +676,7 @@ NTSTATUS WINAPI DriverEntry( DRIVER_OBJECT *driver, UNICODE_STRING *path )
 
     TRACE( "(%p, %s)\n", driver, debugstr_w(path->Buffer) );
 
-	//startScardSvr();
+    //startScardSvr();
 
     IoCreateDriver(&udev, udev_driver_init);
     IoCreateDriver(&iohid, iohid_driver_init);

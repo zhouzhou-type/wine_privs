@@ -19,7 +19,7 @@
  */
 
 #include <stdarg.h>
-
+#include <stdio.h>
 #define COBJMACROS
 
 #include "windef.h"
@@ -81,6 +81,7 @@ static const WCHAR DelReg[]     = {'D','e','l','R','e','g',0};
 static const WCHAR BitReg[]     = {'B','i','t','R','e','g',0};
 static const WCHAR UpdateInis[] = {'U','p','d','a','t','e','I','n','i','s',0};
 static const WCHAR CopyINF[]    = {'C','o','p','y','I','N','F',0};
+static const WCHAR ContainerINF[]    = {'C','o','n','t','a','i','n','e','r','I','N','F',0};
 static const WCHAR AddService[] = {'A','d','d','S','e','r','v','i','c','e',0};
 static const WCHAR DelService[] = {'D','e','l','S','e','r','v','i','c','e',0};
 static const WCHAR UpdateIniFields[] = {'U','p','d','a','t','e','I','n','i','F','i','e','l','d','s',0};
@@ -695,6 +696,60 @@ static BOOL register_dlls_callback( HINF hinf, PCWSTR field, void *arg )
 }
 
 /***********************************************************************
+ *            container_inf_callback
+ *
+ * Called once for container pre execute in a given section.
+ */
+static BOOL container_inf_callback( HINF hinf, PCWSTR field, void *arg )
+{
+    WCHAR type_exe[] = {'e','x','e',0};
+    INFCONTEXT context;
+    BOOL ok = SetupFindFirstLineW( hinf, field, NULL, &context );
+
+    for (; ok; ok = SetupFindNextLine( &context, &context ))
+    {
+        WCHAR type[MAX_INF_STRING_LENGTH];
+
+        /* get type */
+        if (!SetupGetStringFieldW( &context, 1, type, sizeof(type)/sizeof(WCHAR), NULL ))
+            break;
+        if(!strcmpW(type,type_exe))
+        {
+            WCHAR exe_path[MAX_INF_STRING_LENGTH];
+            WCHAR argv[MAX_INF_STRING_LENGTH];
+            WCHAR *cmdline = 0;
+            WCHAR space[] = {' ', 0};
+            PROCESS_INFORMATION process_info;
+            STARTUPINFOW startup_info;
+
+            if (!SetupGetStringFieldW( &context, 2, exe_path, sizeof(exe_path)/sizeof(WCHAR), NULL ) || !strlenW(exe_path) )
+                continue;
+            if (SetupGetStringFieldW( &context, 3, argv, sizeof(argv)/sizeof(WCHAR), NULL ) && strlenW(argv))
+            {
+                cmdline = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*(strlenW(exe_path)+strlenW(argv)+2));
+                strcpyW(cmdline, exe_path);
+                strcpyW(cmdline+strlenW(exe_path), space);
+                strcpyW(cmdline+strlenW(exe_path)+1, argv);
+            }else
+            {
+                cmdline = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*strlenW(exe_path));
+                strcpyW(cmdline, exe_path);
+            }
+
+            memset(&startup_info, 0, sizeof(startup_info));
+            startup_info.cb = sizeof(startup_info);
+            fprintf(stderr,"wine-container pre execute:%s\n", debugstr_w(cmdline));
+            CreateProcessW(exe_path,cmdline,NULL,NULL,FALSE,0,NULL,NULL,&startup_info,&process_info);
+            HeapFree(GetProcessHeap(), 0, cmdline);
+        }else
+        {
+            //do other thing
+        }
+    }
+    return TRUE;
+}
+
+/***********************************************************************
  *            fake_dlls_callback
  *
  * Called once for each WineFakeDlls entry in a given section.
@@ -1183,6 +1238,9 @@ BOOL WINAPI SetupInstallFromInfSectionW( HWND owner, HINF hinf, PCWSTR section, 
         if (!iterate_section_fields( hinf, section, CopyINF, copy_inf_callback, NULL ))
             return FALSE;
     }
+
+    if (!iterate_section_fields( hinf, section, ContainerINF, container_inf_callback, NULL ))
+        return FALSE;
 
     return TRUE;
 }

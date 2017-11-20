@@ -1300,6 +1300,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
         swShell32Name[MAX_PATH - 1] = '\0';
 
         InitChangeNotifications();
+        static const WCHAR mutex_name[] = {'I','N','I','T','_','S','H','E','L','L','_','F','O','L','D','E','R',0};
+        HANDLE hMutex = CreateMutexW(NULL,FALSE,mutex_name);
+        WaitForSingleObject(hMutex,INFINITE);
+        SHELL_ResetShellFolders();
+        ReleaseMutex(hMutex);
+        CloseHandle(hMutex);
         break;
 
     case DLL_PROCESS_DETACH:

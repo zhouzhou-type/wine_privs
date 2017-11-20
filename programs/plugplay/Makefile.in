@@ -1,6 +1,6 @@
 MODULE    = plugplay.exe
 APPMODE   = -mconsole -municode
-IMPORTS   = advapi32
+IMPORTS   = advapi32 user32
 
 C_SRCS = \
 	main.c
