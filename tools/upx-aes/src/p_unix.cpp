@@ -310,8 +310,8 @@ void PackUnix::pack(OutputFile *fo)
     pack4(fo, ft);  // append PackHeader and overlay_offset; update Elf header
 
     // finally check the compression ratio
-    if (!checkFinalCompressionRatio(fo))
-        throwNotCompressible();
+    //if (!checkFinalCompressionRatio(fo))
+        //throwNotCompressible();
 }
 
 

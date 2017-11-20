@@ -3785,9 +3785,9 @@ void PackLinuxElf64::unpack(OutputFile *fo)
     p_info hbuf;  fi->readx(&hbuf, sizeof(hbuf));
     unsigned orig_file_size = get_te32(&hbuf.p_filesize);
     blocksize = get_te32(&hbuf.p_blocksize);
-    if (file_size > (off_t)orig_file_size || blocksize > orig_file_size
-        || !mem_size_valid(1, blocksize, OVERHEAD))
-        throwCantUnpack("p_info corrupted");
+    //if (file_size > (off_t)orig_file_size || blocksize > orig_file_size
+    //    || !mem_size_valid(1, blocksize, OVERHEAD))
+    //    throwCantUnpack("p_info corrupted");
 
 #define MAX_ELF_HDR 1024
     union {

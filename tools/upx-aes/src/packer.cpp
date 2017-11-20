@@ -1546,13 +1546,13 @@ void Packer::compressWithFilters(upx_bytep i_ptr, unsigned i_len,
     // Finally, check compression ratio.
     // Might be inhibited when blocksize < file_size, for instance.
     if (!inhibit_compression_check) {
-        if (best_ph.c_len + best_ph_lsize >= best_ph.u_len)
-            throwNotCompressible();
+        //if (best_ph.c_len + best_ph_lsize >= best_ph.u_len)
+            //throwNotCompressible();
         if (!checkCompressionRatio(best_ph.u_len, best_ph.c_len))
             throwNotCompressible();
 
         // postconditions 2)
-        assert(best_ph.overlap_overhead > 0);
+        //assert(best_ph.overlap_overhead > 0);
     }
 
     // convenience
