@@ -1,0 +1,6 @@
+MR_BYTE InCo[4];
+InCo[0]=0xB;
+InCo[0]=0xD;
+InCo[0]=0x9;
+InCo[0]=0xE;
+
