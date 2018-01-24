@@ -1663,3 +1663,96 @@ size_t server_init_thread( void *entry_point )
         server_protocol_error( "init_thread failed with status %x\n", ret );
     }
 }
+
+//lyl
+static HANDLE get_process_session_handle(void)
+{    
+	HANDLE ret = 0;    
+	SERVER_START_REQ( get_process_session )    
+	{    	    	 
+		if (!wine_server_call_err( req ))    		 
+			ret = wine_server_ptr_handle( reply->handle );        
+	}  
+	SERVER_END_REQ;    
+	return ret;
+}
+
+//lyl
+static BOOL set_process_session_handle( HANDLE handle )
+{    
+	BOOL ret;    
+	SERVER_START_REQ( set_process_session )    
+	{        
+		req->handle = wine_server_obj_handle( handle );        
+		ret = !wine_server_call_err( req );    
+	}    
+	SERVER_END_REQ;    
+	return ret;
+}
+
+//lyl
+static HANDLE create_session( LPCWSTR name, DWORD session_id, ACCESS_MASK access,LPSECURITY_ATTRIBUTES sa )
+{    
+	HANDLE ret=0;    
+	DWORD len = name ? strlenW(name) : 0;    
+	if (len >= MAX_PATH)    
+	{        
+		SetLastError( ERROR_FILENAME_EXCED_RANGE );        
+		return 0;    
+	}   
+	SERVER_START_REQ( create_session )    
+	{        
+		req->session_id  = session_id;
+		req->flags    	= 0;
+		req->access     = access;        
+		req->attributes = OBJ_CASE_INSENSITIVE | OBJ_OPENIF | ((sa && sa->bInheritHandle) ? OBJ_INHERIT : 0);        
+		req->rootdir    = wine_server_obj_handle(0);
+		wine_server_add_data( req, name, len * sizeof(WCHAR) );        
+		wine_server_call_err( req );        
+		ret = wine_server_ptr_handle( reply->handle );    
+	}
+	SERVER_END_REQ;    
+	return ret;
+}
+
+//lyl
+void server_init_session(void)
+{
+	NTSTATUS ret = STATUS_SUCCESS;	
+	unsigned int process_not_service = 1;	
+	
+	static const WCHAR Services[] = {'\\','K','e','r','n','e','l','O','b','j','e','c','t','s',         
+		'\\','S','e','s','s','i','o','n','0',0};    	
+	static const WCHAR Console[] = {'\\','K','e','r','n','e','l','O','b','j','e','c','t','s',         
+		'\\','S','e','s','s','i','o','n','1',0};
+
+	HANDLE session=0;
+
+	if(get_process_session_handle())
+		return ;
+	
+	SERVER_START_REQ(get_process_info)    
+	{        
+		req->handle = wine_server_obj_handle( GetCurrentProcess() );        
+		if ((ret = wine_server_call( req )) == STATUS_SUCCESS)        
+		{            
+			process_not_service = reply->is_not_service ;        
+		}    
+	}    
+	SERVER_END_REQ;	
+	
+	if(process_not_service)	
+	{	//app		
+		session = create_session( Console, 1, 0, NULL );	
+	}	
+	else	
+	{	
+		//process is service,so sessionid = 0
+		NtCurrentTeb()->Peb->SessionId = 0;
+		session = create_session(Services , 0, 0, NULL );	
+	}
+
+	if(session)
+		set_process_session_handle(session);
+}
+

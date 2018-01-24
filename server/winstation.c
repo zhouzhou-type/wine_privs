@@ -39,7 +39,8 @@
 #include "file.h"
 #include "security.h"
 #include "wine/unicode.h"
-
+#include "request.h"
+#include "session.h"  //lyl
 
 static struct list winstation_list = LIST_INIT(winstation_list);
 
@@ -103,10 +104,9 @@ static const struct object_ops desktop_ops =
 };
 
 #define DESKTOP_ALL_ACCESS 0x01ff
-
 /* create a winstation object */
 static struct winstation *create_winstation( struct object *root, const struct unicode_str *name,
-                                             unsigned int attr, unsigned int flags )
+                                             unsigned int attr, unsigned int flags ,struct session*session )  //lyl
 {
     struct winstation *winstation;
 
@@ -116,9 +116,12 @@ static struct winstation *create_winstation( struct object *root, const struct u
         {
             /* initialize it if it didn't already exist */
             winstation->flags = flags;
+	
+			winstation->session = (struct session *)grab_object( session );;  //lyl
+			list_add_tail( &session->winstations, &winstation->entry);  //lyl
             winstation->clipboard = NULL;
             winstation->atom_table = NULL;
-            list_add_tail( &winstation_list, &winstation->entry );
+            // list_add_tail( &winstation_list, &winstation->entry );  //lyl
             list_init( &winstation->desktops );
             if (!(winstation->desktop_names = create_namespace( 7 )))
             {
@@ -180,6 +183,9 @@ static void winstation_destroy( struct object *obj )
     list_remove( &winstation->entry );
     if (winstation->clipboard) release_object( winstation->clipboard );
     if (winstation->atom_table) release_object( winstation->atom_table );
+
+	release_object( winstation->session );  //lyl
+	
     free( winstation->desktop_names );
 }
 
@@ -436,6 +442,7 @@ void close_thread_desktop( struct thread *thread )
 /* create a window station */
 DECL_HANDLER(create_winstation)
 {
+	struct session*session=NULL;  //lyl
     struct winstation *winstation;
     struct unicode_str name = get_req_unicode_str();
     struct object *root = NULL;
@@ -443,11 +450,15 @@ DECL_HANDLER(create_winstation)
     reply->handle = 0;
     if (req->rootdir && !(root = get_directory_obj( current->process, req->rootdir ))) return;
 
-    if ((winstation = create_winstation( root, &name, req->attributes, req->flags )))
-    {
-        reply->handle = alloc_handle( current->process, winstation, req->access, req->attributes );
-        release_object( winstation );
-    }
+	if ((session = get_process_session( current->process, 0 /* FIXME: access rights? */ )))  //lyl
+	{
+    	if ((winstation = create_winstation( root, &name, req->attributes, req->flags ,session )))
+    	{
+        	reply->handle = alloc_handle( current->process, winstation, req->access, req->attributes );
+        	release_object( winstation );
+    	}
+		release_object(session);  //lyl
+	}
     if (root) release_object( root );
 }
 

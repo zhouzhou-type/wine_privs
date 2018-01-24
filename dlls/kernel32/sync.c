@@ -67,7 +67,8 @@ HANDLE get_BaseNamedObjects_handle(void)
     {
         HANDLE dir;
 
-        sprintfW( buffer, basenameW, NtCurrentTeb()->Peb->SessionId );
+        //sprintfW( buffer, basenameW, NtCurrentTeb()->Peb->SessionId );        
+		sprintfW( buffer, basenameW, 1 );  //lyl
         RtlInitUnicodeString( &str, buffer );
         InitializeObjectAttributes(&attr, &str, 0, 0, NULL);
         NtOpenDirectoryObject(&dir, DIRECTORY_CREATE_OBJECT|DIRECTORY_TRAVERSE,

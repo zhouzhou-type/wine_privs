@@ -86,6 +86,7 @@ extern void server_init_process(void) DECLSPEC_HIDDEN;
 extern void server_init_process_container(void) DECLSPEC_HIDDEN;
 extern NTSTATUS server_init_process_done(void) DECLSPEC_HIDDEN;
 extern size_t server_init_thread( void *entry_point ) DECLSPEC_HIDDEN;
+extern void server_init_session( void ) DECLSPEC_HIDDEN;  //lyl
 extern void DECLSPEC_NORETURN abort_thread( int status ) DECLSPEC_HIDDEN;
 extern void DECLSPEC_NORETURN terminate_thread( int status ) DECLSPEC_HIDDEN;
 extern void DECLSPEC_NORETURN exit_thread( int status ) DECLSPEC_HIDDEN;

@@ -896,7 +896,7 @@ static BOOL start_services_process(void)
     strcatW(path, services);
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
-    if (!CreateProcessW(path, path, NULL, NULL, TRUE, DETACHED_PROCESS, NULL, NULL, &si, &pi))
+    if (!CreateProcessW(path, path, NULL, NULL, TRUE, DETACHED_PROCESS | PROCESS_SERVICE , NULL, NULL, &si, &pi))  //lyl
     {
         WINE_ERR("Couldn't start services.exe: error %u\n", GetLastError());
         return FALSE;

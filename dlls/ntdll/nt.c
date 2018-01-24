@@ -1974,7 +1974,7 @@ NTSTATUS WINAPI NtQuerySystemInformation(
                             spi->UniqueProcessId = UlongToHandle(reply->pid);
                             spi->ParentProcessId = UlongToHandle(reply->ppid);
                             spi->HandleCount = reply->handles;
-
+                            spi->SessionId = reply->session_id;
                             /* spi->ti will be set later on */
 
                         }

@@ -4639,6 +4639,9 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_remove_window_property_request,
     (dump_func)dump_get_window_property_request,
     (dump_func)dump_get_window_properties_request,
+    NULL,  //lyl
+    NULL,  //lyl
+    NULL,  //lyl
     (dump_func)dump_create_winstation_request,
     (dump_func)dump_open_winstation_request,
     (dump_func)dump_close_winstation_request,
@@ -4925,6 +4928,9 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_remove_window_property_reply,
     (dump_func)dump_get_window_property_reply,
     (dump_func)dump_get_window_properties_reply,
+    NULL,  //lyl
+    NULL, //lyl
+    NULL,  //lyl
     (dump_func)dump_create_winstation_reply,
     (dump_func)dump_open_winstation_reply,
     NULL,
@@ -5211,6 +5217,9 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "remove_window_property",
     "get_window_property",
     "get_window_properties",
+    "create_session",  //lyl
+    "get_process_session" , //lyl
+    "set_process_session" ,  //lyl
     "create_winstation",
     "open_winstation",
     "close_winstation",

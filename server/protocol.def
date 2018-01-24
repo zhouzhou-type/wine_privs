@@ -63,7 +63,8 @@ struct reply_header
 /* this is used to construct the generic_request union */
 struct request_max_size
 {
-    int pad[16]; /* the max request size is 16 ints */
+//    int pad[16]; /* the max request size is 16 ints */
+	  int pad[17];  //lyl
 };
 
 #define FIRST_USER_HANDLE 0x0020  /* first possible value for low word of user handle */
@@ -845,6 +846,7 @@ struct rawinput_device
     cpu_type_t   cpu;              /* CPU that this process is running on */
     short int    debugger_present; /* process is being debugged */
     short int    debug_children;   /* inherit debugger to child processes */
+    unsigned int is_not_service;		//lyl
 @END
 
 
@@ -1771,6 +1773,7 @@ enum char_info_mode
     int          priority;      /* process priority */
     int          handles;       /* number of handles */
     int          unix_pid;      /* Unix pid */
+    unsigned int  session_id;
     VARARG(filename,unicode_str); /* file name of main exe */
 @END
 
@@ -2761,6 +2764,29 @@ enum coords_relative
     int            total;         /* total number of properties */
     VARARG(props,properties);     /* list of properties */
 @END
+
+/* Create a session */  //lyl
+@REQ(create_session)
+	unsigned int session_id;	  /* session id */
+    unsigned int flags;           /* session flags */
+    unsigned int access;          /* wanted access rights */
+    unsigned int attributes;      /* object attributes */
+    obj_handle_t rootdir;         /* root directory */
+@REPLY
+    obj_handle_t handle;          /* handle to the session */
+@END
+
+/* Get the process current session */  //lyl
+@REQ(get_process_session)
+@REPLY
+    obj_handle_t handle;          /* handle to the session */
+@END
+
+/* Set the process current session */
+@REQ(set_process_session)         //lyl
+    obj_handle_t handle;          /* handle to the session */
+@END
+
 
 
 /* Create a window station */

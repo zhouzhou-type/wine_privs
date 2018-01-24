@@ -43,7 +43,8 @@ C_SRCS = \
 	unicode.c \
 	user.c \
 	window.c \
-	winstation.c
+	winstation.c\
+    session.c
 
 MANPAGES = \
 	wineserver.de.UTF-8.man.in \

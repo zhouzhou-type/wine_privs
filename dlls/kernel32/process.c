@@ -1070,7 +1070,7 @@ static void start_wineboot( HANDLE handles[2] )
         Wow64DisableWow64FsRedirection( &redir );
         strcpyW( cmdline, app );
         strcatW( cmdline, args );
-        if (CreateProcessW( app, cmdline, NULL, NULL, FALSE, DETACHED_PROCESS, NULL, NULL, &si, &pi ))
+        if (CreateProcessW( app, cmdline, NULL, NULL, FALSE, DETACHED_PROCESS | PROCESS_SERVICE, NULL, NULL, &si, &pi ))  //lyl
         {
             TRACE( "started wineboot pid %04x tid %04x\n", pi.dwProcessId, pi.dwThreadId );
             CloseHandle( pi.hThread );

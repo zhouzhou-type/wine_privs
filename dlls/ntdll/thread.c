@@ -317,6 +317,9 @@ HANDLE thread_init(void)
     server_init_process();
     info_size = server_init_thread( peb );
 
+
+    server_init_session();  //lyl
+
     /* create the process heap */
     if (!(peb->ProcessHeap = RtlCreateHeap( HEAP_GROWABLE, NULL, 0, 0, NULL, NULL )))
     {

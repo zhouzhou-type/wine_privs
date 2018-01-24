@@ -37,6 +37,7 @@
 #include "process.h"
 #include "thread.h"
 #include "request.h"
+#include "session.h"
 
 
 struct snapshot
@@ -120,6 +121,10 @@ static int snapshot_next_process( struct snapshot *snapshot, struct next_process
     reply->priority = ptr->priority;
     reply->handles  = ptr->handles;
     reply->unix_pid = ptr->process->unix_pid;
+    struct session *session_tmp;
+    session_tmp = get_process_session(ptr->process,0);
+    reply->session_id = session_tmp->session_id;
+    //fprintf(stderr,"snapshot_next_process\n");
     if ((exe_module = get_process_exe_module( ptr->process )) && exe_module->filename)
     {
         data_size_t len = min( exe_module->namelen, get_reply_max_size() );
@@ -196,7 +201,6 @@ DECL_HANDLER(create_snapshot)
 DECL_HANDLER(next_process)
 {
     struct snapshot *snapshot;
-
     if ((snapshot = (struct snapshot *)get_handle_obj( current->process, req->handle,
                                                        0, &snapshot_ops )))
     {
