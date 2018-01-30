@@ -1694,7 +1694,8 @@ static BOOL set_process_session_handle( HANDLE handle )
 static HANDLE create_session( LPCWSTR name, DWORD session_id, ACCESS_MASK access,LPSECURITY_ATTRIBUTES sa )
 {    
 	HANDLE ret=0;    
-	DWORD len = name ? strlenW(name) : 0;    
+    DWORD len = name ? strlenW(name) : 0;   
+    //fprintf(stderr,"len is %d .\n",len); 
 	if (len >= MAX_PATH)    
 	{        
 		SetLastError( ERROR_FILENAME_EXCED_RANGE );        
@@ -1714,6 +1715,69 @@ static HANDLE create_session( LPCWSTR name, DWORD session_id, ACCESS_MASK access
 	SERVER_END_REQ;    
 	return ret;
 }
+
+//lyl
+/*
+void server_init_session(void)
+{
+	NTSTATUS ret = STATUS_SUCCESS;	
+    unsigned int process_not_service = 1;
+    unsigned int sid=getsid(0);	
+	
+	WCHAR Services[] = {'\\','K','e','r','n','e','l','O','b','j','e','c','t','s',         
+		'\\','S','e','s','s','i','o','n','0',0};    	
+	WCHAR Console[] = {'\\','K','e','r','n','e','l','O','b','j','e','c','t','s',         
+		'\\','S','e','s','s','i','o','n',0,0,0,0,0,0,0};
+
+	HANDLE session=0;
+
+	if(get_process_session_handle())
+		return ;
+	
+	SERVER_START_REQ(get_process_info)    
+	{        
+		req->handle = wine_server_obj_handle( GetCurrentProcess() );        
+		if ((ret = wine_server_call( req )) == STATUS_SUCCESS)        
+		{            
+			process_not_service = reply->is_not_service ;        
+		}    
+	}    
+	SERVER_END_REQ;	
+    fprintf(stderr,"2.The Session ID is %d.\n",sid);
+    int start=22;
+    int end=start;
+    int tmpsid=sid;
+    while(tmpsid>0){
+        Console[end++]=tmpsid%10+'0';
+        tmpsid/=10;
+    }
+    end--;
+    while(start<end){
+        WCHAR tmp=Console[start];
+        Console[start++]=Console[end];
+        Console[end--]=tmp;
+    }
+    fprintf(stderr,"Console22 is %c .\n",Console[22]);
+    fprintf(stderr,"Console23 is %c .\n",Console[23]);
+    fprintf(stderr,"Console24 is %c .\n",Console[24]);
+    fprintf(stderr,"Console25 is %c .\n",Console[25]);
+    fprintf(stderr,"Console26 is %c .\n",Console[26]);
+    fprintf(stderr,"Console27 is %d .\n",Console[27]);
+    fprintf(stderr,"Services23 is %d .\n",Services[23]);
+	if(process_not_service)	
+	{	//app		
+		session = create_session(Console, sid, 0, NULL );	
+	}	
+	else	
+	{	
+		//process is service,so sessionid = 0
+		NtCurrentTeb()->Peb->SessionId = 0;
+		session = create_session(Services , 0, 0, NULL );	
+	}
+
+	if(session)
+		set_process_session_handle(session);
+}*/
 
 //lyl
 void server_init_session(void)

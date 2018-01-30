@@ -2765,6 +2765,13 @@ enum coords_relative
     VARARG(props,properties);     /* list of properties */
 @END
 
+/*enum session*/  //jz
+@REQ(enum_session) 
+@REPLY
+    unsigned int size;
+    unsigned int ids[12];
+@END
+
 /* Create a session */  //lyl
 @REQ(create_session)
 	unsigned int session_id;	  /* session id */

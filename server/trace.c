@@ -4639,6 +4639,7 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_remove_window_property_request,
     (dump_func)dump_get_window_property_request,
     (dump_func)dump_get_window_properties_request,
+    NULL,  //jz
     NULL,  //lyl
     NULL,  //lyl
     NULL,  //lyl
@@ -4928,6 +4929,7 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_remove_window_property_reply,
     (dump_func)dump_get_window_property_reply,
     (dump_func)dump_get_window_properties_reply,
+    NULL, //jz
     NULL,  //lyl
     NULL, //lyl
     NULL,  //lyl
@@ -5217,6 +5219,7 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "remove_window_property",
     "get_window_property",
     "get_window_properties",
+    "enum_session",  //jz
     "create_session",  //lyl
     "get_process_session" , //lyl
     "set_process_session" ,  //lyl

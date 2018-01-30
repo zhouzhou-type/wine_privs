@@ -16,15 +16,77 @@
  */
 
 #include "config.h"
+#include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
+#include <limits.h>
+#include <pwd.h>
+#include <unistd.h>
 #include "windef.h"
 #include "winbase.h"
+#include "winnls.h"
 #include "wtsapi32.h"
+#include "wine/server.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(wtsapi);
 
+static inline BOOL WTS_UnicodeToANSI(LPSTR str, LPWSTR wstr, int strlen)
+{
+	if (!wstr )
+	{
+		str = NULL;
+		return TRUE;
+	}
+	int strsize = strlen+1;
+	int len=0;
+	CHAR wide[strsize*2];
+
+	memcpy(wide, wstr, strsize*2);
+	if (str)
+	{
+		while(len < strsize)
+		{
+				str[len] = wide[len*2];
+				len++;
+		}
+		return TRUE;
+	}
+
+	SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+	return FALSE;
+
+}
+
+static inline BOOL WTS_ANSIToUnicode(LPWSTR wstr, LPSTR str, int strsize)
+{
+	if (!str || strsize <= 0)
+	{
+		wstr = NULL;
+		return TRUE;
+	}
+
+	int len=0;
+	int length = strsize*sizeof(WCHAR);
+	CHAR buf[length];
+
+	while(len < strsize)
+	{
+		buf[len*2] = str[len];
+		buf[len*2+1] = 0;
+		len++;
+	}
+
+	if(wstr)
+	{
+		memcpy(wstr, buf, length);
+		return TRUE;
+	}
+
+	SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+	return FALSE;
+}
 
 /************************************************************
  *                WTSCloseServer  (WTSAPI32.@)
@@ -133,17 +195,41 @@ BOOL WINAPI WTSEnumerateServersW(LPWSTR pDomainName, DWORD Reserved, DWORD Versi
 BOOL WINAPI WTSEnumerateSessionsA(HANDLE hServer, DWORD Reserved, DWORD Version,
     PWTS_SESSION_INFOA* ppSessionInfo, DWORD* pCount)
 {
-    static int once;
-
-    if (!once++) FIXME("Stub %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
+    BOOL ret = FALSE;
+    PWTS_SESSION_INFOW pwSessionInfo;
+    int i;
+    int size, newsize;
+    TRACE(" %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
           ppSessionInfo, pCount);
 
-    if (!ppSessionInfo || !pCount) return FALSE;
-
-    *pCount = 0;
-    *ppSessionInfo = NULL;
-
-    return TRUE;
+    if (Reserved || (Version != 1)) return ret;
+    if( hServer == WTS_CURRENT_SERVER_HANDLE )
+    {
+    	if(WTSEnumerateSessionsW(hServer, Reserved, Version, &pwSessionInfo, pCount))
+    	{
+    		size = (*pCount)*sizeof(WTS_SESSION_INFOA);
+    		*ppSessionInfo = LocalAlloc(LMEM_ZEROINIT, size);
+    		for(i=0; i<(*pCount); i++)
+    		{
+    			newsize = size + lstrlenW(pwSessionInfo[i].pWinStationName)+1;
+    			if((*ppSessionInfo = LocalReAlloc(*ppSessionInfo, newsize, LMEM_ZEROINIT)))
+    			{
+    				if(WTS_UnicodeToANSI((*ppSessionInfo)+size, pwSessionInfo[i].pWinStationName, lstrlenW(pwSessionInfo[i].pWinStationName)))
+    				{
+    					ppSessionInfo[i]->pWinStationName = (*ppSessionInfo)+size;
+    					size = newsize;
+    				}
+    				else ret = FALSE;
+    			}
+    			else ret = FALSE;
+        		ppSessionInfo[i]->SessionId = pwSessionInfo[i].SessionId;
+        		ppSessionInfo[i]->State = pwSessionInfo[i].State;
+    		}
+    		ret = TRUE;
+    		WTSFreeMemory(pwSessionInfo);
+    	}
+    }
+    return ret;
 }
 
 /************************************************************
@@ -152,39 +238,69 @@ BOOL WINAPI WTSEnumerateSessionsA(HANDLE hServer, DWORD Reserved, DWORD Version,
 BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
     PWTS_SESSION_INFOW* ppSessionInfo, DWORD* pCount)
 {
-	WCHAR console[]={'C','o','n','s','o','l','e',0};
-	WCHAR services[]={'S','e','r','v','i','c','e','s',0};
-	DWORD size = sizeof(WTS_SESSION_INFOW);
-	DWORD winStaName_len = sizeof(WCHAR)*8;
-	
+	static WCHAR console[]={'C','o','n','s','o','l','e',0};
+	static WCHAR services[]={'S','e','r','v','i','c','e','s',0};
+	BOOL ret = FALSE;
+	int i;
+	int size, newsize;
+
     TRACE(" %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
           ppSessionInfo, pCount);
-    TRACE("size is %d\n", size);
-    if (!ppSessionInfo || !pCount) return FALSE;
 
-    //*pCount = 0;
-    //*ppSessionInfo = NULL;
+    if (Reserved || (Version != 1)) return ret;
 
-	*pCount = 2;
-	*ppSessionInfo = HeapAlloc(GetProcessHeap(),0,2*sizeof(WTS_SESSION_INFOW));
-	(*ppSessionInfo)[0].SessionId = 0;
-	(*ppSessionInfo)[0].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(services)+1));
-	lstrcpyW((*ppSessionInfo)[0].pWinStationName,services);
-	(*ppSessionInfo)[0].State = WTSDisconnected;
-	(*ppSessionInfo)[1].SessionId = 1;
-	(*ppSessionInfo)[1].pWinStationName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(lstrlenW(console)+1));
-	lstrcpyW((*ppSessionInfo)[1].pWinStationName,console);
-	(*ppSessionInfo)[1].State = WTSActive;
-/*
-    *pCount = 1;
+    *pCount = 0;
+    *ppSessionInfo = NULL;
+     fprintf(stderr,"WTSEnumerateSessionsW(%d)\n",lstrlenW(console));
+    if(hServer == WTS_CURRENT_SERVER_HANDLE ){
+    	SERVER_START_REQ( enum_session )
+    	{
+    		fprintf(stderr,"enum_session: (%d)\n",GetLastError());
+    		if (!wine_server_call_err( req ))
+    		{
+    			if((*pCount = reply->size)){
+    				size = (reply->size)*sizeof(WTS_SESSION_INFOW);
+    				*ppSessionInfo = LocalAlloc(LMEM_ZEROINIT,size);
+    				if(*ppSessionInfo)
+    				{
+        				for(i = 0; i < reply->size; i++)
+        				{
+        					if(reply->ids[i])
+        					{
+        						newsize = size + sizeof(console);
+        						if((*ppSessionInfo = LocalReAlloc(*ppSessionInfo, newsize, LMEM_ZEROINIT)))
+        						{
+        							memcpy((*ppSessionInfo)+size, console, sizeof(console));
+        							ppSessionInfo[i]->pWinStationName = (*ppSessionInfo)+size;
+        							size = newsize;
+        						}
+        					}
+        					else
+        					{
+        						newsize = size + sizeof(services);
+        						if((*ppSessionInfo = LocalReAlloc(*ppSessionInfo, newsize, LMEM_ZEROINIT)))
+        						{
+        							memcpy((*ppSessionInfo)+size, services, sizeof(services));
+        							ppSessionInfo[i]->pWinStationName = (*ppSessionInfo)+size;
+        							size = newsize;
+        						}
+        					}
+        					ppSessionInfo[i]->SessionId = reply->ids[i];
+        					if(reply->ids[i] == NtCurrentTeb()->Peb->SessionId)
+        						ppSessionInfo[i]->State = WTSActive;
+        					else ppSessionInfo[i]->State = WTSDisconnected;
+        				}
+        				ret = TRUE;
+    				}
+    			}
 
-    *ppSessionInfo = LocalAlloc(LMEM_ZEROINIT, size+winStaName_len);
-    (*ppSessionInfo)->SessionId = 0;
-    (*ppSessionInfo)->pWinStationName = *ppSessionInfo+size;
-    lstrcpyW((PVOID)(*ppSessionInfo+size),console);
-    (*ppSessionInfo)->State = WTSActive;
-*/
-    return TRUE;
+    		}
+
+    	}
+    	SERVER_END_REQ;
+    }
+
+    return ret;
 }
 
 /************************************************************
@@ -239,10 +355,183 @@ BOOL WINAPI WTSQuerySessionInformationA(
     DWORD* BytesReturned)
 {
     /* FIXME: Forward request to winsta.dll::WinStationQueryInformationA */
-    FIXME("Stub %p 0x%08x %d %p %p\n", hServer, SessionId, WTSInfoClass,
-        Buffer, BytesReturned);
+    DWORD state;
+    DWORD scount = 0;
+    DWORD id = 0;
+    int i;
+    BOOL current_id = FALSE;
+    static const CHAR console[]={'C','o','n','s','o','l','e',0};
+    static const CHAR services[]={'S','e','r','v','i','c','e','s',0};
+    BOOL ret = FALSE;
+    /* FIXME: Forward request to winsta.dll::WinStationQueryInformationA */
+//    FIXME("Stub %p 0x%08x %d %p %p\n", hServer, SessionId, WTSInfoClass,
+//        Buffer, BytesReturned);
+    if(hServer != WTS_CURRENT_SERVER_HANDLE) goto Error;
 
-    return FALSE;
+    if(SessionId == WTS_CURRENT_SESSION)
+    {
+    	id = NtCurrentTeb()->Peb->SessionId;
+    	current_id = TRUE;
+    }
+    else if(SessionId == NtCurrentTeb()->Peb->SessionId)
+    {
+    	id = SessionId;
+    	current_id = TRUE;
+    }
+    else
+    {
+    	id = SessionId;
+    }
+
+    switch(WTSInfoClass){
+    case WTSInitialProgram:
+    case WTSApplicationName:
+    	if(id)
+    		ret = TRUE;
+    	else SetLastError(ERROR_INVALID_PARAMETER);
+    	break;
+    case WTSWorkingDirectory:
+    case WTSOEMId:
+    	ret = TRUE;
+    	break;
+    case WTSSessionId:
+    	*Buffer = LocalAlloc(LMEM_ZEROINIT, sizeof(DWORD));
+    	memcpy(*Buffer,&SessionId,sizeof(DWORD));
+    	*BytesReturned = sizeof(DWORD);
+    	return TRUE;
+    case WTSUserName:
+       if(current_id)
+       {
+       	struct passwd *pwd;
+       	pwd = getpwuid(getuid());
+       	*BytesReturned = lstrlenA(pwd->pw_name)+sizeof(CHAR);
+       	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+       	lstrcpyA(*Buffer, pwd->pw_name);
+       	return TRUE;
+       }
+    	else if(!id)
+       {
+     	   ret = TRUE;
+     	   break;
+       }
+    	else
+       {
+    		SetLastError(ERROR_FILE_NOT_FOUND);
+    		break;
+       }
+    case WTSWinStationName:
+       if(current_id)
+       {
+			*BytesReturned = sizeof(console);
+			*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+			lstrcpyA(*Buffer, console);
+        	return TRUE;
+       }
+     	else if(!id)
+       {
+          *BytesReturned = sizeof(services);
+          *Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+          lstrcpyA(*Buffer, services);
+    	   return TRUE;
+       }
+     	else
+       {
+     		SetLastError(ERROR_FILE_NOT_FOUND);
+     		break;
+       }
+    case WTSDomainName:
+        if(current_id)
+        {
+        	CHAR host[256];
+        	if((gethostname(host,sizeof(host))) == 0)
+        	{
+        		*BytesReturned = lstrlenA(host)+sizeof(CHAR);
+    			*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    			lstrcpyA(*Buffer, host);
+    			return TRUE;
+        	}
+        	else
+        	{
+        		SetLastError(ERROR_FILE_NOT_FOUND);
+        		break;
+        	}
+        }
+     	else if(!id)
+        {
+     		ret = TRUE;
+     		break;
+        }
+     	else
+        {
+     		SetLastError(ERROR_FILE_NOT_FOUND);
+     		break;
+        }
+    case WTSConnectState:
+    	 if(current_id)
+        {
+         	*BytesReturned = sizeof(int);
+         	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+         	state = WTSActive;
+         	memcpy(*Buffer, &state, sizeof(int));
+        	return TRUE;
+        }
+     	else if(!id)
+        {
+         	*BytesReturned = sizeof(int);
+         	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+         	state = WTSDisconnected;
+         	memcpy(*Buffer, &state, sizeof(int));
+        	return TRUE;
+        }
+     	else
+        {
+     		SetLastError(ERROR_FILE_NOT_FOUND);
+     		break;
+        }
+    case WTSClientBuildNumber:
+     	*BytesReturned = sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientName:
+    case WTSClientDirectory:
+     	*BytesReturned = sizeof(CHAR);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientProductId:
+     	*BytesReturned = sizeof(short);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientHardwareId:
+     	*BytesReturned = sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientAddress:
+     	*BytesReturned = 6*sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientDisplay:
+     	*BytesReturned = 3*sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientProtocolType:
+     	*BytesReturned = sizeof(short);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    default:
+    	goto Error;
+    }
+Error:
+   if(ret)
+   {
+	   (*Buffer) = LocalAlloc(LMEM_ZEROINIT, sizeof(CHAR));
+	   *BytesReturned = sizeof(CHAR);
+   }
+   else
+   {
+	   (*Buffer) = NULL;
+	   *BytesReturned = 0;
+   }
+   return ret;
 }
 
 /************************************************************
@@ -255,11 +544,197 @@ BOOL WINAPI WTSQuerySessionInformationW(
     LPWSTR* Buffer,
     DWORD* BytesReturned)
 {
-    /* FIXME: Forward request to winsta.dll::WinStationQueryInformationW */
-    FIXME("Stub %p 0x%08x %d %p %p\n", hServer, SessionId, WTSInfoClass,
-        Buffer, BytesReturned);
+    DWORD state;
+    DWORD scount = 0;
+    DWORD id = 0;
+    int i;
+    BOOL current_id = FALSE;
+    static const WCHAR console[]={'C','o','n','s','o','l','e',0};
+    static const WCHAR services[]={'S','e','r','v','i','c','e','s',0};
+    BOOL ret = FALSE;
+    /* FIXME: Forward request to winsta.dll::WinStationQueryInformationA */
+//    FIXME("Stub %p 0x%08x %d %p %p\n", hServer, SessionId, WTSInfoClass,
+//        Buffer, BytesReturned);
+    if(hServer != WTS_CURRENT_SERVER_HANDLE) goto Error;
 
-    return FALSE;
+    if(SessionId == WTS_CURRENT_SESSION)
+    {
+    	id = NtCurrentTeb()->Peb->SessionId;
+    	current_id = TRUE;
+    }
+    else if(SessionId == NtCurrentTeb()->Peb->SessionId)
+    {
+    	id = SessionId;
+    	current_id = TRUE;
+    }
+    else
+    {
+    	id = SessionId;
+    }
+
+    switch(WTSInfoClass){
+    case WTSInitialProgram:
+    case WTSApplicationName:
+    	if(id)
+    		ret = TRUE;
+    	else SetLastError(ERROR_INVALID_PARAMETER);
+    	break;
+    case WTSWorkingDirectory:
+    case WTSOEMId:
+    	ret = TRUE;
+    	break;
+    case WTSSessionId:
+    	*Buffer = LocalAlloc(LMEM_ZEROINIT, sizeof(DWORD));
+    	memcpy(*Buffer,&SessionId,sizeof(DWORD));
+    	*BytesReturned = sizeof(DWORD);
+    	return TRUE;
+    case WTSUserName:
+       if(current_id)
+       {
+       	struct passwd *pwd;
+       	pwd = getpwuid(getuid());
+       	*BytesReturned = sizeof(WCHAR)*(lstrlenA(pwd->pw_name)+sizeof(CHAR));
+       	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+       	if(WTS_ANSIToUnicode(*Buffer, pwd->pw_name, *BytesReturned))
+       		return TRUE;
+       	else
+       	{
+       		LocalFree(*Buffer);
+       		ret = FALSE;
+       		break;
+       	}
+
+       }
+    	else if(!id)
+       {
+     	   ret = TRUE;
+     	   break;
+       }
+    	else
+       {
+    		SetLastError(ERROR_FILE_NOT_FOUND);
+    		break;
+       }
+    case WTSWinStationName:
+       if(current_id)
+       {
+			*BytesReturned = sizeof(console);
+			*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+			lstrcpyW(*Buffer, console);
+        	return TRUE;
+       }
+     	else if(!id)
+       {
+          *BytesReturned = sizeof(services);
+          *Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+          lstrcpyW(*Buffer, services);
+    	   return TRUE;
+       }
+     	else
+       {
+     		SetLastError(ERROR_FILE_NOT_FOUND);
+     		break;
+       }
+    case WTSDomainName:
+        if(current_id)
+        {
+        	CHAR host[256];
+        	if((gethostname(host,sizeof(host))) == 0)
+        	{
+        		*BytesReturned = sizeof(WCHAR)*(lstrlenA(host)+sizeof(CHAR));
+    			*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	       if(WTS_ANSIToUnicode(*Buffer, host, *BytesReturned))
+    	       	return TRUE;
+    	       else
+    	       	{
+    	       	LocalFree(*Buffer);
+    	       	ret = FALSE;
+    	       	break;
+    	       	}
+        	}
+        	else
+        	{
+        		SetLastError(ERROR_FILE_NOT_FOUND);
+        		break;
+        	}
+        }
+     	else if(!id)
+        {
+     		ret = TRUE;
+     		break;
+        }
+     	else
+        {
+     		SetLastError(ERROR_FILE_NOT_FOUND);
+     		break;
+        }
+    case WTSConnectState:
+    	 if(current_id)
+        {
+         	*BytesReturned = sizeof(int);
+         	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+         	state = WTSActive;
+         	memcpy(*Buffer, &state, sizeof(int));
+        	return TRUE;
+        }
+     	else if(!id)
+        {
+         	*BytesReturned = sizeof(int);
+         	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+         	state = WTSDisconnected;
+         	memcpy(*Buffer, &state, sizeof(int));
+        	return TRUE;
+        }
+     	else
+        {
+     		SetLastError(ERROR_FILE_NOT_FOUND);
+     		break;
+        }
+    case WTSClientBuildNumber:
+     	*BytesReturned = sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientName:
+    case WTSClientDirectory:
+     	*BytesReturned = sizeof(WCHAR);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientProductId:
+     	*BytesReturned = sizeof(short);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientHardwareId:
+     	*BytesReturned = sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientAddress:
+     	*BytesReturned = 6*sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientDisplay:
+     	*BytesReturned = 3*sizeof(int);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    case WTSClientProtocolType:
+     	*BytesReturned = sizeof(short);
+     	*Buffer = LocalAlloc(LMEM_ZEROINIT, (*BytesReturned));
+    	return TRUE;
+    default:
+    	goto Error;
+    }
+Error:
+   if(ret)
+   {
+	   (*Buffer) = LocalAlloc(LMEM_ZEROINIT, sizeof(WCHAR));
+	   *BytesReturned = sizeof(WCHAR);
+   }
+   else
+   {
+	   (*Buffer) = NULL;
+	   *BytesReturned = 0;
+   }
+
+   return ret;
 }
 
 /************************************************************

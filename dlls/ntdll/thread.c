@@ -23,6 +23,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <sys/types.h>
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
@@ -317,7 +318,7 @@ HANDLE thread_init(void)
     server_init_process();
     info_size = server_init_thread( peb );
 
-
+    //fprintf(stderr,"1.The Session ID is %d.\n",getsid(0));
     server_init_session();  //lyl
 
     /* create the process heap */
