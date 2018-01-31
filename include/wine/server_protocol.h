@@ -3858,8 +3858,8 @@ struct enum_session_request  //jz
 struct enum_session_reply  //jz
 {
     struct reply_header __header;
+    unsigned int session[2];
     unsigned int size;
-    unsigned int ids[12];
 };
 
 struct create_session_request  //lyl
@@ -5795,7 +5795,7 @@ enum request
     REQ_remove_window_property,
     REQ_get_window_property,
     REQ_get_window_properties,
-    
+    REQ_enum_session, //jz
     REQ_create_session,  //lyl
     REQ_get_process_session,  //lyl
     REQ_set_process_session,  //lyl
@@ -5904,7 +5904,6 @@ enum request
     REQ_set_job_completion_port,
     REQ_terminate_job,
     REQ_register_pid,
-    REQ_enum_session, //jz
     REQ_NB_REQUESTS
 };
 
@@ -6091,7 +6090,7 @@ union generic_request
     struct remove_window_property_request remove_window_property_request;
     struct get_window_property_request get_window_property_request;
     struct get_window_properties_request get_window_properties_request;
-    
+    struct enum_session_request enum_session_request;  //jz
     struct create_session_request create_session_request;  //lyl
     struct get_process_session_request get_process_session_request;  //lyl
     struct set_process_session_request set_process_session_request;  //lyl
@@ -6200,7 +6199,6 @@ union generic_request
     struct set_job_completion_port_request set_job_completion_port_request;
     struct terminate_job_request terminate_job_request;
     struct register_pid_request register_pid_request;
-    struct enum_session_request enum_session_request;  //jz
 };
 union generic_reply
 {
@@ -6385,7 +6383,7 @@ union generic_reply
     struct remove_window_property_reply remove_window_property_reply;
     struct get_window_property_reply get_window_property_reply;
     struct get_window_properties_reply get_window_properties_reply;
-   
+    struct enum_session_reply enum_session_reply;  //jz
     struct create_session_reply create_session_reply;  //lyl
     struct get_process_session_reply get_process_session_reply;  //lyl
     struct set_process_session_reply set_process_session_reply;  //lyl
@@ -6494,7 +6492,6 @@ union generic_reply
     struct set_job_completion_port_reply set_job_completion_port_reply;
     struct terminate_job_reply terminate_job_reply;
     struct register_pid_reply register_pid_reply;
-    struct enum_session_reply enum_session_reply;  //jz
 };
 
 #define SERVER_PROTOCOL_VERSION 524

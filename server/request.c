@@ -287,7 +287,7 @@ static void send_reply( union generic_reply *reply )
     else
         fatal_protocol_error( current, "reply write: %s\n", strerror( errno ));
 }
-
+/*
 static inline const char *request_to_string(enum request num)  
 {  
     switch (num)  
@@ -583,7 +583,7 @@ static inline const char *request_to_string(enum request num)
         ENUM_REQUEST_CASE(REQ_enum_session)  //jz
     }  
     return "Unsupported Chip";  
-}  
+}  */
 
 /* call a request handler */
 static void call_req_handler( struct thread *thread )

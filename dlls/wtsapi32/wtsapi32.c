@@ -195,40 +195,43 @@ BOOL WINAPI WTSEnumerateServersW(LPWSTR pDomainName, DWORD Reserved, DWORD Versi
 BOOL WINAPI WTSEnumerateSessionsA(HANDLE hServer, DWORD Reserved, DWORD Version,
     PWTS_SESSION_INFOA* ppSessionInfo, DWORD* pCount)
 {
+
     BOOL ret = FALSE;
     PWTS_SESSION_INFOW pwSessionInfo;
     int i;
-    int size, newsize;
+	int size, newsize;
+	PWTS_SESSION_INFOW tmp;
     TRACE(" %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
           ppSessionInfo, pCount);
-
+	
     if (Reserved || (Version != 1)) return ret;
     if( hServer == WTS_CURRENT_SERVER_HANDLE )
     {
     	if(WTSEnumerateSessionsW(hServer, Reserved, Version, &pwSessionInfo, pCount))
     	{
     		size = (*pCount)*sizeof(WTS_SESSION_INFOA);
-    		*ppSessionInfo = LocalAlloc(LMEM_ZEROINIT, size);
+    		tmp = LocalAlloc(LMEM_ZEROINIT, size);
     		for(i=0; i<(*pCount); i++)
     		{
     			newsize = size + lstrlenW(pwSessionInfo[i].pWinStationName)+1;
-    			if((*ppSessionInfo = LocalReAlloc(*ppSessionInfo, newsize, LMEM_ZEROINIT)))
+    			if((tmp = LocalReAlloc(tmp, newsize, LMEM_ZEROINIT)))
     			{
-    				if(WTS_UnicodeToANSI((*ppSessionInfo)+size, pwSessionInfo[i].pWinStationName, lstrlenW(pwSessionInfo[i].pWinStationName)))
+    				if(WTS_UnicodeToANSI(tmp+size, pwSessionInfo[i].pWinStationName, lstrlenW(pwSessionInfo[i].pWinStationName)))
     				{
-    					ppSessionInfo[i]->pWinStationName = (*ppSessionInfo)+size;
+    					tmp[i].pWinStationName = tmp+size;
     					size = newsize;
     				}
     				else ret = FALSE;
     			}
     			else ret = FALSE;
-        		ppSessionInfo[i]->SessionId = pwSessionInfo[i].SessionId;
-        		ppSessionInfo[i]->State = pwSessionInfo[i].State;
+        		tmp[i].SessionId = pwSessionInfo[i].SessionId;
+        		tmp[i].State = pwSessionInfo[i].State;
     		}
     		ret = TRUE;
     		WTSFreeMemory(pwSessionInfo);
     	}
-    }
+	}
+	*ppSessionInfo = tmp;
     return ret;
 }
 
@@ -243,12 +246,12 @@ BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
 	BOOL ret = FALSE;
 	int i;
 	int size, newsize;
-
+	PWTS_SESSION_INFOW tmp;
     TRACE(" %p 0x%08x 0x%08x %p %p\n", hServer, Reserved, Version,
           ppSessionInfo, pCount);
-
     if (Reserved || (Version != 1)) return ret;
-
+	
+	
     *pCount = 0;
     *ppSessionInfo = NULL;
      fprintf(stderr,"WTSEnumerateSessionsW(%d)\n",lstrlenW(console));
@@ -258,48 +261,59 @@ BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
     		fprintf(stderr,"enum_session: (%d)\n",GetLastError());
     		if (!wine_server_call_err( req ))
     		{
+                fprintf(stderr,"~~~~~~~~~~~~\n");
+                fprintf(stderr,"%d\n",reply->size);
+                fprintf(stderr,"%d\n",reply->session[0]);
+				fprintf(stderr,"%d\n",reply->session[1]);
+                
     			if((*pCount = reply->size)){
-    				size = (reply->size)*sizeof(WTS_SESSION_INFOW);
-    				*ppSessionInfo = LocalAlloc(LMEM_ZEROINIT,size);
-    				if(*ppSessionInfo)
+                    size = (reply->size)*sizeof(WTS_SESSION_INFOW);
+                	tmp = (PWTS_SESSION_INFOW)LocalAlloc(LMEM_ZEROINIT,size);
+                    //fprintf(stderr,"%08x\n",ppSessionInfo[i]);
+    				if(tmp)
     				{
         				for(i = 0; i < reply->size; i++)
         				{
-        					if(reply->ids[i])
+        					if(reply->session[i])
         					{
-        						newsize = size + sizeof(console);
-        						if((*ppSessionInfo = LocalReAlloc(*ppSessionInfo, newsize, LMEM_ZEROINIT)))
+								newsize = size + sizeof(console);
+								fprintf(stderr,"newsize is %d\n", newsize);
+        						if((tmp = LocalReAlloc(tmp, newsize, LMEM_ZEROINIT)))
         						{
-        							memcpy((*ppSessionInfo)+size, console, sizeof(console));
-        							ppSessionInfo[i]->pWinStationName = (*ppSessionInfo)+size;
-        							size = newsize;
+									memcpy(tmp+size, console, sizeof(console));
+									tmp[i].pWinStationName = tmp+size;
+									//fprintf(stderr,"%s\n", debugstr_w(ppSessionInfo[i]->pWinStationName));
+                                    fprintf(stderr,"%d\n",sizeof(console));
+                                    
+                                    fprintf(stderr,"////////////////////%d\n",sizeof(console));
+                                    size = newsize;
         						}
         					}
         					else
         					{
-        						newsize = size + sizeof(services);
-        						if((*ppSessionInfo = LocalReAlloc(*ppSessionInfo, newsize, LMEM_ZEROINIT)))
+                                newsize = size + sizeof(services);                  
+        						if((tmp = LocalReAlloc(tmp, newsize, LMEM_ZEROINIT)))
         						{
-        							memcpy((*ppSessionInfo)+size, services, sizeof(services));
-        							ppSessionInfo[i]->pWinStationName = (*ppSessionInfo)+size;
+                                    memcpy(tmp+size, services, sizeof(services));
+                                    tmp[i].pWinStationName = tmp+size;
         							size = newsize;
         						}
-        					}
-        					ppSessionInfo[i]->SessionId = reply->ids[i];
-        					if(reply->ids[i] == NtCurrentTeb()->Peb->SessionId)
-        						ppSessionInfo[i]->State = WTSActive;
-        					else ppSessionInfo[i]->State = WTSDisconnected;
+                            }
+                            fprintf(stderr,"i=%d\n",i);
+        					tmp[i].SessionId = reply->session[i];
+        					if(reply->session[i] == NtCurrentTeb()->Peb->SessionId)
+        						tmp[i].State = WTSActive;
+							else tmp[i].State = WTSDisconnected;
+							fprintf(stderr,"Round(%d): newsize is %d\n", i, newsize);
         				}
-        				ret = TRUE;
     				}
-    			}
-
+                }
+                ret = TRUE;
     		}
-
     	}
     	SERVER_END_REQ;
     }
-
+	*ppSessionInfo = tmp;
     return ret;
 }
 

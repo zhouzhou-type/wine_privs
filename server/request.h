@@ -291,7 +291,7 @@ DECL_HANDLER(set_window_property);
 DECL_HANDLER(remove_window_property);
 DECL_HANDLER(get_window_property);
 DECL_HANDLER(get_window_properties);
-
+DECL_HANDLER(enum_session);  //jz
 DECL_HANDLER(create_session);  //lyl
 DECL_HANDLER(get_process_session);  //lyl
 DECL_HANDLER(set_process_session);  //lyl
@@ -400,7 +400,7 @@ DECL_HANDLER(set_job_limits);
 DECL_HANDLER(set_job_completion_port);
 DECL_HANDLER(terminate_job);
 DECL_HANDLER(register_pid);
-DECL_HANDLER(enum_session);  //jz
+
 
 #ifdef WANT_REQUEST_HANDLERS
 
@@ -586,7 +586,7 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
     (req_handler)req_remove_window_property,
     (req_handler)req_get_window_property,
     (req_handler)req_get_window_properties,
-    
+    (req_handler)req_enum_session,  //jz
     (req_handler)req_create_session,  //lyl
     (req_handler)req_get_process_session,  //lyl
     (req_handler)req_set_process_session,  //lyl
@@ -695,7 +695,6 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
     (req_handler)req_set_job_completion_port,
     (req_handler)req_terminate_job,
     (req_handler)req_register_pid,
-    (req_handler)req_enum_session,  //jz
 };
 
 C_ASSERT( sizeof(affinity_t) == 8 );
@@ -1819,6 +1818,10 @@ C_ASSERT( sizeof(struct get_window_properties_request) == 16 );
 C_ASSERT( FIELD_OFFSET(struct get_window_properties_reply, total) == 8 );
 C_ASSERT( sizeof(struct get_window_properties_reply) == 16 );
 
+//C_ASSERT( sizeof(struct enum_session_request) == 16 );  //jz
+//C_ASSERT( FIELD_OFFSET(struct enum_session_reply, size) == 8 );  //jz
+//C_ASSERT( sizeof(struct enum_session_reply) == 20 );  //jz
+
 C_ASSERT( FIELD_OFFSET(struct create_session_request, session_id) == 12 );  //lyl
 C_ASSERT( FIELD_OFFSET(struct create_session_request, flags) == 16 );
 C_ASSERT( FIELD_OFFSET(struct create_session_request, access) == 20 );
@@ -2397,9 +2400,6 @@ C_ASSERT( sizeof(struct set_job_completion_port_request) == 32 );
 C_ASSERT( FIELD_OFFSET(struct terminate_job_request, handle) == 12 );
 C_ASSERT( FIELD_OFFSET(struct terminate_job_request, status) == 16 );
 C_ASSERT( sizeof(struct terminate_job_request) == 24 );
-C_ASSERT( sizeof(struct enum_session_request) == 16 );  //jz
-C_ASSERT( FIELD_OFFSET(struct enum_session_reply, size) == 8 );  //jz
-C_ASSERT( sizeof(struct enum_session_reply) == 60 );  //jz
 #endif  /* WANT_REQUEST_HANDLERS */
 
 /* ### make_requests end ### */

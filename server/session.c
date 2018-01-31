@@ -115,28 +115,31 @@ struct session *get_process_session( struct process *process, unsigned int acces
 
 DECL_HANDLER(enum_session)
 {
+	fprintf(stderr,"!!!!!22222!!!!!\n");
 	struct session* current_session=get_process_session(current->process,0);
+	fprintf(stderr,"!!!!!33333!!!!!\n");
 	struct session* id=NULL;
 	int i=0;
 	struct list* p;
-
 	LIST_FOR_EACH(p, &session_list)
 	{
 		id = LIST_ENTRY( p, struct session, entry );
 		if(!id->session_id)
 		{
-			reply->ids[i] = id->session_id;
+			reply->session[i]= id->session_id;
+			fprintf(stderr,"******%d******\n",id->session_id);
 			i++;
 		}
 		else if(current_session->session_id == id->session_id)
 		{
-			reply->ids[i] = id->session_id;
+			reply->session[i] = id->session_id;
+			fprintf(stderr,"******%d******\n",id->session_id);
 			i++;
-			break;
 		}
 	}
-	reply->size = i;
+	reply->size=i;
 	release_object(current_session);
+	fprintf(stderr,"!!!!!55555!!!!!\n");
 }
 
 DECL_HANDLER(get_process_session)
