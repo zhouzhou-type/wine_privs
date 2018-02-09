@@ -39,6 +39,8 @@
 #include "request.h"
 #include "security.h"
 
+#include "token.h"
+
 #include "wine/unicode.h"
 
 #define MAX_SUBAUTH_COUNT 1
@@ -64,86 +66,31 @@ const LUID SeManageVolumePrivilege         = { 28, 0 };
 const LUID SeImpersonatePrivilege          = { 29, 0 };
 const LUID SeCreateGlobalPrivilege         = { 30, 0 };
 
-static const SID world_sid = { SID_REVISION, 1, { SECURITY_WORLD_SID_AUTHORITY }, { SECURITY_WORLD_RID } };
-static const SID local_sid = { SID_REVISION, 1, { SECURITY_LOCAL_SID_AUTHORITY }, { SECURITY_LOCAL_RID } };
-static const SID interactive_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_INTERACTIVE_RID } };
-static const SID anonymous_logon_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_ANONYMOUS_LOGON_RID } };
-static const SID authenticated_user_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_AUTHENTICATED_USER_RID } };
-static const SID local_system_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_LOCAL_SYSTEM_RID } };
-static const struct /* same fields as struct SID */
-{
-    BYTE Revision;
-    BYTE SubAuthorityCount;
-    SID_IDENTIFIER_AUTHORITY IdentifierAuthority;
-    DWORD SubAuthority[5];
-} local_user_sid = { SID_REVISION, 5, { SECURITY_NT_AUTHORITY }, { SECURITY_NT_NON_UNIQUE, 0, 0, 0, 1000 } };
-static const struct /* same fields as struct SID */
-{
-    BYTE Revision;
-    BYTE SubAuthorityCount;
-    SID_IDENTIFIER_AUTHORITY IdentifierAuthority;
-    DWORD SubAuthority[2];
-} builtin_admins_sid = { SID_REVISION, 2, { SECURITY_NT_AUTHORITY }, { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS } };
-static const struct /* same fields as struct SID */
-{
-    BYTE Revision;
-    BYTE SubAuthorityCount;
-    SID_IDENTIFIER_AUTHORITY IdentifierAuthority;
-    DWORD SubAuthority[2];
-} builtin_users_sid = { SID_REVISION, 2, { SECURITY_NT_AUTHORITY }, { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_USERS } };
+const SID world_sid = { SID_REVISION, 1, { SECURITY_WORLD_SID_AUTHORITY }, { SECURITY_WORLD_RID } };
+const SID local_sid = { SID_REVISION, 1, { SECURITY_LOCAL_SID_AUTHORITY }, { SECURITY_LOCAL_RID } };
+const SID interactive_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_INTERACTIVE_RID } };
+const SID anonymous_logon_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_ANONYMOUS_LOGON_RID } };
+const SID authenticated_user_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_AUTHENTICATED_USER_RID } };
+const SID local_system_sid = { SID_REVISION, 1, { SECURITY_NT_AUTHORITY }, { SECURITY_LOCAL_SYSTEM_RID } };
 
-const PSID security_world_sid = (PSID)&world_sid;
-static const PSID security_local_sid = (PSID)&local_sid;
-static const PSID security_interactive_sid = (PSID)&interactive_sid;
-static const PSID security_authenticated_user_sid = (PSID)&authenticated_user_sid;
-const PSID security_local_system_sid = (PSID)&local_system_sid;
-const PSID security_local_user_sid = (PSID)&local_user_sid;
 const PSID security_builtin_admins_sid = (PSID)&builtin_admins_sid;
 const PSID security_builtin_users_sid = (PSID)&builtin_users_sid;
 
-static luid_t prev_luid_value = { 1000, 0 };
+const PSID security_world_sid = (PSID)&world_sid;
+const PSID security_local_sid = (PSID)&local_sid;
+const PSID security_interactive_sid = (PSID)&interactive_sid;
+const PSID security_authenticated_user_sid = (PSID)&authenticated_user_sid;
+const PSID security_local_system_sid = (PSID)&local_system_sid;
 
-struct token
-{
-    struct object  obj;             /* object header */
-    luid_t         token_id;        /* system-unique id of token */
-    luid_t         modified_id;     /* new id allocated every time token is modified */
-    struct list    privileges;      /* privileges available to the token */
-    struct list    groups;          /* groups that the user of this token belongs to (sid_and_attributes) */
-    SID           *user;            /* SID of user this token represents */
-    SID           *primary_group;   /* SID of user's primary group */
-    unsigned       primary;         /* is this a primary or impersonation token? */
-    ACL           *default_dacl;    /* the default DACL to assign to objects created by this user */
-    TOKEN_SOURCE   source;          /* source of the token */
-    int            impersonation_level; /* impersonation level this token is capable of if non-primary token */
-};
+struct local_user_sid_def local_user_sid = { SID_REVISION, 5, { SECURITY_NT_AUTHORITY }, { SECURITY_NT_NON_UNIQUE, 0, 0, 0, 1000 } };
+struct builtin_admins_sid_def builtin_admins_sid = { SID_REVISION, 2, { SECURITY_NT_AUTHORITY }, { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS } };
+struct builtin_users_sid_def builtin_users_sid = { SID_REVISION, 2, { SECURITY_NT_AUTHORITY }, { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_USERS } };
 
-struct privilege
-{
-    struct list entry;
-    LUID        luid;
-    unsigned    enabled  : 1; /* is the privilege currently enabled? */
-    unsigned    def      : 1; /* is the privilege enabled by default? */
-};
+const PSID security_local_user_sid = (PSID)&local_user_sid;
 
-struct group
-{
-    struct list entry;
-    unsigned    enabled  : 1; /* is the sid currently enabled? */
-    unsigned    def      : 1; /* is the sid enabled by default? */
-    unsigned    logon    : 1; /* is this a logon sid? */
-    unsigned    mandatory: 1; /* is this sid always enabled? */
-    unsigned    owner    : 1; /* can this sid be an owner of an object? */
-    unsigned    resource : 1; /* is this a domain-local group? */
-    unsigned    deny_only: 1; /* is this a sid that should be use for denying only? */
-    SID         sid;
-};
+luid_t prev_luid_value = { 1000, 0 };
 
-static void token_dump( struct object *obj, int verbose );
-static unsigned int token_map_access( struct object *obj, unsigned int access );
-static void token_destroy( struct object *obj );
-
-static const struct object_ops token_ops =
+const struct object_ops token_ops =
 {
     sizeof(struct token),      /* size */
     token_dump,                /* dump */
@@ -165,14 +112,13 @@ static const struct object_ops token_ops =
     token_destroy              /* destroy */
 };
 
-
-static void token_dump( struct object *obj, int verbose )
+void token_dump( struct object *obj, int verbose )
 {
     fprintf( stderr, "Security token\n" );
     /* FIXME: dump token members */
 }
 
-static unsigned int token_map_access( struct object *obj, unsigned int access )
+unsigned int token_map_access( struct object *obj, unsigned int access )
 {
     if (access & GENERIC_READ)    access |= TOKEN_READ;
     if (access & GENERIC_WRITE)   access |= TOKEN_WRITE;
@@ -181,7 +127,7 @@ static unsigned int token_map_access( struct object *obj, unsigned int access )
     return access & ~(GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL);
 }
 
-static SID *security_sid_alloc( const SID_IDENTIFIER_AUTHORITY *idauthority, int subauthcount, const unsigned int subauth[] )
+ SID *security_sid_alloc( const SID_IDENTIFIER_AUTHORITY *idauthority, int subauthcount, const unsigned int subauth[] )
 {
     int i;
     SID *sid = mem_alloc( FIELD_OFFSET(SID, SubAuthority[subauthcount]) );
@@ -217,11 +163,12 @@ void security_set_thread_token( struct thread *thread, obj_handle_t handle )
     }
 }
 
+
 const SID *security_unix_uid_to_sid( uid_t uid )
 {
     /* very simple mapping: either the current user or not the current user */
     if (uid == getuid())
-        return (const SID *)&local_user_sid;
+        return &local_user_sid;
     else
         return &anonymous_logon_sid;
 }
@@ -351,7 +298,7 @@ static inline int is_equal_luid( const LUID *luid1, const LUID *luid2 )
     return (luid1->LowPart == luid2->LowPart && luid1->HighPart == luid2->HighPart);
 }
 
-static inline void allocate_luid( luid_t *luid )
+ inline void allocate_luid( luid_t *luid )
 {
     prev_luid_value.low_part++;
     *luid = prev_luid_value;
@@ -370,7 +317,7 @@ static inline void luid_and_attr_from_privilege( LUID_AND_ATTRIBUTES *out, const
         (in->def ? SE_PRIVILEGE_ENABLED_BY_DEFAULT : 0);
 }
 
-static struct privilege *privilege_add( struct token *token, const LUID *luid, int enabled )
+ struct privilege *privilege_add( struct token *token, const LUID *luid, int enabled )
 {
     struct privilege *privilege = mem_alloc( sizeof(*privilege) );
     if (privilege)
@@ -382,13 +329,13 @@ static struct privilege *privilege_add( struct token *token, const LUID *luid, i
     return privilege;
 }
 
-static inline void privilege_remove( struct privilege *privilege )
+ inline void privilege_remove( struct privilege *privilege )
 {
     list_remove( &privilege->entry );
     free( privilege );
 }
 
-static void token_destroy( struct object *obj )
+ void token_destroy( struct object *obj )
 {
     struct token* token;
     struct list *cursor, *cursor_next;
@@ -443,7 +390,7 @@ static struct token *create_token( unsigned primary, const SID *user,
         list_init( &token->groups );
         token->primary = primary;
         /* primary tokens don't have impersonation levels */
-        if (primary)
+       if (primary)
             token->impersonation_level = -1;
         else
             token->impersonation_level = impersonation_level;
@@ -451,7 +398,7 @@ static struct token *create_token( unsigned primary, const SID *user,
         token->primary_group = NULL;
 
         /* copy user */
-        token->user = memdup( user, security_sid_len( user ));
+       token->user = memdup( user, security_sid_len( user ));
         if (!token->user)
         {
             release_object( token );
@@ -459,7 +406,7 @@ static struct token *create_token( unsigned primary, const SID *user,
         }
 
         /* copy groups */
-        for (i = 0; i < group_count; i++)
+       for (i = 0; i < group_count; i++)
         {
             size_t size = FIELD_OFFSET( struct group, sid.SubAuthority[((const SID *)groups[i].Sid)->SubAuthorityCount] );
             struct group *group = mem_alloc( size );
@@ -479,16 +426,16 @@ static struct token *create_token( unsigned primary, const SID *user,
             group->deny_only = FALSE;
             list_add_tail( &token->groups, &group->entry );
             /* Use first owner capable group as an owner */
-            if (!token->primary_group && group->owner)
+           if (!token->primary_group && group->owner)
                 token->primary_group = &group->sid;
         }
 
         /* copy privileges */
-        for (i = 0; i < priv_count; i++)
+       for (i = 0; i < priv_count; i++)
         {
             /* note: we don't check uniqueness: the caller must make sure
              * privs doesn't contain any duplicate luids */
-            if (!privilege_add( token, &privs[i].Luid,
+           if (!privilege_add( token, &privs[i].Luid,
                                 privs[i].Attributes & SE_PRIVILEGE_ENABLED ))
             {
                 release_object( token );
@@ -565,7 +512,7 @@ struct token *token_duplicate( struct token *src_token, unsigned primary,
     return token;
 }
 
-static ACL *create_default_dacl( const SID *user )
+ ACL *create_default_dacl( const SID *user )
 {
     ACCESS_ALLOWED_ACE *aaa;
     ACL *default_dacl;
@@ -616,73 +563,6 @@ struct sid_data
 struct token *token_create_admin( void )
 {
     struct token *token = NULL;
-    static const SID_IDENTIFIER_AUTHORITY nt_authority = { SECURITY_NT_AUTHORITY };
-    static const unsigned int alias_admins_subauth[] = { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS };
-    static const unsigned int alias_users_subauth[] = { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_USERS };
-    /* on Windows, this value changes every time the user logs on */
-    static const unsigned int logon_subauth[] = { SECURITY_LOGON_IDS_RID, 0, 1 /* FIXME: should be randomly generated when tokens are inherited by new processes */ };
-    PSID alias_admins_sid;
-    PSID alias_users_sid;
-    PSID logon_sid;
-    const SID *user_sid = security_unix_uid_to_sid( getuid() );
-    ACL *default_dacl = create_default_dacl( user_sid );
-
-    alias_admins_sid = security_sid_alloc( &nt_authority, sizeof(alias_admins_subauth)/sizeof(alias_admins_subauth[0]),
-                                           alias_admins_subauth );
-    alias_users_sid = security_sid_alloc( &nt_authority, sizeof(alias_users_subauth)/sizeof(alias_users_subauth[0]),
-                                          alias_users_subauth );
-    logon_sid = security_sid_alloc( &nt_authority, sizeof(logon_subauth)/sizeof(logon_subauth[0]),
-                                    logon_subauth );
-
-    if (alias_admins_sid && alias_users_sid && logon_sid && default_dacl)
-    {
-        const LUID_AND_ATTRIBUTES admin_privs[] =
-        {
-            { SeChangeNotifyPrivilege        , SE_PRIVILEGE_ENABLED },
-            { SeSecurityPrivilege            , 0                    },
-            { SeBackupPrivilege              , 0                    },
-            { SeRestorePrivilege             , 0                    },
-            { SeSystemtimePrivilege          , 0                    },
-            { SeShutdownPrivilege            , 0                    },
-            { SeRemoteShutdownPrivilege      , 0                    },
-            { SeTakeOwnershipPrivilege       , 0                    },
-            { SeDebugPrivilege               , 0                    },
-            { SeSystemEnvironmentPrivilege   , 0                    },
-            { SeSystemProfilePrivilege       , 0                    },
-            { SeProfileSingleProcessPrivilege, 0                    },
-            { SeIncreaseBasePriorityPrivilege, 0                    },
-            { SeLoadDriverPrivilege          , SE_PRIVILEGE_ENABLED },
-            { SeCreatePagefilePrivilege      , 0                    },
-            { SeIncreaseQuotaPrivilege       , 0                    },
-            { SeUndockPrivilege              , 0                    },
-            { SeManageVolumePrivilege        , 0                    },
-            { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
-            { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
-        };
-        /* note: we don't include non-builtin groups here for the user -
-         * telling us these is the job of a client-side program */
-        const SID_AND_ATTRIBUTES admin_groups[] =
-        {
-            { security_world_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
-            { security_local_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
-            { security_interactive_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
-            { security_authenticated_user_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
-            { alias_admins_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
-            { alias_users_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
-            { logon_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_LOGON_ID },
-        };
-        static const TOKEN_SOURCE admin_source = {"SeMgr", {0, 0}};
-        token = create_token( TRUE, user_sid, admin_groups, sizeof(admin_groups)/sizeof(admin_groups[0]),
-                              admin_privs, sizeof(admin_privs)/sizeof(admin_privs[0]), default_dacl,
-                              admin_source, NULL, -1 );
-        /* we really need a primary group */
-        assert( token->primary_group );
-    }
-
-    free( logon_sid );
-    free( alias_admins_sid );
-    free( alias_users_sid );
-    free( default_dacl );
 
     return token;
 }
