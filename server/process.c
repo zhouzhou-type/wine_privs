@@ -572,7 +572,8 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
         process->token = token_duplicate( parent->token, TRUE, 0 );
         process->affinity = parent->affinity;
     }
-    if (!process->handles || !process->token) goto error;
+    //if (!process->handles || !process->token) goto error;
+    if (!process->handles) goto error;
 
     /* create the main thread */
     if (pipe( request_pipe ) == -1)
