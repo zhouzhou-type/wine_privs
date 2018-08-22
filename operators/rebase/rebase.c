@@ -7,9 +7,9 @@
 #define WIN32_LEAN_AND_MEAN
 //#include "wine/port.h"
 
+#include "config.h"
 #include <windows.h>
 
-#include "config.h"
 
 
 #include <assert.h>
@@ -251,7 +251,3 @@ NTSTATUS rebase_perform_relocations( void *module, SIZE_T len )
 
     return STATUS_SUCCESS;
 }
-
-}
-
-
