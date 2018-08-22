@@ -2,8 +2,8 @@
 
 ## 相关说明
 
-在 `wine_stable_version_framework` 基础上建立的分支
-编译环境：虚拟机开发环境 `hotpot_1.1.0_0604`
+> * 在 `wine_stable_version_framework` 基础上建立的分支
+> * 编译环境：虚拟机开发环境 `hotpot_1.1.0_0604`
 
 ## 编译步骤
 
