@@ -10,8 +10,6 @@
 ```
 （chroot 进 子系统）
 ./configure
-cd libs/wine
-make
 （在 主系统 中）
 cd dlls/comdlg32
 make
@@ -26,6 +24,9 @@ ln -s libcairo-gobject.so.2 libcairo-gobject.so
 ln -s libcairo.so.2 libcairo.so
 ln -s libgdk_pixbuf-2.0.so.0 libgdk_pixbuf-2.0.so
 cd -
+cd libs/port
+make
+cd libs/wine
 make -j5
 make install
 ```
@@ -225,4 +226,25 @@ Makefile:782: recipe for target '../../operators/rebase/rebase.o' failed
 
 ```
 vim operators/rebase/rebase.c
+```
+
+
+## `wine_version_session` 编译过程问题
+
+### 1. libs/port 问题
+
+```
+gcc -m32 -c -o version.o version.c -I. -I../../include -D__WINESRC__ -DWINE_UNICODE_API="" -D_REENTRANT -fPIC \
+  -Wall -pipe -fno-strict-aliasing -Wdeclaration-after-statement -Wempty-body -Wignored-qualifiers \
+  -Wshift-overflow=2 -Wstrict-prototypes -Wtype-limits -Wunused-but-set-parameter -Wvla \
+  -Wwrite-strings -Wpointer-arith -Wlogical-op -gdwarf-2 -gstrict-dwarf -fno-omit-frame-pointer \
+  -g -O2
+make: \*\*\* No rule to make target '../../libs/port/libwine_port.a', needed by 'libwine.so.1.0'.  Stop.\
+```
+
+cd libs/wine 后出现的问题
+
+```
+cd libs/port
+make
 ```
