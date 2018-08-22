@@ -684,6 +684,7 @@ typedef struct _TIME_ZONE_INFORMATION{
 #define PROFILE_USER                0x10000000
 #define PROFILE_KERNEL              0x20000000
 #define PROFILE_SERVER              0x40000000
+#define PROCESS_SERVICE			0x80000000  //lyl
 
 
 /* File object type definitions

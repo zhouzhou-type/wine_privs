@@ -3304,6 +3304,19 @@ static void dump_get_window_properties_reply( const struct get_window_properties
     dump_varargs_properties( ", props=", cur_size );
 }
 
+static void dump_enum_session_request( const struct enum_session_request *req )
+{
+}
+
+static void dump_enum_session_reply( const struct enum_session_reply *req )
+{
+   // int i;
+	//fprintf( stderr, " handle=%04x", req->size );
+	//for(i = 0 ; i < req->size ; i++)
+		//fprintf( stderr, " session id = %d", req->ids[i]);
+}
+
+
 static void dump_create_winstation_request( const struct create_winstation_request *req )
 {
     fprintf( stderr, " flags=%08x", req->flags );
@@ -4639,6 +4652,10 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_remove_window_property_request,
     (dump_func)dump_get_window_property_request,
     (dump_func)dump_get_window_properties_request,
+    (dump_func)dump_enum_session_request,
+    NULL,  //lyl
+    NULL,  //lyl
+    NULL,  //lyl
     (dump_func)dump_create_winstation_request,
     (dump_func)dump_open_winstation_request,
     (dump_func)dump_close_winstation_request,
@@ -4925,6 +4942,10 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_remove_window_property_reply,
     (dump_func)dump_get_window_property_reply,
     (dump_func)dump_get_window_properties_reply,
+    (dump_func)dump_enum_session_reply,
+    NULL,  //lyl
+    NULL, //lyl
+    NULL,  //lyl
     (dump_func)dump_create_winstation_reply,
     (dump_func)dump_open_winstation_reply,
     NULL,
@@ -5211,6 +5232,10 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "remove_window_property",
     "get_window_property",
     "get_window_properties",
+    "enum_session",  //jz
+    "create_session",  //lyl
+    "get_process_session" , //lyl
+    "set_process_session" ,  //lyl
     "create_winstation",
     "open_winstation",
     "close_winstation",

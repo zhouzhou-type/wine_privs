@@ -520,6 +520,7 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
     process->is_system       = 0;
     process->debug_children  = 1;
     process->is_terminating  = 0;
+    process->is_not_service      = 1;  //lyl
     process->job             = NULL;
     process->console         = NULL;
     process->startup_state   = STARTUP_IN_PROGRESS;
@@ -534,6 +535,8 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
     process->trace_data      = 0;
     process->rawinput_mouse  = NULL;
     process->rawinput_kbd    = NULL;
+    process->session         = 0; //lyl
+    list_init( &process->session_process_links ); //lyl
     list_init( &process->thread_list );
     list_init( &process->locks );
     list_init( &process->asyncs );
@@ -569,7 +572,8 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
         process->token = token_duplicate( parent->token, TRUE, 0 );
         process->affinity = parent->affinity;
     }
-    if (!process->handles || !process->token) goto error;
+    //if (!process->handles || !process->token) goto error;
+    if (!process->handles) goto error;
 
     /* create the main thread */
     if (pipe( request_pipe ) == -1)
@@ -631,6 +635,7 @@ static void process_destroy( struct object *obj )
     if (process->console) release_object( process->console );
     if (process->msg_fd) release_object( process->msg_fd );
     list_remove( &process->entry );
+    list_remove( &process->session_process_links);  //lyl
     if (process->idle_event) release_object( process->idle_event );
     if (process->id) free_ptid( process->id );
     if (process->token) release_object( process->token );
@@ -1196,6 +1201,9 @@ DECL_HANDLER(new_process)
     process = thread->process;
     process->startup_info = (struct startup_info *)grab_object( info );
 
+    if(req->create_flags & PROCESS_SERVICE )  //lyl
+        process->is_not_service = 0;
+
     if (parent->job
        && !(req->create_flags & CREATE_BREAKAWAY_FROM_JOB)
        && !(parent->job->limit_flags & JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK))
@@ -1373,6 +1381,7 @@ DECL_HANDLER(get_process_info)
         reply->cpu              = process->cpu;
         reply->debugger_present = !!process->debugger;
         reply->debug_children   = process->debug_children;
+        reply->is_not_service		= process->is_not_service;  //lyl
         release_object( process );
     }
 }

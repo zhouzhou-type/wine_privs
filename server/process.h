@@ -76,6 +76,7 @@ struct process
     unsigned int         is_system:1;     /* is it a system process? */
     unsigned int         debug_children:1;/* also debug all child processes */
     unsigned int         is_terminating:1;/* is process terminating? */
+    unsigned int 		 is_not_service:1;		/* is it a system process? */  //lyl
     struct job          *job;             /* job object ascoicated with this process */
     struct list          job_entry;       /* list entry for job object */
     struct list          asyncs;          /* list of async object owned by the process */
@@ -96,6 +97,8 @@ struct process
     struct list          rawinput_devices;/* list of registered rawinput devices */
     const struct rawinput_device *rawinput_mouse; /* rawinput mouse device, if any */
     const struct rawinput_device *rawinput_kbd;   /* rawinput keyboard device, if any */
+    obj_handle_t         session;   //lyl
+	struct list 		 session_process_links;  //lyl
 };
 
 struct process_snapshot

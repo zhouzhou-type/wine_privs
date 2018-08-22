@@ -45,6 +45,7 @@ struct winstation
 {
     struct object      obj;                /* object header */
     unsigned int       flags;              /* winstation flags */
+    struct session * session;				/* session this winstation belongs to */  //lyl
     struct list        entry;              /* entry in global winstation list */
     struct list        desktops;           /* list of desktops of this winstation */
     struct clipboard  *clipboard;          /* clipboard information */

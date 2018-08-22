@@ -137,6 +137,16 @@ DECL_WINELIB_TYPE_AW(PWTS_SERVER_INFO)
 
 #define WTS_CURRENT_SERVER_HANDLE ((HANDLE)NULL)
 
+/*
+ *  Specifies the current session (SessionId)
+ */
+#define WTS_CURRENT_SESSION ((DWORD)-1)
+
+/*
+ *  Specifies any-session (SessionId)
+ */
+#define WTS_ANY_SESSION ((DWORD)-2)
+
 void WINAPI WTSCloseServer(HANDLE);
 BOOL WINAPI WTSConnectSessionA(ULONG, ULONG, PSTR, BOOL);
 BOOL WINAPI WTSConnectSessionW(ULONG, ULONG, PWSTR, BOOL);

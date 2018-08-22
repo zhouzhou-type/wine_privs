@@ -21,6 +21,7 @@
 #include "config.h"
 #include "wine/port.h"
 
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -52,6 +53,7 @@
 #include "user.h"
 #include "security.h"
 
+#include "token.h"
 
 #ifdef __i386__
 static const unsigned int supported_cpus = CPU_FLAG(CPU_x86);
@@ -66,6 +68,9 @@ static const unsigned int supported_cpus = CPU_FLAG(CPU_ARM64) | CPU_FLAG(CPU_AR
 #else
 #error Unsupported CPU
 #endif
+
+#define BUF_SIZE 1024
+
 
 /* thread queues */
 
@@ -220,7 +225,6 @@ static inline int is_valid_address( client_ptr_t addr )
 struct thread *create_thread( int fd, struct process *process )
 {
     struct thread *thread;
-
     if (process->is_terminating)
     {
         close( fd );
@@ -1256,11 +1260,202 @@ DECL_HANDLER(new_thread)
     }
 }
 
+//Add by danqi
+
+
+
+int getUidByPid(pid_t pid) {
+    char proc_pid_path[BUF_SIZE];
+    char buf[BUF_SIZE];
+    char name[50];
+    char suid[50];
+    int uid = -1;
+    sprintf(proc_pid_path, "/proc/%d/status", pid);
+    FILE* fp = fopen(proc_pid_path, "r");
+    if(NULL != fp){
+        while( fgets(buf, BUF_SIZE-1, fp) != NULL ){
+            sscanf(buf, "%s %*s", name);
+	    if(!strcmp(name, "Uid:"))
+	    {
+	        sscanf(buf, "%*s %d %*s", &uid);
+		break;
+	    }
+        }
+        fclose(fp);
+    }
+    return uid;
+}
+
+const SID *security_unix_uid_to_sid_thread( int uid )
+{
+    /* very simple mapping: either the current user or not the current user */
+   if (uid)
+    //debug by danqi
+    {
+   
+    	if (uid == 0 )
+	{
+	    fprintf(stderr,"debug by danqi uid=0 local_user_sid.SubAuthority[4] %d\n",local_user_sid.SubAuthority[4]);	
+	    return &local_user_sid;
+	}
+	else
+	{
+	    //change SubAuthority
+	    fprintf(stderr,"debug by danqi security_unix_uid_to_sid uid!=0\n");
+	    char string[50];
+	    sprintf(string,"%d", uid);
+	    char string1[9] = "9";
+	    strcat(string1, string);
+	    fprintf(stderr,"debug by danqi != string1 %s\n",string1);  
+	    DWORD SubAuth;
+	    int subauthint = atoi(string1);
+	    fprintf(stderr,"debug by danqi != int %d\n",subauthint);
+	//    SubAuth = (int) string1;
+	//    added_user_sid = *local_user_sid;
+	    SubAuth = (DWORD)subauthint;
+	    local_user_sid.SubAuthority[4] = SubAuth;
+	    fprintf(stderr,"debug by danqi != local_user_sid %d\n",local_user_sid.SubAuthority[4]);
+	    return &local_user_sid;
+	}
+
+    }
+   //     return (const SID *)&local_user_sid;
+    else
+    {
+        return &anonymous_logon_sid;
+    }
+}
+
+
+static struct token *create_token_normaluser( unsigned primary, const SID *user,
+                                   const SID_AND_ATTRIBUTES *groups, unsigned int group_count,
+                                   const LUID_AND_ATTRIBUTES *privs, unsigned int priv_count,
+                                   const ACL *default_dacl, TOKEN_SOURCE source,
+                                   const luid_t *modified_id,
+                                   int impersonation_level )
+{
+    struct token *token = alloc_object( &token_ops );
+    if (token)
+    {
+        unsigned int i;
+
+        allocate_luid( &token->token_id );
+        if (modified_id)
+            token->modified_id = *modified_id;
+        else
+            allocate_luid( &token->modified_id );
+        list_init( &token->privileges );
+        list_init( &token->groups );
+        token->primary = primary;
+        /* primary tokens don't have impersonation levels */
+        if (primary)
+            token->impersonation_level = -1;
+        else
+            token->impersonation_level = impersonation_level;
+        token->default_dacl = NULL;
+        token->primary_group = NULL;
+
+        /* copy user */
+        token->user = memdup( user, security_sid_len( user ));
+        if (!token->user)
+        {
+            release_object( token );
+            return NULL;
+        }
+
+        /* copy groups */
+        for (i = 0; i < group_count; i++)
+        {
+            size_t size = FIELD_OFFSET( struct group, sid.SubAuthority[((const SID *)groups[i].Sid)->SubAuthorityCount] );
+            struct group *group = mem_alloc( size );
+
+            if (!group)
+            {
+                release_object( token );
+                return NULL;
+            }
+            memcpy( &group->sid, groups[i].Sid, security_sid_len( groups[i].Sid ));
+            group->enabled = TRUE;
+            group->def = TRUE;
+            group->logon = (groups[i].Attributes & SE_GROUP_LOGON_ID) != 0;
+            group->mandatory = (groups[i].Attributes & SE_GROUP_MANDATORY) != 0;
+            group->owner = (groups[i].Attributes & SE_GROUP_OWNER) != 0;
+            group->resource = FALSE;
+            group->deny_only = FALSE;
+            list_add_tail( &token->groups, &group->entry );
+            /* Use first owner capable group as an owner */
+            if (!token->primary_group && group->owner)
+                token->primary_group = &group->sid;
+        }
+
+        /* copy privileges */
+        for (i = 0; i < priv_count; i++)
+        {
+            /* note: we don't check uniqueness: the caller must make sure
+             * privs doesn't contain any duplicate luids */
+            if (!privilege_add( token, &privs[i].Luid,
+                                privs[i].Attributes & SE_PRIVILEGE_ENABLED ))
+            {
+                release_object( token );
+                return NULL;
+            }
+        }
+
+        if (default_dacl)
+        {
+            token->default_dacl = memdup( default_dacl, default_dacl->AclSize );
+            if (!token->default_dacl)
+            {
+                release_object( token );
+                return NULL;
+            }
+        }
+
+        token->source = source;
+    }
+    return token;
+}
+
+//end by danqi
+
+
 /* initialize a new thread */
 DECL_HANDLER(init_thread)
 {
     struct process *process = current->process;
     int wait_fd, reply_fd;
+
+    //add by danqi
+    struct token *token = NULL;
+    static const SID_IDENTIFIER_AUTHORITY nt_authority = { SECURITY_NT_AUTHORITY };
+    static const unsigned int alias_admins_subauth[] = { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS };
+    static const unsigned int alias_users_subauth[] = { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_USERS };
+    /* on Windows, this value changes every time the user logs on */
+    static const unsigned int logon_subauth[] = { SECURITY_LOGON_IDS_RID, 0, 1 /* FIXME: should be randomly generated when tokens are inherited by new processes */ };
+    PSID alias_admins_sid;
+    PSID alias_users_sid;
+    PSID logon_sid;
+    int currentuid = -1;
+
+    current->unix_pid = req->unix_pid;
+    current->unix_tid = req->unix_tid;
+    current->teb      = req->teb;
+    current->entry_point = process->peb ? req->entry : 0;
+
+
+    currentuid = getUidByPid(current->unix_pid);
+    const SID *user_sid = security_unix_uid_to_sid_thread(currentuid);
+    ACL *default_dacl = create_default_dacl( user_sid );
+
+    alias_admins_sid = security_sid_alloc( &nt_authority, sizeof(alias_admins_subauth)/sizeof(alias_admins_subauth[0]),
+                                           alias_admins_subauth );
+    alias_users_sid = security_sid_alloc( &nt_authority, sizeof(alias_users_subauth)/sizeof(alias_users_subauth[0]),
+                                          alias_users_subauth );
+    logon_sid = security_sid_alloc( &nt_authority, sizeof(logon_subauth)/sizeof(logon_subauth[0]),
+                                    logon_subauth );
+
+    
+    //end by danqi
 
     if ((reply_fd = thread_get_inflight_fd( current, req->reply_fd )) == -1)
     {
@@ -1291,11 +1486,6 @@ DECL_HANDLER(init_thread)
         return;
     }
 
-    current->unix_pid = req->unix_pid;
-    current->unix_tid = req->unix_tid;
-    current->teb      = req->teb;
-    current->entry_point = process->peb ? req->entry : 0;
-
     if (!process->peb)  /* first thread, initialize the process too */
     {
         if (!is_cpu_supported( req->cpu )) return;
@@ -1307,6 +1497,51 @@ DECL_HANDLER(init_thread)
             process->affinity = current->affinity = get_thread_affinity( current );
         else
             set_thread_affinity( current, current->affinity );
+        //add by danqi
+        if (alias_admins_sid && alias_users_sid && logon_sid && default_dacl)
+        {
+            const LUID_AND_ATTRIBUTES admin_privs[] =
+            {
+            	{ SeChangeNotifyPrivilege        , SE_PRIVILEGE_ENABLED },
+            	{ SeSecurityPrivilege            , 0                    },
+            	{ SeBackupPrivilege              , 0                    },
+            	{ SeRestorePrivilege             , 0                    },
+            	{ SeSystemtimePrivilege          , 0                    },
+            	{ SeShutdownPrivilege            , 0                    },
+            	{ SeRemoteShutdownPrivilege      , 0                    },
+            	{ SeTakeOwnershipPrivilege       , 0                    },
+            	{ SeDebugPrivilege               , 0                    },
+            	{ SeSystemEnvironmentPrivilege   , 0                    },
+            	{ SeSystemProfilePrivilege       , 0                    },
+            	{ SeProfileSingleProcessPrivilege, 0                    },
+            	{ SeIncreaseBasePriorityPrivilege, 0                    },
+            	{ SeLoadDriverPrivilege          , SE_PRIVILEGE_ENABLED },
+            	{ SeCreatePagefilePrivilege      , 0                    },
+            	{ SeIncreaseQuotaPrivilege       , 0                    },
+            	{ SeUndockPrivilege              , 0                    },
+            	{ SeManageVolumePrivilege        , 0                    },
+            	{ SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
+            	{ SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
+            };
+        /* note: we don't include non-builtin groups here for the user -
+         * telling us these is the job of a client-side program */
+            const SID_AND_ATTRIBUTES admin_groups[] =
+            {
+            	{ security_world_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+            	{ security_local_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+            	{ security_interactive_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+            	{ security_authenticated_user_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+            	{ alias_admins_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
+            	{ alias_users_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+            	{ logon_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_LOGON_ID },
+            };
+    
+            static const TOKEN_SOURCE admin_source = {"SeMgr", {0, 0}};
+            process->token = create_token_normaluser( TRUE, user_sid, admin_groups, sizeof(admin_groups)/sizeof(admin_groups[0]),
+                              admin_privs, sizeof(admin_privs)/sizeof(admin_privs[0]), default_dacl,
+                              admin_source, NULL, -1);
+        }
+
     }
     else
     {
