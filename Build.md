@@ -31,10 +31,10 @@ make install
 1. 选择进入 libs/port 和 libs/wine 单独编译：
 
   ```
-cd libs/port
-make
-cd libs/wine
-make
+  cd libs/port
+  make
+  cd libs/wine
+  make
   ```
 
   其原因是 Makefile 问题，依赖没写好，以及多线程编译（-jN）问题
@@ -42,8 +42,8 @@ make
 2. gtk/gtk.h 问题，从 `主系统` 进入 dlls/comdlg32 单独编译
 
   ```
-cd dlls/comdlg32
-make
+  cd dlls/comdlg32
+  make
   ```
 
 ## 最初版本（`wine_stable_version_framework`）编译过程问题
