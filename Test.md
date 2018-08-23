@@ -6,16 +6,16 @@
 
 1. `dev` 用户下直接运行 `wine notepad`
 
-```
+  ```
 dev@dev:~$ wine notepad
 connect: No such file or directory
 connect: No such file or directory
 wine: wine-container not started: chdir to /tmp/.wine/server-805-2438ab : No such file or directory
-```
+  ```
 
 2. `root` 下运行 `wine-container`
 
-```
+  ```
 root@dev:~# wine-container 
 wine-container: start....
 wineserver receive msg:from winemenubuilder,pid is 2727
@@ -31,15 +31,15 @@ err:winediag:nulldrv_CreateWindow The explorer process failed to start.
 err:hid:PNP_AddDevice Cannot get Device Descriptor(c0000001)
 err:plugplay:handle_bus_relations AddDevice failed for driver L"WineHID"
 wine-container:start over, enjoy your work!
-```
+  ```
 
 3. `dev` 用户下在 `wine-container` 运行之后再运行 `wine notepad`
 
-```
+  ```
 dev@dev:~$ wine notepad
 connect: Permission denied
 connect: No such file or directory
-```
+  ```
 
 ## 多用户测试
 

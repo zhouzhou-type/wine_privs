@@ -1,19 +1,16 @@
 # wine_stable_version_multiuser
 
+---
+
 ## 相关说明
 
-> * 在 `wine_stable_version_framework` 基础上建立的分支
+> * 在 `wine_stable_version_framework` 基础上建立的分支，并且合并分支 `wine_version_session`
 > * 编译环境：虚拟机开发环境 `hotpot_1.1.0_0604`
 
 ## 编译步骤
 
 ```
 （chroot 进 子系统）
-./configure
-（在 主系统 中）
-cd dlls/comdlg32
-make
-（会报错，回到 子系统）
 cd /usr/lib/i386-linux-gnu
 ln -s libgtk-3.so.0 libgtk-3.so
 ln -s libgdk-3.so.0 libgdk-3.so
@@ -23,13 +20,31 @@ ln -s libatk-1.0.so.0 libatk-1.0.so
 ln -s libcairo-gobject.so.2 libcairo-gobject.so
 ln -s libcairo.so.2 libcairo.so
 ln -s libgdk_pixbuf-2.0.so.0 libgdk_pixbuf-2.0.so
-cd -
-cd libs/port
-make
-cd libs/wine
+cd /root/winuxengine_dev/WT-Mechanism-Code
+./configure
 make -j5
 make install
 ```
+
+如果报错:
+
+1. 选择进入 libs/port 和 libs/wine 单独编译：
+
+  ```
+cd libs/port
+make
+cd libs/wine
+make
+  ```
+
+  其原因是 Makefile 问题，依赖没写好，以及多线程编译（-jN）问题
+
+2. gtk/gtk.h 问题，从 `主系统` 进入 dlls/comdlg32 单独编译
+
+  ```
+cd dlls/comdlg32
+make
+  ```
 
 ## 最初版本（`wine_stable_version_framework`）编译过程问题
 
