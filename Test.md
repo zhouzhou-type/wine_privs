@@ -4,42 +4,42 @@
 
 ## 容器分离
 
-1. `dev` 用户下直接运行 `wine notepad`
+- `dev` 用户下直接运行 `wine notepad`
 
-  ```
-  dev@dev:~$ wine notepad
-  connect: No such file or directory
-  connect: No such file or directory
-  wine: wine-container not started: chdir to /tmp/.wine/server-805-2438ab : No such file or directory
-  ```
+```
+dev@dev:~$ wine notepad
+connect: No such file or directory
+connect: No such file or directory
+wine: wine-container not started: chdir to /tmp/.wine/server-805-2438ab : No such file or directory
+```
 
-2. `root` 下运行 `wine-container`
+- `root` 下运行 `wine-container`
 
-  ```
-  root@dev:~# wine-container 
-  wine-container: start....
-  wineserver receive msg:from winemenubuilder,pid is 2727
-  winemenubuilder receive msg:from wineserver,pid is 2727
-  pnp-device-arrival
-  pnp-device-arrival
-  pnp-device-arrival
-  err:winediag:nulldrv_CreateWindow Application tried to create a window, but no driver could be loaded.
-  err:winediag:nulldrv_CreateWindow The explorer process failed to start.
-  wine-container pre execute:L"/opt/.wine/drive_c/windows/system32/winemenubuilderservice.exe"
-  err:winediag:nulldrv_CreateWindow Application tried to create a window, but no driver could be loaded.
-  err:winediag:nulldrv_CreateWindow The explorer process failed to start.
-  err:hid:PNP_AddDevice Cannot get Device Descriptor(c0000001)
-  err:plugplay:handle_bus_relations AddDevice failed for driver L"WineHID"
-  wine-container:start over, enjoy your work!
-  ```
+```
+root@dev:~# wine-container 
+wine-container: start....
+wineserver receive msg:from winemenubuilder,pid is 2727
+winemenubuilder receive msg:from wineserver,pid is 2727
+pnp-device-arrival
+pnp-device-arrival
+pnp-device-arrival
+err:winediag:nulldrv_CreateWindow Application tried to create a window, but no driver could be loaded.
+err:winediag:nulldrv_CreateWindow The explorer process failed to start.
+wine-container pre execute:L"/opt/.wine/drive_c/windows/system32/winemenubuilderservice.exe"
+err:winediag:nulldrv_CreateWindow Application tried to create a window, but no driver could be loaded.
+err:winediag:nulldrv_CreateWindow The explorer process failed to start.
+err:hid:PNP_AddDevice Cannot get Device Descriptor(c0000001)
+err:plugplay:handle_bus_relations AddDevice failed for driver L"WineHID"
+wine-container:start over, enjoy your work!
+```
 
-3. `dev` 用户下在 `wine-container` 运行之后再运行 `wine notepad`
+- `dev` 用户下在 `wine-container` 运行之后再运行 `wine notepad`
 
-  ```
-  dev@dev:~$ wine notepad
-  connect: Permission denied
-  connect: No such file or directory
-  ```
+```
+dev@dev:~$ wine notepad
+connect: Permission denied
+connect: No such file or directory
+```
 
 ## 多用户测试
 
@@ -67,7 +67,8 @@ dev       2961  0.6  0.7 2679160 15316 ?       Ssl  15:09   0:00 C:\windows\syst
   - 如果 `filename` 是 `root` 的，可以修改保存。
   - 如果 `filename` 是 `dev` 的，那么保存的文件还是 `dev`，但是 `另存为` 文件是 `root`
 
-> * 推测：实际用户标识还是 `root`，只是 `ps -aux` 上成为了相应用户
+> * ~~推测：实际用户标识还是 `root`，只是 `ps -aux` 上成为了相应用户~~
+> * 主体多用户实现，主体对客体的操作还有问题
 
 ### 3. 用户管理
 
@@ -77,6 +78,8 @@ dev       2961  0.6  0.7 2679160 15316 ?       Ssl  15:09   0:00 C:\windows\syst
 > * cmd -> net user
 
 以上命令均无法使用
+
+- [ ] 从注册表角度分析
 
 ## 运行中的问题：
 
