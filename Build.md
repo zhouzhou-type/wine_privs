@@ -239,7 +239,7 @@ gcc -m32 -c -o version.o version.c -I. -I../../include -D__WINESRC__ -DWINE_UNIC
   -Wshift-overflow=2 -Wstrict-prototypes -Wtype-limits -Wunused-but-set-parameter -Wvla \
   -Wwrite-strings -Wpointer-arith -Wlogical-op -gdwarf-2 -gstrict-dwarf -fno-omit-frame-pointer \
   -g -O2
-make: \*\*\* No rule to make target '../../libs/port/libwine_port.a', needed by 'libwine.so.1.0'.  Stop.\
+make: *** No rule to make target '../../libs/port/libwine_port.a', needed by 'libwine.so.1.0'.  Stop.\
 ```
 
 cd libs/wine 后出现的问题
