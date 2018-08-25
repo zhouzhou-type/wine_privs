@@ -81,15 +81,15 @@ dev       2961  0.6  0.7 2679160 15316 ?       Ssl  15:09   0:00 C:\windows\syst
 
 - [ ] 从注册表角度分析
 
-  - `HKEY_USERS`
+  1. `HKEY_USERS`
     - Windows：`HKEY_USERS\S-1-5-21-*-*-*-1000`，以及其他几个 `S-1-5-18, S-1-5-19, S-1-5-20`，并没有其余用户，只有当前用户的 SID
     - Wine：可以看见所有用户的 SID
 
-  - `HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders`
+  2. `HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders`
     - Windows：键存在，但没值
     - Wine：有值，绑定了当前用户
 
-  - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
+  3. `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
     - Windows：可以看到所有 SID
     - Wine：键存在，但没值
 
