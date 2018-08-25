@@ -81,6 +81,46 @@ dev       2961  0.6  0.7 2679160 15316 ?       Ssl  15:09   0:00 C:\windows\syst
 
 - [ ] 从注册表角度分析
 
+  - `HKEY_USERS`
+    - Windows：`HKEY_USERS\S-1-5-21-*-*-*-1000`，以及其他几个 `S-1-5-18, S-1-5-19, S-1-5-20`，并没有其余用户，只有当前用户的 SID
+    - Wine：可以看见所有用户的 SID
+
+  - `HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders`
+    - Windows：键存在，但没值
+    - Wine：有值，绑定了当前用户
+
+  - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
+    - Windows：可以看到所有 SID
+    - Wine：键存在，但没值
+
+此外，多用户还有以下问题：
+
+> * 可以以 root 和 dev 使用 wine，但是新创建的用户无法使用，可能是缺少相应配置
+
+```
+$ wine notepad
+connect: Permission denied
+connect: No such file or directory
+No protocol specified
+err:winediag:nulldrv_CreateWindow Application tried to create a window, but no driver could be loaded.
+err:winediag:nulldrv_CreateWindow Make sure that your X server is running and that $DISPLAY is set correctly.
+
+$ wine regedit
+connect: Permission denied
+connect: No such file or directory
+No protocol specified
+err:user:load_desktop_driver failed to load L"winex11.drv"
+err:winediag:nulldrv_CreateWindow Application tried to create a window, but no driver could be loaded.
+err:winediag:nulldrv_CreateWindow The explorer process failed to start.
+```
+
+但可以在 wine 目录中找到相应文件夹（dev、multi、root、test 都是用户）：
+
+```
+$ ls /opt/.wine/drive_c/users/
+dev  multi  Public  root  test
+```
+
 ## 运行中的问题：
 
 ### 1. 启动 wine-container 界面的 debug 输出
