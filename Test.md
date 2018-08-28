@@ -83,7 +83,7 @@ dev       2961  0.6  0.7 2679160 15316 ?       Ssl  15:09   0:00 C:\windows\syst
 
   1. `HKEY_USERS`
     - Windows：`HKEY_USERS\S-1-5-21-*-*-*-1000`，以及其他几个 `S-1-5-18, S-1-5-19, S-1-5-20`，并没有其余用户，只有当前用户的 SID
-    - Wine：可以看见所有用户的 SID（曾经运行过 wine XXX，会自动以用户 UID 前加个 9 作为 SID 最后一位创建相应的值，重启后，相应的 SID 会删除，直到运行 wine XXX 之后会创建相应的 SID）
+    - Wine：可以看见所有用户的 SID（曾经运行过 wine XXX，会自动以用户 UID 前加个 9 作为 SID 帐户和组的值，重启或者 `wineserver -k` 然后再 `wine-container`，SID 会删除，直到运行 wine XXX 之后会创建相应的 SID）
 
   2. `HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders`
     - Windows：键存在，但没值
