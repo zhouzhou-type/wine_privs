@@ -11,7 +11,11 @@
 
 ### 下载源码
 
+在 /root/.ssh 目录下，放入自己的 SSH 私钥，参考 [这个网址](http://gitlab.task.ac.cn/help/ssh/README)
+
 ```
+sudo -i
+[输入密码：1]
 cd /var/lib/mock/cdos-2.2.0-build-i386/root/root/winuxengine_dev/
 git clone git@gitlab.task.ac.cn:history_history_history_WINUXGEARD_1534405734_1534407509_1534496137/WT-Mechanism-Code.git
 cd WT-Mechanism-Code
@@ -21,6 +25,8 @@ git checkout wine_stable_version_multiuser
 ### 编译
 
 ```
+sudo -i
+[输入密码：1]
 cd /var/lib/mock/cdos-2.2.0-build-i386/root/
 chroot .
 cd /usr/lib/i386-linux-gnu
