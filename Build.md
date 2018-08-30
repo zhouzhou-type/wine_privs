@@ -9,8 +9,20 @@
 
 ## 编译步骤
 
+### 下载源码
+
 ```
-（chroot 进 子系统）
+cd /var/lib/mock/cdos-2.2.0-build-i386/root/root/winuxengine_dev/
+git clone git@gitlab.task.ac.cn:history_history_history_WINUXGEARD_1534405734_1534407509_1534496137/WT-Mechanism-Code.git
+cd WT-Mechanism-Code
+git checkout wine_stable_version_multiuser
+```
+
+### 编译
+
+```
+cd /var/lib/mock/cdos-2.2.0-build-i386/root/
+chroot .
 cd /usr/lib/i386-linux-gnu
 ln -s libgtk-3.so.0 libgtk-3.so
 ln -s libgdk-3.so.0 libgdk-3.so
