@@ -249,6 +249,7 @@
 @ stdcall NtQueryDefaultLocale(long ptr)
 @ stdcall NtQueryDefaultUILanguage(ptr)
 @ stdcall NtQueryDirectoryFile(long long ptr ptr ptr ptr long long long ptr long)
+@ stdcall nt_to_unix_file_name_attr(ptr ptr long)
 @ stdcall NtQueryDirectoryObject(long ptr long long long ptr ptr)
 @ stdcall NtQueryEaFile(long ptr ptr long long ptr long ptr long)
 @ stdcall NtQueryEvent(long long ptr long ptr)

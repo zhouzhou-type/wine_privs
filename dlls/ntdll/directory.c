@@ -2791,7 +2791,7 @@ static NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer
 /******************************************************************************
  *           nt_to_unix_file_name_attr
  */
-NTSTATUS nt_to_unix_file_name_attr( const OBJECT_ATTRIBUTES *attr, ANSI_STRING *unix_name_ret,
+NTSTATUS WINAPI nt_to_unix_file_name_attr( const OBJECT_ATTRIBUTES *attr, ANSI_STRING *unix_name_ret,
                                     UINT disposition )
 {
     static const WCHAR invalid_charsW[] = { INVALID_NT_CHARS, 0 };

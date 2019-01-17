@@ -4360,8 +4360,7 @@ static int unix_socket_listen(const char *server_socket_name)
     }
     else
     {
-        //TODO
-        chmod( server_socket_name, 0666 );  /* make sure no other user can connect */
+        chmod( server_socket_name, 0666 );  /* make sure all user can connect */
         if(listen(fd ,MAX_CONNECTION_NUMBER) < 0 )
         {
             rval = -3;
@@ -4417,6 +4416,7 @@ static int parse_cmdline(LPWSTR cmdline)
     static const WCHAR dash_uW[] = {'-','u',0};
     static const WCHAR dash_wW[] = {'-','w',0};
     static const WCHAR dash_sW[] = {'-','s',0};
+    static const WCHAR dash_cW[] = {'-','c',0};
     static const WCHAR updateW[] = {'u','p','d','a','t','e',0};
 
     LPWSTR token = NULL, p;
@@ -4477,6 +4477,37 @@ static int parse_cmdline(LPWSTR cmdline)
             }
             HeapFree(GetProcessHeap(), 0, from);
             HeapFree(GetProcessHeap(), 0, to);
+            break;
+        }
+        else if( !strcmpW( token, dash_cW) )
+        {
+            //TODO
+            WCHAR *path_w = next_token(&p);
+            WCHAR *uid_w = next_token(&p);
+            WCHAR *gid_w = next_token(&p);
+            WCHAR *mode_w = next_token(&p);
+            if( !path_w || !uid_w || !gid_w || !mode_w )
+            {
+                break;
+            }
+            LPSTR path = wchar_to_char(path_w);
+            LPSTR uid = wchar_to_char(uid_w);
+            LPSTR gid  = wchar_to_char(gid_w);
+            LPSTR mode = wchar_to_char(mode_w);
+            char *t;
+            int mode_i = strtol(mode,&t,8);
+            if(mkdir(path, mode_i) != -1)
+            {
+               int fd = open(path,O_RDWR); 
+               if(fd != -1)
+               {
+                   fchown(fd,uid,gid);
+               }
+            }
+            HeapFree(GetProcessHeap(),0,path);
+            HeapFree(GetProcessHeap(),0,uid);
+            HeapFree(GetProcessHeap(),0,gid);
+            HeapFree(GetProcessHeap(),0,mode);
             break;
         }
         else if (!strcmpW( token, updateW))

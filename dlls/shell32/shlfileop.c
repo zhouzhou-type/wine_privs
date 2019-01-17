@@ -26,8 +26,11 @@
 
 #include <stdarg.h>
 #include <string.h>
+#include <stdio.h>
 #include <ctype.h>
 #include <assert.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "windef.h"
 #include "winbase.h"
@@ -43,6 +46,8 @@
 #include "undocshell.h"
 #include "wine/debug.h"
 #include "xdg.h"
+#include "csidlops.h"
+#include "winternl.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -774,6 +779,186 @@ int WINAPI SHCreateDirectoryExW(HWND hWnd, LPCWSTR path, LPSECURITY_ATTRIBUTES s
 	  }
 	}
 	return ret;
+}
+
+static BOOL unix_socket_conn(const char *servername, LPWSTR buffer, long length)
+{
+	int fd, len, conn;
+    BOOL rval = TRUE;
+	struct sockaddr_un addr;
+	const char *server_dir = wine_get_server_dir();
+	const char *socket_name ="/foosock";
+	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
+	strcpy(socket_addr, server_dir);
+	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
+
+	if((fd = socket(AF_UNIX, SOCK_STREAM,0)) < 0 ) return FALSE;
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(addr.sun_path, socket_addr);
+
+	len = sizeof(addr) - sizeof(addr.sun_path) +strlen(addr.sun_path)+1;
+
+	conn = connect(fd,(struct sockaddr *)&addr, len);
+	if (conn < 0)
+	{
+		rval = FALSE;
+	}
+	else
+	{
+	    if(write(fd, buffer, length) < length)
+            rval = FALSE;
+	}
+
+	close(fd);
+	HeapFree(GetProcessHeap(), 0, socket_addr);
+	return rval;
+}
+
+static WCHAR * char_to_wchar(LPCSTR str)
+{
+    LPWSTR  wstr;
+    DWORD   len;
+
+    len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+    wstr = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+    MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, len);
+
+    return wstr;
+}
+
+static BOOL ToUnixPath(LPCWSTR path, LPWSTR unix_path)
+{
+    UNICODE_STRING nt_name;
+    ANSI_STRING unix_name;
+    OBJECT_ATTRIBUTES attr;
+    NTSTATUS status;
+
+    if (!RtlDosPathNameToNtPathName_U( path, &nt_name, NULL, NULL ))
+    {
+        return FALSE;
+    }
+    attr.Length = sizeof(attr);
+    attr.RootDirectory = 0;
+    attr.Attributes = OBJ_CASE_INSENSITIVE;
+    attr.ObjectName = &nt_name;
+    attr.SecurityDescriptor = NULL;
+    attr.SecurityQualityOfService = NULL;
+
+    if (!(status = nt_to_unix_file_name_attr( &attr, &unix_name, FILE_OPEN )))
+    {
+        LPWSTR temp = char_to_wchar(unix_name.Buffer);
+        if(temp)
+        {
+            lstrcpyW(unix_path,temp);
+            HeapFree(GetProcessHeap(),0,temp);
+        }
+        RtlFreeAnsiString( &unix_name );
+        RtlFreeUnicodeString( &nt_name );
+        return TRUE;
+    }else
+    {
+        RtlFreeUnicodeString( &nt_name );
+        return FALSE;
+    }
+}
+
+static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
+{
+    static const WCHAR szFormat[] = {'-','c',' ','%','s',' ','%','s',' ', '%','s',' ','%','s',0};
+    //-c path uid gid mode
+    //mode is Octal like 0755 or 0777
+    
+    BOOL ret = TRUE;
+    LONG len;
+    LPWSTR buffer, uidw, gidw;
+    WCHAR unix_path[MAX_PATH] = {0};
+    char uid[20] = {0},gid[20] = {0};
+    WCHAR modeU[5] = {'0','7','5','5',0};
+    WCHAR modeP[5] = {'0','7','7','7',0};
+    WCHAR mode[5] = {0};
+
+    if(ToUnixPath(path,unix_path) == FALSE || lstrlenW(unix_path) == 0)
+        return FALSE;
+
+    sprintf(uid,"%d",getuid());
+    sprintf(gid,"%d",getgid());
+    uidw = char_to_wchar(uid);
+    gidw = char_to_wchar(gid);
+
+    len = (3 + lstrlenW(unix_path) + 1 + lstrlenW(uidw) + 1 + lstrlenW(gidw) + 1 + 4 + 1) * sizeof(WCHAR);
+    buffer = HeapAlloc( GetProcessHeap(), 0, len );
+    if( !buffer )
+        return FALSE;
+    
+    if(type == CSIDL_Type_User)
+    {
+        lstrcpyW(mode,modeU);
+    }else if(type == CSIDL_Type_AllUsers)
+    {
+        lstrcpyW(mode,modeP);
+    }
+    wsprintfW(buffer,szFormat, unix_path,uidw,gidw,mode);
+    ret = unix_socket_conn("foosock",buffer,len);
+
+    HeapFree(GetProcessHeap(), 0, buffer);
+    HeapFree(GetProcessHeap(), 0, uidw);
+    HeapFree(GetProcessHeap(), 0, gidw);
+    return ret;
+}
+
+/*************************************************************************
+ * SHCreateDirectoryUserExW      [SHELL32.@]
+ *
+ * Add for multi user dir ops by haojialiang
+ */
+BOOL WINAPI SHCreateDirectoryUserExW(LPCWSTR path, CSIDL_Type type)
+{
+    TRACE("(path:%s, type:%d)\n", debugstr_w(path), (int)type);
+
+    if(type != CSIDL_Type_User && type != CSIDL_Type_AllUsers)
+    {
+        return FALSE;
+    }
+    if (PathIsRelativeW(path))
+    {
+        return FALSE;
+    }
+    if(PathFileExistsW(path) == FALSE)
+    {
+        WCHAR *pSlash, szTemp[MAX_PATH + 1];  /* extra for PathAddBackslash() */
+
+        lstrcpynW(szTemp, path, MAX_PATH);
+        PathAddBackslashW(szTemp);
+        pSlash = szTemp + 3;
+
+        while (*pSlash)
+        {
+            while (*pSlash && *pSlash != '\\') pSlash++;
+            if (*pSlash)
+            {
+                *pSlash = 0;    /* terminate path at separator */
+
+                if(PathFileExistsW(szTemp) == FALSE)
+                {
+                    if(CreateDirByWinemenubuilder(szTemp,type) == FALSE)
+                    {
+                        if(SHNotifyCreateDirectoryW(szTemp, NULL) != ERROR_SUCCESS)
+                        {
+                            FIXME("Can not create user dir:%s\n",debugstr_w(szTemp));
+                            return FALSE;
+                        }
+                    }else
+                    {
+                        SHChangeNotify(SHCNE_MKDIR, SHCNF_PATHW, szTemp, NULL);
+                    }
+                }
+            }
+            *pSlash++ = '\\'; /* put the separator back */
+        }
+    }
+    return TRUE;
 }
 
 /*************************************************************************

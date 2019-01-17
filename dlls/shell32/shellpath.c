@@ -33,8 +33,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include "wine/debug.h"
 #include "windef.h"
 #include "winbase.h"
@@ -56,6 +54,7 @@
 #include "knownfolders.h"
 #include "initguid.h"
 #include "shobjidl.h"
+#include "csidlops.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -1002,17 +1001,6 @@ static const WCHAR DocumentsLibraryParsingNameW[] = {':',':', USERSLIBRARIES_PAR
 static const WCHAR MusicLibraryParsingNameW[] = {':',':', USERSLIBRARIES_PARSING_GUID, '\\','{','2','1','1','2','A','B','0','A','-','C','8','6','A','-','4','f','f','e','-','A','3','6','8','-','0','D','E','9','6','E','4','7','0','1','2','E','}',0};
 static const WCHAR PicturesLibraryParsingNameW[] = {':',':', USERSLIBRARIES_PARSING_GUID, '\\','{','A','9','9','0','A','E','9','F','-','A','0','3','B','-','4','e','8','0','-','9','4','B','C','-','9','9','1','2','D','7','5','0','4','1','0','4','}',0};
 static const WCHAR VideosLibraryParsingNameW[] = {':',':', USERSLIBRARIES_PARSING_GUID, '\\','{','4','9','1','E','9','2','2','F','-','5','6','4','3','-','4','a','f','4','-','A','7','E','B','-','4','E','7','A','1','3','8','D','8','1','7','4','}',0};
-
-typedef enum _CSIDL_Type {
-    CSIDL_Type_User,
-    CSIDL_Type_AllUsers,
-    CSIDL_Type_CurrVer,
-    CSIDL_Type_Disallowed,
-    CSIDL_Type_NonExistent,
-    CSIDL_Type_WindowsPath,
-    CSIDL_Type_SystemPath,
-    CSIDL_Type_SystemX86Path,
-} CSIDL_Type;
 
 #define CSIDL_CONTACTS         0x0043
 #define CSIDL_DOWNLOADS        0x0047
@@ -3830,7 +3818,7 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
 	LPWSTR pszPath)    /* [O] converted path */
 {
     HRESULT    hr;
-    WCHAR      szBuildPath[MAX_PATH], szTemp[MAX_PATH];
+    WCHAR      szBuildPath[MAX_PATH], szTemp[MAX_PATH], szBuildPathCSIDL[MAX_PATH];
     DWORD      folder = nFolder & CSIDL_FOLDER_MASK;
     CSIDL_Type type;
     int        ret;
@@ -3911,6 +3899,8 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
     else
         strcpyW(szBuildPath, szTemp);
 
+    strcpyW(szBuildPathCSIDL,szBuildPath);
+
     if (FAILED(hr)) goto end;
 
     if(pszSubPath) {
@@ -3940,6 +3930,8 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
         hr = HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND);
         goto end;
     }
+
+    SHCreateDirectoryUserExW(szBuildPathCSIDL,type);
 
     /* create directory/directories */
     ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
@@ -4370,83 +4362,6 @@ static inline BOOL _SHAppendToUnixPath(char *szBasePath, LPCWSTR pwszSubPath) {
     return TRUE;
 }
 
-static void handle_connection(int sockfd, LPWSTR buffer, long len)
-{
-	int ret,pid;
-	ret = write(sockfd, buffer, len);
-}
-
-static int unix_socket_conn(const char *servername, LPWSTR buffer, long lenth)
-{
-
-	int fd, len, rval;
-	struct sockaddr_un addr;
-	const char *server_dir = wine_get_server_dir();
-	const char *socket_name ="/foosock";
-	char *socket_addr = HeapAlloc(GetProcessHeap(), 0, sizeof(char)*(strlen(server_dir)+strlen(socket_name)));
-	strcpy(socket_addr, server_dir);
-	strcpy(socket_addr+sizeof(char)*strlen(server_dir), socket_name);
-
-	if((fd = socket(AF_UNIX, SOCK_STREAM,0)) < 0 ) return(-1);
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	strcpy(addr.sun_path, socket_addr);
-
-	len = sizeof(addr) - sizeof(addr.sun_path) +strlen(addr.sun_path)+1;
-
-	int conn;
-	conn = connect(fd,(struct sockaddr *)&addr, len);
-	if (conn < 0)
-	{
-		rval = -4;
-	}
-	else
-	{
-		handle_connection(fd, buffer, lenth);
-	}
-
-	close(fd);
-	HeapFree(GetProcessHeap(), 0, socket_addr);
-	return rval;
-}
-
-static WCHAR * char_to_wchar(LPCSTR str)
-{
-	LPWSTR  wstr;
-	DWORD   len;
-	
-	len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
-	wstr = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-	MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, len);
-
-	return wstr;
-}
-
-static BOOL create_symlink_by_winemenubuilder( LPCSTR from, LPCSTR to )
-{
-    //static const WCHAR szFormat[] = {' ','-','w',' ','"','%','s','"',0 };
-    static const WCHAR szFormat[] = {'-','s',' ','%','s',' ','%','s',0};
-    
-    LONG len;
-    LPWSTR buffer, pszFromW, pszToW;
-    BOOL ret;
-
-	pszFromW = char_to_wchar(from);
-	pszToW = char_to_wchar(to);
-    len = (5 + lstrlenW( pszFromW ) + lstrlenW( pszToW )) * sizeof(WCHAR);
-    buffer = HeapAlloc( GetProcessHeap(), 0, len );
-    if( !buffer )
-        return FALSE;
-    wsprintfW(buffer,szFormat, pszFromW, pszToW);
-    unix_socket_conn("foosock",buffer,len);
-
-	HeapFree(GetProcessHeap(), 0, pszFromW);
-	HeapFree(GetProcessHeap(), 0, pszToW);
-	HeapFree(GetProcessHeap(), 0, buffer);
-    return ret;
-}
-
 /******************************************************************************
  * _SHCreateSymbolicLinks  [Internal]
  * 
@@ -4542,9 +4457,8 @@ static void _SHCreateSymbolicLinks(void)
         }
 
         /* Replace 'My Documents' directory with a symlink or fail silently if not empty. */
-        //remove(pszPersonal);
-        //symlink(szPersonalTarget, pszPersonal);
-        create_symlink_by_winemenubuilder(szPersonalTarget, pszPersonal);
+        remove(pszPersonal);
+        symlink(szPersonalTarget, pszPersonal);
     }
     else
     {
@@ -4599,9 +4513,8 @@ static void _SHCreateSymbolicLinks(void)
             strcpy(szMyStuffTarget, szPersonalTarget);
             break;
         }
-        //remove(pszMyStuff);
-        //symlink(szMyStuffTarget, pszMyStuff);
-        create_symlink_by_winemenubuilder(szMyStuffTarget, pszMyStuff);
+        remove(pszMyStuff);
+        symlink(szMyStuffTarget, pszMyStuff);
         HeapFree(GetProcessHeap(), 0, pszMyStuff);
     }
 
@@ -4621,16 +4534,14 @@ static void _SHCreateSymbolicLinks(void)
                               SHGFP_TYPE_DEFAULT, wszTempPath);
         if (SUCCEEDED(hr) && (pszDesktop = wine_get_unix_file_name(wszTempPath))) 
         {
-            //remove(pszDesktop);
+            remove(pszDesktop);
             if (xdg_desktop_dir)
             {
-                //symlink(xdg_desktop_dir, pszDesktop);
-               	create_symlink_by_winemenubuilder(xdg_desktop_dir, pszDesktop);
+                symlink(xdg_desktop_dir, pszDesktop);
             }
 			else
 			{
-                //symlink(szDesktopTarget, pszDesktop);
-                create_symlink_by_winemenubuilder(szDesktopTarget, pszDesktop);
+                symlink(szDesktopTarget, pszDesktop);
 			}
 			HeapFree(GetProcessHeap(), 0, pszDesktop);
         }
