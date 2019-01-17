@@ -50,6 +50,7 @@
 #include "winternl.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
+WINE_DECLARE_DEBUG_CHANNEL(multiuser);
 
 #define IsAttrib(x, y)  ((INVALID_FILE_ATTRIBUTES != (x)) && ((x) & (y)))
 #define IsAttribFile(x) (!((x) & FILE_ATTRIBUTE_DIRECTORY))
@@ -846,7 +847,7 @@ static BOOL ToUnixPath(LPCWSTR path, LPWSTR unix_path)
     attr.SecurityDescriptor = NULL;
     attr.SecurityQualityOfService = NULL;
 
-    if (!(status = nt_to_unix_file_name_attr( &attr, &unix_name, FILE_OPEN )))
+    if (!(status = nt_to_unix_file_name_attr( &attr, &unix_name, FILE_CREATE )) || status == STATUS_NO_SUCH_FILE)
     {
         LPWSTR temp = char_to_wchar(unix_name.Buffer);
         if(temp)
@@ -879,8 +880,15 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
     WCHAR modeP[5] = {'0','7','7','7',0};
     WCHAR mode[5] = {0};
 
+    if(getuid() == 0)
+        return FALSE;
+
+    TRACE_(multiuser)("hjl--dll_part:send:path:%s,type:%d\n",debugstr_w(path),type);
+    TRACE_(multiuser)("hjl--dll_part:send:path:%s,type:%d\n",(path),type);
+
     if(ToUnixPath(path,unix_path) == FALSE || lstrlenW(unix_path) == 0)
         return FALSE;
+    TRACE_(multiuser)("hjl--dll_part:send:unix_path:%s,type:%d\n",debugstr_w(unix_path),type);
 
     sprintf(uid,"%d",getuid());
     sprintf(gid,"%d",getgid());
@@ -900,6 +908,7 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
         lstrcpyW(mode,modeP);
     }
     wsprintfW(buffer,szFormat, unix_path,uidw,gidw,mode);
+    TRACE_(multiuser)("hjl--dll_part:send:buffer:%s\n",debugstr_w(buffer));
     ret = unix_socket_conn("foosock",buffer,len);
 
     HeapFree(GetProcessHeap(), 0, buffer);
@@ -915,7 +924,7 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
  */
 BOOL WINAPI SHCreateDirectoryUserExW(LPCWSTR path, CSIDL_Type type)
 {
-    TRACE("(path:%s, type:%d)\n", debugstr_w(path), (int)type);
+    TRACE_(multiuser)("(path:%s, type:%d)\n", debugstr_w(path), (int)type);
 
     if(type != CSIDL_Type_User && type != CSIDL_Type_AllUsers)
     {
@@ -928,6 +937,8 @@ BOOL WINAPI SHCreateDirectoryUserExW(LPCWSTR path, CSIDL_Type type)
     if(PathFileExistsW(path) == FALSE)
     {
         WCHAR *pSlash, szTemp[MAX_PATH + 1];  /* extra for PathAddBackslash() */
+
+        TRACE_(multiuser)("path not exists\n");
 
         lstrcpynW(szTemp, path, MAX_PATH);
         PathAddBackslashW(szTemp);
@@ -942,8 +953,10 @@ BOOL WINAPI SHCreateDirectoryUserExW(LPCWSTR path, CSIDL_Type type)
 
                 if(PathFileExistsW(szTemp) == FALSE)
                 {
+                    TRACE_(multiuser)("path %s not exists\n",debugstr_w(szTemp));
                     if(CreateDirByWinemenubuilder(szTemp,type) == FALSE)
                     {
+                        FIXME("path %s create by menubuidler service failed\n",debugstr_w(szTemp));
                         if(SHNotifyCreateDirectoryW(szTemp, NULL) != ERROR_SUCCESS)
                         {
                             FIXME("Can not create user dir:%s\n",debugstr_w(szTemp));
@@ -951,12 +964,16 @@ BOOL WINAPI SHCreateDirectoryUserExW(LPCWSTR path, CSIDL_Type type)
                         }
                     }else
                     {
+                        TRACE_(multiuser)("path %s create by menubuidler service ok\n",debugstr_w(szTemp));
                         SHChangeNotify(SHCNE_MKDIR, SHCNF_PATHW, szTemp, NULL);
                     }
                 }
             }
             *pSlash++ = '\\'; /* put the separator back */
         }
+    }else
+    {
+        TRACE_(multiuser)("path exists\n");
     }
     return TRUE;
 }

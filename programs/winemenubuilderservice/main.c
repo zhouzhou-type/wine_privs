@@ -119,7 +119,8 @@
 #define EPOLLEVENTS 100
 #define BUFFER_SIZE 4096
 
-WINE_DEFAULT_DEBUG_CHANNEL(menubuilder);/*TODO*/
+WINE_DEFAULT_DEBUG_CHANNEL(menubuilder);
+WINE_DECLARE_DEBUG_CHANNEL(multiuser);
 
 #define in_desktop_dir(csidl) ((csidl)==CSIDL_DESKTOPDIRECTORY || \
         (csidl)==CSIDL_COMMON_DESKTOPDIRECTORY)
@@ -4479,9 +4480,8 @@ static int parse_cmdline(LPWSTR cmdline)
             HeapFree(GetProcessHeap(), 0, to);
             break;
         }
-        else if( !strcmpW( token, dash_cW) )
+        else if( !strcmpW( token, dash_cW) ) // add for multi user dir create by haojialiang
         {
-            //TODO
             WCHAR *path_w = next_token(&p);
             WCHAR *uid_w = next_token(&p);
             WCHAR *gid_w = next_token(&p);
@@ -4490,18 +4490,26 @@ static int parse_cmdline(LPWSTR cmdline)
             {
                 break;
             }
+            TRACE_(multiuser)("hjl---:winemenubuilders:-w-path:%s,uid:%s,gid:%s,mode:%s\n",debugstr_w(path_w),debugstr_w(uid_w),debugstr_w(gid_w),debugstr_w(mode_w));
             LPSTR path = wchar_to_char(path_w);
             LPSTR uid = wchar_to_char(uid_w);
             LPSTR gid  = wchar_to_char(gid_w);
             LPSTR mode = wchar_to_char(mode_w);
+            TRACE_(multiuser)("hjl---:winemenubuilders:path:%s,uid:%s,gid:%s,mode:%s\n",path,uid,gid,mode);
             char *t;
             int mode_i = strtol(mode,&t,8);
+            int uid_i= atoi(uid);
+            int gid_i = atoi(gid);
+            TRACE_(multiuser)("hjl---:winemenubuilders:-i-path:%s,uid:%d,gid:%d,mode:(10)%d vs (8)%o\n",path,uid_i,gid_i,mode_i,mode_i);
             if(mkdir(path, mode_i) != -1)
             {
+                TRACE_(multiuser)("hjl---:winemenubuilders:mkdir ok\n");
                int fd = open(path,O_RDWR); 
                if(fd != -1)
                {
-                   fchown(fd,uid,gid);
+                   TRACE_(multiuser)("hjl---:winemenubuilders:open ok\n");
+                   fchown(fd,uid_i,gid_i);
+                   close(fd);
                }
             }
             HeapFree(GetProcessHeap(),0,path);
