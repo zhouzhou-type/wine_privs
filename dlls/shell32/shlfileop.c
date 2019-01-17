@@ -829,6 +829,18 @@ static WCHAR * char_to_wchar(LPCSTR str)
     return wstr;
 }
 
+static LPSTR wchar_to_char(LPWSTR wstr)
+{
+    LPSTR  str;
+    DWORD   len;
+
+    len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+    str = HeapAlloc(GetProcessHeap(), 0, len * sizeof(CHAR));
+    WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
+
+    return str;
+}
+
 static BOOL ToUnixPath(LPCWSTR path, LPWSTR unix_path)
 {
     UNICODE_STRING nt_name;
@@ -875,6 +887,7 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
     LONG len;
     LPWSTR buffer, uidw, gidw;
     WCHAR unix_path[MAX_PATH] = {0};
+    LPSTR unix_path_str;
     char uid[20] = {0},gid[20] = {0};
     WCHAR modeU[5] = {'0','7','5','5',0};
     WCHAR modeP[5] = {'0','7','7','7',0};
@@ -884,11 +897,30 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
         return FALSE;
 
     TRACE_(multiuser)("hjl--dll_part:send:path:%s,type:%d\n",debugstr_w(path),type);
-    TRACE_(multiuser)("hjl--dll_part:send:path:%s,type:%d\n",(path),type);
 
     if(ToUnixPath(path,unix_path) == FALSE || lstrlenW(unix_path) == 0)
         return FALSE;
     TRACE_(multiuser)("hjl--dll_part:send:unix_path:%s,type:%d\n",debugstr_w(unix_path),type);
+    unix_path_str = wchar_to_char(unix_path);
+    if(unix_path_str != NULL)
+    {
+        BOOL change = FALSE;
+        for(int i = lstrlenA(unix_path_str) - 1; i >= 0; i--)
+        {
+            if(unix_path_str[i] == ' ')
+            {
+                change = TRUE;
+                unix_path_str[i] = '*';
+            }
+        }
+        if(change)
+        {
+            LPWSTR t = char_to_wchar(unix_path_str);
+            lstrcpyW(unix_path,t);
+            HeapFree(GetProcessHeap(),0,t);
+        }
+        HeapFree(GetProcessHeap(),0,unix_path_str);
+    }
 
     sprintf(uid,"%d",getuid());
     sprintf(gid,"%d",getgid());

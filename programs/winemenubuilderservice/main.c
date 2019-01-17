@@ -4495,22 +4495,27 @@ static int parse_cmdline(LPWSTR cmdline)
             LPSTR uid = wchar_to_char(uid_w);
             LPSTR gid  = wchar_to_char(gid_w);
             LPSTR mode = wchar_to_char(mode_w);
+            for(int i = lstrlenA(path) - 1; i >= 0; i--)
+            {
+                if(path[i] == '*')
+                {
+                    path[i] = ' ';
+                }
+            }
             TRACE_(multiuser)("hjl---:winemenubuilders:path:%s,uid:%s,gid:%s,mode:%s\n",path,uid,gid,mode);
             char *t;
             int mode_i = strtol(mode,&t,8);
             int uid_i= atoi(uid);
             int gid_i = atoi(gid);
             TRACE_(multiuser)("hjl---:winemenubuilders:-i-path:%s,uid:%d,gid:%d,mode:(10)%d vs (8)%o\n",path,uid_i,gid_i,mode_i,mode_i);
-            if(mkdir(path, mode_i) != -1)
+            mkdir(path, mode_i);
+            TRACE_(multiuser)("hjl---:winemenubuilders:mkdir:%s\n",path);
+            int fd = open(path,O_RDONLY);
+            if(fd != -1)
             {
-                TRACE_(multiuser)("hjl---:winemenubuilders:mkdir ok\n");
-               int fd = open(path,O_RDWR); 
-               if(fd != -1)
-               {
-                   TRACE_(multiuser)("hjl---:winemenubuilders:open ok\n");
-                   fchown(fd,uid_i,gid_i);
-                   close(fd);
-               }
+                TRACE_(multiuser)("hjl---:winemenubuilders:open:%s and chown\n",path);
+                fchown(fd,uid_i,gid_i);
+                close(fd);
             }
             HeapFree(GetProcessHeap(),0,path);
             HeapFree(GetProcessHeap(),0,uid);
