@@ -4509,6 +4509,7 @@ static int parse_cmdline(LPWSTR cmdline)
             int gid_i = atoi(gid);
             TRACE_(multiuser)("hjl---:winemenubuilders:-i-path:%s,uid:%d,gid:%d,mode:(10)%d vs (8)%o\n",path,uid_i,gid_i,mode_i,mode_i);
             mkdir(path, mode_i);
+            chmod(path, mode_i);
             TRACE_(multiuser)("hjl---:winemenubuilders:mkdir:%s\n",path);
             int fd = open(path,O_RDONLY);
             if(fd != -1)

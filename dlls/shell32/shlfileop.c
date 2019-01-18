@@ -893,14 +893,42 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
     WCHAR modeP[5] = {'0','7','7','7',0};
     WCHAR mode[5] = {0};
 
-    if(getuid() == 0)
-        return FALSE;
-
     TRACE_(multiuser)("hjl--dll_part:send:path:%s,type:%d\n",debugstr_w(path),type);
 
     if(ToUnixPath(path,unix_path) == FALSE || lstrlenW(unix_path) == 0)
         return FALSE;
+
     TRACE_(multiuser)("hjl--dll_part:send:unix_path:%s,type:%d\n",debugstr_w(unix_path),type);
+
+    //root special handle
+    if(getuid() == 0)
+    {
+        if(type == CSIDL_Type_User)
+        {
+            TRACE_(multiuser)("hjl--dll_part:root do not handle:unix_path:%s,type:%d\n",debugstr_w(unix_path),type);
+            return FALSE;
+        }
+        else if(type == CSIDL_Type_AllUsers)
+        {
+            TRACE_(multiuser)("hjl--dll_part:root mkdir:unix_path:%s,type:%d\n",debugstr_w(unix_path),type);
+            unix_path_str = wchar_to_char(unix_path);
+            if(unix_path_str != NULL)
+            {
+                int ret = mkdir(unix_path_str, 0777);
+                if(ret == 0)
+                    ret = chmod(unix_path_str, 0777);
+                HeapFree(GetProcessHeap(),0,unix_path_str);
+                return (!ret);
+            }else
+            {
+                return FALSE;
+            }
+        }else
+        {
+            //can not get this
+            return FALSE;
+        }
+    }
     unix_path_str = wchar_to_char(unix_path);
     if(unix_path_str != NULL)
     {
@@ -922,23 +950,32 @@ static BOOL CreateDirByWinemenubuilder(LPCWSTR path, CSIDL_Type type)
         HeapFree(GetProcessHeap(),0,unix_path_str);
     }
 
-    sprintf(uid,"%d",getuid());
-    sprintf(gid,"%d",getgid());
-    uidw = char_to_wchar(uid);
-    gidw = char_to_wchar(gid);
-
-    len = (3 + lstrlenW(unix_path) + 1 + lstrlenW(uidw) + 1 + lstrlenW(gidw) + 1 + 4 + 1) * sizeof(WCHAR);
-    buffer = HeapAlloc( GetProcessHeap(), 0, len );
-    if( !buffer )
-        return FALSE;
-    
     if(type == CSIDL_Type_User)
     {
         lstrcpyW(mode,modeU);
+        sprintf(uid,"%d",getuid());
+        sprintf(gid,"%d",getgid());
     }else if(type == CSIDL_Type_AllUsers)
     {
         lstrcpyW(mode,modeP);
+        sprintf(uid,"%d",0);
+        sprintf(gid,"%d",0);
+    }else
+    {
+        return FALSE;
     }
+
+    uidw = char_to_wchar(uid);
+    gidw = char_to_wchar(gid);
+    len = (3 + lstrlenW(unix_path) + 1 + lstrlenW(uidw) + 1 + lstrlenW(gidw) + 1 + 4 + 1) * sizeof(WCHAR);
+    buffer = HeapAlloc( GetProcessHeap(), 0, len );
+    if( !buffer )
+    {
+        HeapFree(GetProcessHeap(), 0, uidw);
+        HeapFree(GetProcessHeap(), 0, gidw);
+        return FALSE;
+    }
+    
     wsprintfW(buffer,szFormat, unix_path,uidw,gidw,mode);
     TRACE_(multiuser)("hjl--dll_part:send:buffer:%s\n",debugstr_w(buffer));
     ret = unix_socket_conn("foosock",buffer,len);
@@ -988,10 +1025,10 @@ BOOL WINAPI SHCreateDirectoryUserExW(LPCWSTR path, CSIDL_Type type)
                     TRACE_(multiuser)("path %s not exists\n",debugstr_w(szTemp));
                     if(CreateDirByWinemenubuilder(szTemp,type) == FALSE)
                     {
-                        FIXME("path %s create by menubuidler service failed\n",debugstr_w(szTemp));
+                        TRACE_(multiuser)("path %s create by menubuidler service failed\n",debugstr_w(szTemp));
                         if(SHNotifyCreateDirectoryW(szTemp, NULL) != ERROR_SUCCESS)
                         {
-                            FIXME("Can not create user dir:%s\n",debugstr_w(szTemp));
+                            TRACE_(multiuser)("Can not create user dir:%s\n",debugstr_w(szTemp));
                             return FALSE;
                         }
                     }else
