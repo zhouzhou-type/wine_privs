@@ -30,6 +30,7 @@ my %formats =
     "unsigned short"=> [  2,   2,  "%04x" ],
     "unsigned int"  => [  4,   4,  "%08x" ],
     "data_size_t"   => [  4,   4,  "%u" ],
+    "session_id_t"  => [  4,   4,  "%u" ],
     "obj_handle_t"  => [  4,   4,  "%04x" ],
     "atom_t"        => [  4,   4,  "%04x" ],
     "user_handle_t" => [  4,   4,  "%08x" ],
@@ -61,7 +62,8 @@ my @asserts = ();
 
 my @trace_lines = ();
 
-my $max_req_size = 64;
+#hyy original=64
+my $max_req_size = 128;
 
 my $warnings = scalar(@ARGV) && $ARGV[0] eq "-w";
 
@@ -222,7 +224,7 @@ sub PARSE_REQUESTS()
                 $type = "dump_varargs_" . $2 . "( \"%s\", min(cur_size,req->" . $3 . ") )";
                 s!(VARARG\(.*\)\s*;)!/* $1 */!;
             }
-            elsif (/^\s*VARARG\((\w+),(\w+)\)/)
+            elsif (/^\s*VARARG\((\w+),([\w\s]+)\)/)  #hyy
             {
                 $var = $1;
                 $type = "dump_varargs_" . $2 . "( \"%s\", cur_size )";

@@ -22,6 +22,7 @@ typedef unsigned int process_id_t;
 typedef unsigned int thread_id_t;
 typedef unsigned int data_size_t;
 typedef unsigned int ioctl_code_t;
+typedef unsigned int session_id_t;  //hyy
 typedef unsigned __int64 lparam_t;
 typedef unsigned __int64 apc_param_t;
 typedef unsigned __int64 mem_size_t;
@@ -47,8 +48,7 @@ struct reply_header
 
 struct request_max_size
 {
-//    int pad[16];
-    int pad[17];  //lyl
+	  int pad[32];  //hyy original=16
 };
 
 #define FIRST_USER_HANDLE 0x0020
@@ -717,6 +717,8 @@ struct rawinput_device
 struct new_process_request
 {
     struct request_header __header;
+    int          unix_uid;
+    int          unix_gid;
     int          inherit_all;
     unsigned int create_flags;
     int          socket_fd;
@@ -729,7 +731,7 @@ struct new_process_request
     data_size_t  info_size;
     /* VARARG(info,startup_info,info_size); */
     /* VARARG(env,unicode_str); */
-    char __pad_52[4];
+    char __pad_60[4];
 };
 struct new_process_reply
 {
@@ -885,7 +887,8 @@ struct get_process_info_reply
     cpu_type_t   cpu;
     short int    debugger_present;
     short int    debug_children;
-    unsigned int is_not_service ;  //lyl
+    unsigned int is_not_service;   //lyl
+    char __pad_68[4];
 };
 
 
@@ -2292,9 +2295,8 @@ struct next_process_reply
     int          priority;
     int          handles;
     int          unix_pid;
-    unsigned int session_id;
+    unsigned int  session_id;
     /* VARARG(filename,unicode_str); */
-    char __pad_36[4];
 };
 
 
@@ -3850,59 +3852,69 @@ struct get_window_properties_reply
     char __pad_12[4];
 };
 
-struct enum_session_request  //jz
+
+//jz
+struct enum_session_request
 {
     struct request_header __header;
-    char __pad_12[4];
+    user_handle_t  window;
 };
-struct enum_session_reply  //jz
+struct enum_session_reply
 {
     struct reply_header __header;
-    unsigned int session[2];
-    unsigned int size;
+    int            count;
+    /* VARARG(session,session_id_t); */
+    char __pad_12[4];
 };
 
-struct create_session_request  //lyl
+
+//lyl
+
+struct create_session_request
 {
-	struct request_header __header;
+    struct request_header __header;
 	unsigned int session_id;
-	unsigned int flags;
+    unsigned int flags;
     unsigned int access;
     unsigned int attributes;
     obj_handle_t rootdir;
-	char __pad_32[4];
 };
-
-struct create_session_reply  //lyl
-{
-	struct reply_header __header;
-	obj_handle_t handle;
-	char __pad_12[4];
-};
-
-struct get_process_session_request //lyl
-{
-    struct request_header __header;
-    char __pad_12[4];
-};
-
-struct get_process_session_reply  //lyl
+struct create_session_reply
 {
     struct reply_header __header;
     obj_handle_t handle;
     char __pad_12[4];
 };
 
-struct set_process_session_request //lyl
+
+//lyl
+
+struct get_process_session_request
+{
+    struct request_header __header;
+    char __pad_12[4];
+};
+struct get_process_session_reply
+{
+    struct reply_header __header;
+    obj_handle_t handle;
+    char __pad_12[4];
+};
+
+
+//lyl
+
+struct set_process_session_request
 {
     struct request_header __header;
     obj_handle_t handle;
 };
-
-struct set_process_session_reply //lyl
+struct set_process_session_reply
 {
     struct reply_header __header;
 };
+
+
 
 struct create_winstation_request
 {
@@ -5601,16 +5613,16 @@ struct terminate_job_reply
     struct reply_header __header;
 };
 
+
+//anyone?
 struct register_pid_request
 {
     struct request_header __header;
-    int register_pid;
-    char word[32];
+    int          pid;
 };
 struct register_pid_reply
 {
     struct reply_header __header;
-    char word[32];
 };
 
 
@@ -5795,10 +5807,10 @@ enum request
     REQ_remove_window_property,
     REQ_get_window_property,
     REQ_get_window_properties,
-    REQ_enum_session, //jz
-    REQ_create_session,  //lyl
-    REQ_get_process_session,  //lyl
-    REQ_set_process_session,  //lyl
+    REQ_enum_session,
+    REQ_create_session,
+    REQ_get_process_session,
+    REQ_set_process_session,
     REQ_create_winstation,
     REQ_open_winstation,
     REQ_close_winstation,
@@ -6090,10 +6102,10 @@ union generic_request
     struct remove_window_property_request remove_window_property_request;
     struct get_window_property_request get_window_property_request;
     struct get_window_properties_request get_window_properties_request;
-    struct enum_session_request enum_session_request;  //jz
-    struct create_session_request create_session_request;  //lyl
-    struct get_process_session_request get_process_session_request;  //lyl
-    struct set_process_session_request set_process_session_request;  //lyl
+    struct enum_session_request enum_session_request;
+    struct create_session_request create_session_request;
+    struct get_process_session_request get_process_session_request;
+    struct set_process_session_request set_process_session_request;
     struct create_winstation_request create_winstation_request;
     struct open_winstation_request open_winstation_request;
     struct close_winstation_request close_winstation_request;
@@ -6383,10 +6395,10 @@ union generic_reply
     struct remove_window_property_reply remove_window_property_reply;
     struct get_window_property_reply get_window_property_reply;
     struct get_window_properties_reply get_window_properties_reply;
-    struct enum_session_reply enum_session_reply;  //jz
-    struct create_session_reply create_session_reply;  //lyl
-    struct get_process_session_reply get_process_session_reply;  //lyl
-    struct set_process_session_reply set_process_session_reply;  //lyl
+    struct enum_session_reply enum_session_reply;
+    struct create_session_reply create_session_reply;
+    struct get_process_session_reply get_process_session_reply;
+    struct set_process_session_reply set_process_session_reply;
     struct create_winstation_reply create_winstation_reply;
     struct open_winstation_reply open_winstation_reply;
     struct close_winstation_reply close_winstation_reply;
@@ -6494,6 +6506,6 @@ union generic_reply
     struct register_pid_reply register_pid_reply;
 };
 
-#define SERVER_PROTOCOL_VERSION 524
+#define SERVER_PROTOCOL_VERSION 528
 
 #endif /* __WINE_WINE_SERVER_PROTOCOL_H */

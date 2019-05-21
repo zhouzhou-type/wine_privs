@@ -113,6 +113,7 @@ struct session *get_process_session( struct process *process, unsigned int acces
     return (struct session *)get_handle_obj( process, process->session,access, &session_ops );
 }
 
+//anyone?
 DECL_HANDLER(enum_session)
 {
 	fprintf(stderr,"!!!!!22222!!!!!\n");
@@ -121,23 +122,21 @@ DECL_HANDLER(enum_session)
 	struct session* id=NULL;
 	int i=0;
 	struct list* p;
+
+	int count = 0;
+	LIST_FOR_EACH(p, &session_list)
+	{
+		count++;
+	}
+	data_size_t size = sizeof(unsigned int) * count;
+	unsigned int *sessions = (unsigned int *)mem_alloc(size);
 	LIST_FOR_EACH(p, &session_list)
 	{
 		id = LIST_ENTRY( p, struct session, entry );
-		if(!id->session_id)
-		{
-			reply->session[i]= id->session_id;
-			fprintf(stderr,"******%d******\n",id->session_id);
-			i++;
-		}
-		else if(current_session->session_id == id->session_id)
-		{
-			reply->session[i] = id->session_id;
-			fprintf(stderr,"******%d******\n",id->session_id);
-			i++;
-		}
+		sessions[i] = id->session_id;
 	}
-	reply->size=i;
+	set_reply_data_ptr( sessions, size );
+	reply->count = count;
 	release_object(current_session);
 	fprintf(stderr,"!!!!!55555!!!!!\n");
 }

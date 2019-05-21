@@ -379,7 +379,7 @@ static int get_dir_unix_fd( struct dir *dir )
 {
     return get_unix_fd( dir->fd );
 }
-
+//hyy
 static struct security_descriptor *dir_get_sd( struct object *obj )
 {
     struct dir *dir = (struct dir *)obj;
@@ -1181,7 +1181,6 @@ static int dir_add_to_existing_notify( struct dir *dir )
 struct object *create_dir_obj( struct fd *fd, unsigned int access, mode_t mode )
 {
     struct dir *dir;
-
     dir = alloc_object( &dir_ops );
     if (!dir)
         return NULL;
@@ -1197,6 +1196,8 @@ struct object *create_dir_obj( struct fd *fd, unsigned int access, mode_t mode )
     dir->uid  = ~(uid_t)0;
     dir->client_process = NULL;
     set_fd_user( fd, &dir_fd_ops, &dir->obj );
+    //hyy
+    dir->obj.ops->get_sd( &(dir->obj) );
 
     dir_add_to_existing_notify( dir );
 
@@ -1241,7 +1242,7 @@ DECL_HANDLER(read_directory_changes)
         return;
     }
 
-    dir = get_dir_obj( current->process, req->async.handle, 0 );
+    dir = get_dir_obj(current->process , req->async.handle, 0 );
     if (!dir)
         return;
 

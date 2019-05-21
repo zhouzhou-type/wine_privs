@@ -795,6 +795,7 @@ static int receive_fd( obj_handle_t *handle )
         if (errno == EPIPE) break;
         server_protocol_perror("recvmsg");
     }
+
     /* the server closed the connection; time to die... */
     abort_thread(0);
 }
@@ -1618,7 +1619,7 @@ size_t server_init_thread( void *entry_point )
 
     SERVER_START_REQ( init_thread )
     {
-        req->unix_pid    = getpid();
+        req->unix_pid    = (int)getpid();
         req->unix_tid    = get_unix_tid();
         req->teb         = wine_server_client_ptr( NtCurrentTeb() );
         req->entry       = wine_server_client_ptr( entry_point );

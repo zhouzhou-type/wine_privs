@@ -24,9 +24,11 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 #include "ntstatus.h"
 #define WIN32_NO_STATUS
@@ -127,50 +129,84 @@ unsigned int token_map_access( struct object *obj, unsigned int access )
     return access & ~(GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL);
 }
 
- SID *security_sid_alloc( const SID_IDENTIFIER_AUTHORITY *idauthority, int subauthcount, const unsigned int subauth[] )
+static const unsigned int alias_admins_subauth[] = { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS };
+static const unsigned int alias_users_subauth[] = { SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_USERS };
+/* on Windows, this value changes every time the user logs on */
+static const unsigned int logon_subauth[] = { SECURITY_LOGON_IDS_RID, 0, 1 /* FIXME: should be randomly generated when tokens are inherited by new processes */ };
+
+//danqi
+//hyy
+static SID *alloc_security_sid( const SID_IDENTIFIER_AUTHORITY *authorities,
+                         const BYTE subauth_count, const DWORD subauthes[] )
 {
     int i;
-    SID *sid = mem_alloc( FIELD_OFFSET(SID, SubAuthority[subauthcount]) );
+    SID *sid = mem_alloc( FIELD_OFFSET(SID, SubAuthority[subauth_count]) );
     if (!sid) return NULL;
     sid->Revision = SID_REVISION;
-    sid->SubAuthorityCount = subauthcount;
-    sid->IdentifierAuthority = *idauthority;
-    for (i = 0; i < subauthcount; i++)
-        sid->SubAuthority[i] = subauth[i];
+    sid->SubAuthorityCount = subauth_count;
+    sid->IdentifierAuthority = *authorities;
+    for (i = 0; i < subauth_count; i++)
+        sid->SubAuthority[i] = subauthes[i];
     return sid;
 }
 
 void security_set_thread_token( struct thread *thread, obj_handle_t handle )
 {
-    if (!handle)
-    {
+    if (!handle) {
         if (thread->token)
             release_object( thread->token );
         thread->token = NULL;
-    }
-    else
-    {
-        struct token *token = (struct token *)get_handle_obj( current->process,
-                                                              handle,
-                                                              TOKEN_IMPERSONATE,
-                                                              &token_ops );
-        if (token)
-        {
+    } else {
+        struct token *token = (struct token *)get_handle_obj(
+                current->process, handle, TOKEN_IMPERSONATE, &token_ops );
+        if (token) {
             if (thread->token)
                 release_object( thread->token );
             thread->token = token;
         }
     }
+    /*
+    if (thread->token) {
+        fprintf(stderr, "hyy:TOKEN sid=%u\n", thread->token->user->IdentifierAuthority);
+    } else {
+        fprintf(stderr, "hyy:TOKEN=null\n");
+    }
+    */
 }
 
-
+//hyy only used by file_get_sd and dir_get_sd and first_token
 const SID *security_unix_uid_to_sid( uid_t uid )
 {
-    /* very simple mapping: either the current user or not the current user */
-    if (uid == getuid())
-        return &local_user_sid;
-    else
-        return &anonymous_logon_sid;
+    SID_IDENTIFIER_AUTHORITY id;
+    memset(&id, 0, sizeof(id));
+    *(uint32_t *)(&id) = ((uint32_t)uid);
+    id.Value[5] = 1;
+
+    BYTE subauth_count = 3;
+    DWORD subauthes[] = {
+        SECURITY_LOGON_IDS_RID,
+        0,
+        1 /* FIXME: should be randomly generated when tokens are inherited by new processes */
+    };
+
+    return alloc_security_sid(&id, subauth_count, subauthes);
+}
+//hyy
+const SID *security_unix_gid_to_sid( gid_t gid )
+{
+    SID_IDENTIFIER_AUTHORITY id;
+    memset(&id, 0, sizeof(id));
+    *(uint32_t *)(&id) = ((uint32_t)gid);
+    id.Value[5] = 2;
+
+    BYTE subauth_count = 3;
+    DWORD subauthes[] = {
+        SECURITY_LOGON_IDS_RID,
+        0,
+        1 /* FIXME: should be randomly generated when tokens are inherited by new processes */
+    };
+
+    return alloc_security_sid(&id, subauth_count, subauthes);
 }
 
 static int acl_is_valid( const ACL *acl, data_size_t size )
@@ -317,7 +353,7 @@ static inline void luid_and_attr_from_privilege( LUID_AND_ATTRIBUTES *out, const
         (in->def ? SE_PRIVILEGE_ENABLED_BY_DEFAULT : 0);
 }
 
- struct privilege *privilege_add( struct token *token, const LUID *luid, int enabled )
+struct privilege *privilege_add( struct token *token, const LUID *luid, int enabled )
 {
     struct privilege *privilege = mem_alloc( sizeof(*privilege) );
     if (privilege)
@@ -329,13 +365,13 @@ static inline void luid_and_attr_from_privilege( LUID_AND_ATTRIBUTES *out, const
     return privilege;
 }
 
- inline void privilege_remove( struct privilege *privilege )
+inline void privilege_remove( struct privilege *privilege )
 {
     list_remove( &privilege->entry );
     free( privilege );
 }
 
- void token_destroy( struct object *obj )
+void token_destroy( struct object *obj )
 {
     struct token* token;
     struct list *cursor, *cursor_next;
@@ -389,11 +425,13 @@ static struct token *create_token( unsigned primary, const SID *user,
         list_init( &token->privileges );
         list_init( &token->groups );
         token->primary = primary;
+
         /* primary tokens don't have impersonation levels */
-       if (primary)
+        if (primary)
             token->impersonation_level = -1;
         else
             token->impersonation_level = impersonation_level;
+        
         token->default_dacl = NULL;
         token->primary_group = NULL;
 
@@ -406,7 +444,7 @@ static struct token *create_token( unsigned primary, const SID *user,
         }
 
         /* copy groups */
-       for (i = 0; i < group_count; i++)
+        for (i = 0; i < group_count; i++)
         {
             size_t size = FIELD_OFFSET( struct group, sid.SubAuthority[((const SID *)groups[i].Sid)->SubAuthorityCount] );
             struct group *group = mem_alloc( size );
@@ -426,16 +464,17 @@ static struct token *create_token( unsigned primary, const SID *user,
             group->deny_only = FALSE;
             list_add_tail( &token->groups, &group->entry );
             /* Use first owner capable group as an owner */
-           if (!token->primary_group && group->owner)
+            if (!token->primary_group && group->owner)
                 token->primary_group = &group->sid;
         }
+        //assert( token->primary_group );
 
         /* copy privileges */
-       for (i = 0; i < priv_count; i++)
+        for (i = 0; i < priv_count; i++)
         {
             /* note: we don't check uniqueness: the caller must make sure
              * privs doesn't contain any duplicate luids */
-           if (!privilege_add( token, &privs[i].Luid,
+            if (!privilege_add( token, &privs[i].Luid,
                                 privs[i].Attributes & SE_PRIVILEGE_ENABLED ))
             {
                 release_object( token );
@@ -512,13 +551,14 @@ struct token *token_duplicate( struct token *src_token, unsigned primary,
     return token;
 }
 
- ACL *create_default_dacl( const SID *user )
+//danqi
+ACL *create_default_dacl( const SID *user )
 {
     ACCESS_ALLOWED_ACE *aaa;
     ACL *default_dacl;
     SID *sid;
     size_t default_dacl_size = sizeof(ACL) +
-                               2*(sizeof(ACCESS_ALLOWED_ACE) - sizeof(DWORD)) +
+                               2 * (sizeof(ACCESS_ALLOWED_ACE) - sizeof(DWORD)) +
                                sizeof(local_system_sid) +
                                security_sid_len( user );
 
@@ -560,10 +600,83 @@ struct sid_data
     unsigned int subauth[MAX_SUBAUTH_COUNT];
 };
 
-struct token *token_create_admin( void )
+// hyy
+struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 {
-    struct token *token = NULL;
+    SID* usid = security_unix_uid_to_sid(unix_uid);
+    SID* gsid = security_unix_gid_to_sid(unix_gid);
+    const SID_AND_ATTRIBUTES groups[] =
+    {
+        { security_world_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+        { security_local_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+        { security_interactive_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+        { security_authenticated_user_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+        { gsid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
+    };
+    DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
+    const LUID_AND_ATTRIBUTES admin_privs[] =
+    {
+        { SeChangeNotifyPrivilege        , SE_PRIVILEGE_ENABLED },
+        { SeSecurityPrivilege            , 0                    },
+        { SeBackupPrivilege              , SE_PRIVILEGE_ENABLED },
+        { SeRestorePrivilege             , 0                    },
+        { SeSystemtimePrivilege          , 0                    },
+        { SeShutdownPrivilege            , 0                    },
+        { SeRemoteShutdownPrivilege      , 0                    },
+        { SeTakeOwnershipPrivilege       , 0                    },
+        { SeDebugPrivilege               , 0                    },
+        { SeSystemEnvironmentPrivilege   , 0                    },
+        { SeSystemProfilePrivilege       , 0                    },
+        { SeProfileSingleProcessPrivilege, 0                    },
+        { SeIncreaseBasePriorityPrivilege, 0                    },
+        { SeLoadDriverPrivilege          , SE_PRIVILEGE_ENABLED },
+        { SeCreatePagefilePrivilege      , 0                    },
+        { SeIncreaseQuotaPrivilege       , 0                    },
+        { SeUndockPrivilege              , 0                    },
+        { SeManageVolumePrivilege        , 0                    },
+        { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
+        { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
+    };
+    const LUID_AND_ATTRIBUTES common_privs[] =
+    {
+        { SeChangeNotifyPrivilege        , SE_PRIVILEGE_ENABLED },
+        { SeSecurityPrivilege            , 0                    },
+        { SeBackupPrivilege              , 0                    },
+        { SeRestorePrivilege             , 0                    },
+        { SeSystemtimePrivilege          , 0                    },
+        { SeShutdownPrivilege            , 0                    },
+        { SeRemoteShutdownPrivilege      , 0                    },
+        { SeTakeOwnershipPrivilege       , 0                    },
+        { SeDebugPrivilege               , 0                    },
+        { SeSystemEnvironmentPrivilege   , 0                    },
+        { SeSystemProfilePrivilege       , 0                    },
+        { SeProfileSingleProcessPrivilege, 0                    },
+        { SeIncreaseBasePriorityPrivilege, 0                    },
+        { SeLoadDriverPrivilege          , SE_PRIVILEGE_ENABLED },
+        { SeCreatePagefilePrivilege      , 0                    },
+        { SeIncreaseQuotaPrivilege       , 0                    },
+        { SeUndockPrivilege              , 0                    },
+        { SeManageVolumePrivilege        , 0                    },
+        { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
+        { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
+    };
+    LUID_AND_ATTRIBUTES *privs = &admin_privs;
+    if(unix_uid != getuid())
+        privs = &common_privs;
 
+    DWORD priv_count = sizeof(privs) / sizeof(LUID_AND_ATTRIBUTES);
+    const TOKEN_SOURCE source = {"SeMgr", {0U, 0}};
+    ACL *default_dacl = create_default_dacl(usid);
+    struct token *token = create_token(TRUE, usid, groups, group_count, privs, priv_count, default_dacl, source, NULL, 0);
+    /*
+    fprintf(stderr, "first_token uid=%u gid=%u usid=%#zx gsid=%#zx token->uid=%#zx token->gid=%#zx\n",
+            unix_uid, unix_gid,
+            (*(unsigned int *)(&(usid->IdentifierAuthority))),
+            (*(unsigned int *)(&(gsid->IdentifierAuthority))),
+            (*(unsigned int *)(&(token->user->IdentifierAuthority))),
+            (*(unsigned int *)(&(token->primary_group->IdentifierAuthority)))
+    );
+    */
     return token;
 }
 
@@ -840,7 +953,152 @@ done:
             *granted_access = 0;
 
     *status = *granted_access ? STATUS_SUCCESS : STATUS_ACCESS_DENIED;
+
     return STATUS_SUCCESS;
+}
+
+static NTSTATUS token_object_access_check( struct token *token,
+                                 const struct object *obj,
+                                 unsigned int desired_access,
+                                 const GENERIC_MAPPING *mapping,
+                                 unsigned int *granted_access )
+{
+    unsigned int current_access = 0;
+    unsigned int denied_access = 0;
+    ULONG i;
+    const struct security_descriptor *sd = obj->sd;
+    const ACL *dacl;
+    int dacl_present;
+    const ACE_HEADER *ace;
+    const SID *owner;
+
+    /* assume no access rights */
+    *granted_access = 0;
+
+    /* fail if desired_access contains generic rights */
+    if (desired_access & (GENERIC_READ|GENERIC_WRITE|GENERIC_EXECUTE|GENERIC_ALL))
+    {
+        return STATUS_GENERIC_NOT_MAPPED;
+    }
+
+    dacl = sd_get_dacl( sd, &dacl_present );
+    owner = sd_get_owner( sd );
+    if (!owner || !sd_get_group( sd ))
+    {
+        return STATUS_INVALID_SECURITY_DESCR;
+    }
+
+    /* 1: Grant desired access if the object is unprotected */
+    if (!dacl_present || !dacl)
+    {
+        *granted_access = desired_access;
+        return STATUS_SUCCESS;
+    }
+
+    /* 2: Check if caller wants access to system security part. Note: access
+     * is only granted if specifically asked for */
+    if (desired_access & ACCESS_SYSTEM_SECURITY)
+    {
+        const LUID_AND_ATTRIBUTES security_priv = { SeSecurityPrivilege, 0 };
+        LUID_AND_ATTRIBUTES retpriv = security_priv;
+        if (token_check_privileges( token, TRUE, &security_priv, 1, &retpriv ))
+        {
+            current_access |= ACCESS_SYSTEM_SECURITY;
+            if (desired_access == current_access)
+            {
+                *granted_access = current_access;
+                return STATUS_SUCCESS;
+            }
+        }
+        else
+        {
+            STATUS_PRIVILEGE_NOT_HELD;
+            return STATUS_SUCCESS;
+        }
+    }
+
+    /* 3: Check whether the token is the owner */
+    /* NOTE: SeTakeOwnershipPrivilege is not checked for here - it is instead
+     * checked when a "set owner" call is made, overriding the access rights
+     * determined here. */
+    if (token_sid_present( token, owner, FALSE ))
+    {
+        current_access |= (READ_CONTROL | WRITE_DAC);
+        if (desired_access == current_access)
+        {
+            *granted_access = current_access;
+            return STATUS_SUCCESS;
+        }
+    }
+
+    /* 4: Grant rights according to the DACL */
+    ace = (const ACE_HEADER *)(dacl + 1);
+    for (i = 0; i < dacl->AceCount; i++, ace = ace_next( ace ))
+    {
+        const ACCESS_ALLOWED_ACE *aa_ace;
+        const ACCESS_DENIED_ACE *ad_ace;
+        const SID *sid;
+
+        if (ace->AceFlags & INHERIT_ONLY_ACE)
+            continue;
+
+        switch (ace->AceType)
+        {
+        case ACCESS_DENIED_ACE_TYPE:
+            ad_ace = (const ACCESS_DENIED_ACE *)ace;
+            sid = (const SID *)&ad_ace->SidStart;
+            //fprintf(stderr, "deny mask=%#x sid=%#zx\n", ad_ace->Mask, sid);
+            if (token_sid_present( token, sid, TRUE ))
+            {
+                unsigned int access = ad_ace->Mask;
+                map_generic_mask(&access, mapping);
+                if (desired_access & MAXIMUM_ALLOWED)
+                    denied_access |= access;
+                else
+                {
+                    denied_access |= (access & ~current_access);
+                    if (desired_access & access) goto done;
+                }
+            }
+            break;
+        case ACCESS_ALLOWED_ACE_TYPE:
+            aa_ace = (const ACCESS_ALLOWED_ACE *)ace;
+            sid = (const SID *)&aa_ace->SidStart;
+            //fprintf(stderr, "allow mask=%#x sid=%#zx\n", aa_ace->Mask, sid);
+            if (token_sid_present( token, sid, FALSE ))
+            {
+                unsigned int access = aa_ace->Mask;
+                map_generic_mask(&access, mapping);
+                if (desired_access & MAXIMUM_ALLOWED)
+                    current_access |= access;
+                else
+                    current_access |= (access & ~denied_access);
+            }
+            break;
+        }
+
+        /* don't bother carrying on checking if we've already got all of
+            * rights we need */
+        if (desired_access == *granted_access)
+            break;
+    }
+
+done:
+    if (desired_access & MAXIMUM_ALLOWED)
+        *granted_access = current_access & ~denied_access;
+    else
+        if ((current_access & desired_access) == desired_access)
+            *granted_access = current_access & desired_access;
+        else
+            *granted_access = 0;
+
+    if (!*granted_access) {
+        fprintf(stderr, "sid=%#zx current=%x desired=%x denied=%x granted=%x\n",
+            *(unsigned int *)&(token->user->IdentifierAuthority),
+            current_access, desired_access, denied_access, *granted_access);
+    }
+
+    return *granted_access ? STATUS_SUCCESS : STATUS_ACCESS_DENIED;
 }
 
 const ACL *token_get_default_dacl( struct token *token )
@@ -866,7 +1124,6 @@ int check_object_access(struct object *obj, unsigned int *access)
     int res;
 
     mapping.GenericAll = obj->ops->map_access( obj, GENERIC_ALL );
-
     if (!obj->sd)
     {
         if (*access & MAXIMUM_ALLOWED)
@@ -878,12 +1135,50 @@ int check_object_access(struct object *obj, unsigned int *access)
     mapping.GenericWrite = obj->ops->map_access( obj, GENERIC_WRITE );
     mapping.GenericExecute = obj->ops->map_access( obj, GENERIC_EXECUTE );
 
-    res = token_access_check( token, obj->sd, *access, NULL, NULL,
-                              &mapping, access, &status ) == STATUS_SUCCESS &&
-          status == STATUS_SUCCESS;
+    res = token_access_check( token, obj->sd, *access, NULL, NULL, 
+                                &mapping, access, &status ) == STATUS_SUCCESS &&
+                                status == STATUS_SUCCESS;
 
-    if (!res) set_error( STATUS_ACCESS_DENIED );
-    return res;
+    if(!res)set_error(STATUS_ACCESS_DENIED);
+    return TRUE;
+}
+int check_file_object_access(struct object *obj, unsigned int *access)
+{
+    GENERIC_MAPPING mapping;
+    struct token *token = current->token ? current->token : current->process->token;
+
+    mapping.GenericAll = obj->ops->map_access( obj, GENERIC_ALL );
+    if (!obj->sd)
+    {
+        if (*access & MAXIMUM_ALLOWED)
+            *access = mapping.GenericAll;
+        return TRUE;
+    }
+
+    mapping.GenericRead  = obj->ops->map_access( obj, GENERIC_READ );
+    mapping.GenericWrite = obj->ops->map_access( obj, GENERIC_WRITE );
+    mapping.GenericExecute = obj->ops->map_access( obj, GENERIC_EXECUTE );
+
+    const SID *usid = token->user;
+    const SID *gsid = token->primary_group;
+    if (usid) {
+        //fprintf(stderr, "user usid=%#zx\n", (*(unsigned int *)(&(usid->IdentifierAuthority))));
+    }
+    if (gsid) {
+        //fprintf(stderr, "user gsid=%#zx\n", (*(unsigned int *)(&(gsid->IdentifierAuthority))));
+    }
+
+    unsigned int status = STATUS_SUCCESS;
+    unsigned int res;
+    //hyy
+    res = token_object_access_check( token, obj, *access, &mapping, access );
+    //res = token_access_check( token, obj->sd, *access, NULL, NULL, &mapping, access, &status );
+    if (!(res == STATUS_SUCCESS && status == STATUS_SUCCESS)) {
+        //fprintf(stderr, "check res=%#x status=%#x\n", res, status);
+        set_error( STATUS_ACCESS_DENIED );
+        return FALSE;
+    }
+    return TRUE;
 }
 
 

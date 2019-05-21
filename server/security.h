@@ -51,7 +51,8 @@ extern const PSID security_builtin_admins_sid;
 
 /* token functions */
 
-extern struct token *token_create_admin(void);
+//hyy
+extern struct token *first_token(uid_t unix_uid, gid_t unix_gid);
 extern struct token *token_duplicate( struct token *src_token, unsigned primary,
                                       int impersonation_level );
 extern int token_check_privileges( struct token *token, int all_required,
@@ -81,6 +82,7 @@ static inline int security_equal_sid( const SID *sid1, const SID *sid2 )
 extern void security_set_thread_token( struct thread *thread, obj_handle_t handle );
 extern const SID *security_unix_uid_to_sid( uid_t uid );
 extern int check_object_access( struct object *obj, unsigned int *access );
+extern int check_file_object_access( struct object *obj, unsigned int *access );
 
 static inline int thread_single_check_privilege( struct thread *thread, const LUID *priv)
 {

@@ -22,6 +22,7 @@
 #include "wine/port.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <signal.h>
 #include <string.h>
@@ -520,7 +521,7 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
     process->is_system       = 0;
     process->debug_children  = 1;
     process->is_terminating  = 0;
-    process->is_not_service      = 1;  //lyl
+    process->is_not_service  = 1; //lyl
     process->job             = NULL;
     process->console         = NULL;
     process->startup_state   = STARTUP_IN_PROGRESS;
@@ -536,13 +537,15 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
     process->rawinput_mouse  = NULL;
     process->rawinput_kbd    = NULL;
     process->session         = 0; //lyl
-    list_init( &process->session_process_links ); //lyl
+    process->unix_uid        = -1;
+    process->unix_gid        = -1;
     list_init( &process->thread_list );
     list_init( &process->locks );
     list_init( &process->asyncs );
     list_init( &process->classes );
     list_init( &process->dlls );
     list_init( &process->rawinput_devices );
+    list_init( &process->session_process_links ); //lyl
 
     process->end_time = 0;
     list_add_tail( &process_list, &process->entry );
@@ -554,11 +557,24 @@ struct thread *create_process( int fd, struct thread *parent_thread, int inherit
     }
     if (!(process->msg_fd = create_anonymous_fd( &process_fd_ops, fd, &process->obj, 0 ))) goto error;
 
+    //hyy
+    struct ucred ucred;
+    socklen_t ucredlen = sizeof(ucred);
+    if (getsockopt( fd, SOL_SOCKET, SO_PEERCRED, &ucred, &ucredlen ) == -1) {
+        close( fd );
+        //fprintf(stderr, "ERR %d\n", errno); fflush(stderr);
+        goto error;
+    }
+
+    process->unix_uid = (int)ucred.uid;
+    process->unix_gid = (int)ucred.gid;
+    process->unix_pid = (int)ucred.pid;
+
     /* create the handle table */
     if (!parent_thread)
     {
         process->handles = alloc_handle_table( process, 0 );
-        process->token = token_create_admin();
+        process->token = first_token( process->unix_uid, process->unix_gid );
         process->affinity = ~0;
     }
     else

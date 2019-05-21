@@ -4740,10 +4740,11 @@ int wmain(int argc, WCHAR *argv[])
     SERVER_START_REQ(register_pid)
     {
         //req->register_pid=GetCurrentProcessId();
-        req->register_pid=getpid();
-        sprintf(req->word,"from winemenubuilder,pid is %d",req->register_pid);
-        wine_server_call(req);
-        fprintf(stderr,"winemenubuilder receive msg:%s\n",reply->word);
+        //req->register_pid=getpid();
+        //sprintf(req->word,"from winemenubuilder,pid is %d",req->register_pid);
+        req->pid = getpid();
+	wine_server_call(req);
+        //fprintf(stderr,"winemenubuilder receive msg:%s\n",reply->word);
     }
     SERVER_END_REQ;
     static const SERVICE_TABLE_ENTRYW service_table[] =

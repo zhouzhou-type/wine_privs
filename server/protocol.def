@@ -38,6 +38,7 @@ typedef unsigned int process_id_t;
 typedef unsigned int thread_id_t;
 typedef unsigned int data_size_t;
 typedef unsigned int ioctl_code_t;
+typedef unsigned int session_id_t;  //hyy
 typedef unsigned __int64 lparam_t;
 typedef unsigned __int64 apc_param_t;
 typedef unsigned __int64 mem_size_t;
@@ -731,6 +732,8 @@ struct rawinput_device
 
 /* Create a new process from the context of the parent */
 @REQ(new_process)
+    int          unix_uid;
+    int          unix_gid;
     int          inherit_all;    /* inherit all handles from parent */
     unsigned int create_flags;   /* creation flags */
     int          socket_fd;      /* file descriptor for process socket */
@@ -846,7 +849,7 @@ struct rawinput_device
     cpu_type_t   cpu;              /* CPU that this process is running on */
     short int    debugger_present; /* process is being debugged */
     short int    debug_children;   /* inherit debugger to child processes */
-    unsigned int is_not_service;		//lyl
+    unsigned int is_not_service;   //lyl
 @END
 
 
@@ -2765,7 +2768,18 @@ enum coords_relative
     VARARG(props,properties);     /* list of properties */
 @END
 
-/* Create a session */  //lyl
+
+//jz
+@REQ(enum_session)
+    user_handle_t  window;        /* handle to the window */
+@REPLY
+    int            count;          /* session count */
+    VARARG(session,session_id_t);    /* list of sessions */
+@END
+
+
+//lyl
+/* Create a session */
 @REQ(create_session)
 	unsigned int session_id;	  /* session id */
     unsigned int flags;           /* session flags */
@@ -2776,17 +2790,20 @@ enum coords_relative
     obj_handle_t handle;          /* handle to the session */
 @END
 
-/* Get the process current session */  //lyl
+
+//lyl
+/* Get the process current session */
 @REQ(get_process_session)
 @REPLY
     obj_handle_t handle;          /* handle to the session */
 @END
 
+
+//lyl
 /* Set the process current session */
-@REQ(set_process_session)         //lyl
+@REQ(set_process_session)
     obj_handle_t handle;          /* handle to the session */
 @END
-
 
 
 /* Create a window station */
@@ -3829,4 +3846,11 @@ struct handle_info
 @REQ(terminate_job)
     obj_handle_t handle;          /* handle to the job */
     int          status;          /* process exit code */
+@END
+
+
+//anyone?
+@REQ(register_pid)
+    int          pid;
+@REPLY
 @END

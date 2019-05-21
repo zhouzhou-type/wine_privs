@@ -2249,6 +2249,7 @@ DECL_HANDLER(unload_registry)
 DECL_HANDLER(save_registry)
 {
     struct key *key;
+    //fprintf(stderr,"hyyyyy===============\n");
 
     if (!thread_single_check_privilege( current, &SeBackupPrivilege ))
     {

@@ -67,6 +67,7 @@ struct iosb
 
 /* file descriptor functions */
 
+extern struct fd *alloc_fd_object(void);
 extern struct fd *alloc_pseudo_fd( const struct fd_ops *fd_user_ops, struct object *user,
                                    unsigned int options );
 extern void set_no_fd_status( struct fd *fd, unsigned int status );
@@ -81,6 +82,8 @@ extern void *get_fd_user( struct fd *fd );
 extern void set_fd_user( struct fd *fd, const struct fd_ops *ops, struct object *user );
 extern unsigned int get_fd_options( struct fd *fd );
 extern int get_unix_fd( struct fd *fd );
+//hyy
+extern void set_unix_fd( struct fd *fd, int unix_fd );
 extern int is_same_file_fd( struct fd *fd1, struct fd *fd2 );
 extern int is_fd_removable( struct fd *fd );
 extern int fd_close_handle( struct object *obj, struct process *process, obj_handle_t handle );

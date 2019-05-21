@@ -1,0 +1,17 @@
+{
+    "files.exclude": {
+        "**/tests/": true,
+        "dlls/": true
+    },
+    "git.enabled": false,
+    "files.associations": {
+        "config.h": "c",
+        "port.h": "c",
+        "file.h": "c",
+        "unistd.h": "c",
+        "stdarg.h": "c",
+        "types.h": "c",
+        "stdio.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}

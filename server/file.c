@@ -22,12 +22,14 @@
 #include "wine/port.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -186,9 +188,13 @@ static struct object *create_file_obj( struct fd *fd, unsigned int access, mode_
     file->fd      = fd;
     grab_object( fd );
     set_fd_user( fd, &file_fd_ops, &file->obj );
+    file->obj.ops->get_sd( &(file->obj) );
     return &file->obj;
 }
 
+static int file_is_exist(char *name){
+    return access(name,F_OK);
+}
 static struct object *create_file( struct fd *root, const char *nameptr, data_size_t len,
                                    unsigned int access, unsigned int sharing, int create,
                                    unsigned int options, unsigned int attrs,
@@ -228,12 +234,12 @@ static struct object *create_file( struct fd *root, const char *nameptr, data_si
         if (!owner)
             owner = token_get_user( current->process->token );
         mode = sd_to_mode( sd, owner );
+
     }
     else if (options & FILE_DIRECTORY_FILE)
         mode = (attrs & FILE_ATTRIBUTE_READONLY) ? 0555 : 0777;
     else
         mode = (attrs & FILE_ATTRIBUTE_READONLY) ? 0444 : 0666;
-
     if (len >= 4 &&
         (!strcasecmp( name + len - 4, ".exe" ) || !strcasecmp( name + len - 4, ".com" )))
     {
@@ -247,9 +253,65 @@ static struct object *create_file( struct fd *root, const char *nameptr, data_si
 
     access = generic_file_map_access( access );
 
+    //hyy
+    NTSTATUS check_status = STATUS_SUCCESS;
+    if (flags & O_CREAT) {
+        const char *dname = dirname(strdup(name));
+       // fprintf(stderr, "check dir %s\n", dname); fflush(stderr);
+        int daccess = (options & FILE_DIRECTORY_FILE) ? FILE_ADD_SUBDIRECTORY : FILE_ADD_FILE;
+        int dsharing = FILE_SHARE_READ;
+        int doptions = FILE_DIRECTORY_FILE;
+        struct object *dir_obj = create_file( root, dname, strlen(dname), daccess, dsharing, FILE_OPEN, doptions, 0, NULL );
+        check_status = check_file_object_access(dir_obj, &daccess) ? STATUS_SUCCESS : STATUS_ACCESS_DENIED;
+        release_object( dir_obj );
+        free(dname);
+        //fprintf(stderr, "checked dir %s\n", dname); fflush(stderr);
+    } else {
+        //fprintf(stderr, "check open dir%s\n", name); fflush(stderr);
+        int faccess = FILE_READ_ATTRIBUTES;
+        int fsharing = FILE_SHARE_READ;
+        int unix_fd = open(name, O_RDONLY | O_NONBLOCK | O_LARGEFILE);
+        if (!unix_fd) {
+            check_status = STATUS_ACCESS_DENIED;
+        } else {
+            struct fd *fd1 = alloc_fd_object();
+            set_unix_fd(fd1, unix_fd);
+            if (!fd1) {
+                check_status = STATUS_NO_MEMORY;
+                close(unix_fd);
+            } else {
+                struct object *file_obj;
+                if (S_ISDIR(mode))
+                    file_obj = create_dir_obj( (struct object *)fd1, access, mode );
+                else if (S_ISCHR(mode) && is_serial_fd( fd1 ))
+                    file_obj = NULL;
+                else
+                    file_obj = create_file_obj( (struct object *)fd1, access, mode );
+
+                if (file_obj) {
+                    check_status = check_file_object_access(file_obj, &access) ? STATUS_SUCCESS : STATUS_ACCESS_DENIED;
+                    //fprintf(stderr, "check_status %d\n", check_status); fflush(stderr);
+                }
+                release_object( fd1 );
+                if (file_obj) release_object( file_obj );
+            }
+        }
+        
+    }
+    if (check_status != STATUS_SUCCESS) {
+        set_error( STATUS_ACCESS_DENIED );
+        goto done;
+    }
+    //fprintf(stderr, "ccheck_status===================obj %s\n",name); fflush(stderr);
     /* FIXME: should set error to STATUS_OBJECT_NAME_COLLISION if file existed before */
     fd = open_fd( root, name, flags | O_NONBLOCK | O_LARGEFILE, &mode, access, sharing, options );
-    if (!fd) goto done;
+    if (!fd) {
+        goto done;
+    }
+
+    //hyy check the current uid is consistent with the client uid
+    if (flags & O_CREAT)
+        fchown(get_unix_fd(fd), current->process->unix_uid, current->process->unix_gid);
 
     if (S_ISDIR(mode))
         obj = create_dir_obj( fd, access, mode );
@@ -401,6 +463,8 @@ struct security_descriptor *mode_to_sd( mode_t mode, const SID *user, const SID 
             aaa->Mask |= FILE_GENERIC_READ | FILE_GENERIC_EXECUTE;
         if (mode & S_IWUSR)
             aaa->Mask |= FILE_GENERIC_WRITE | DELETE | FILE_DELETE_CHILD;
+        if (mode & S_IFDIR)
+            aaa->Mask |= FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY;
         sid = (SID *)&aaa->SidStart;
         memcpy( sid, user, security_sid_len( user ));
     }
@@ -422,6 +486,7 @@ struct security_descriptor *mode_to_sd( mode_t mode, const SID *user, const SID 
         ada->Mask &= ~STANDARD_RIGHTS_ALL; /* never deny standard rights */
         sid = (SID *)&ada->SidStart;
         memcpy( sid, user, security_sid_len( user ));
+        fprintf(stderr, "ada->Mask= %#x sid=%#zx\n", ada->Mask,sid); fflush(stderr);
     }
     if (mode & S_IRWXO)
     {
@@ -462,9 +527,12 @@ static struct security_descriptor *file_get_sd( struct object *obj )
         (st.st_uid == file->uid))
         return obj->sd;
 
+    //hyy
+    const SID *usid = security_unix_uid_to_sid( st.st_uid );
+    const SID *gsid = security_unix_gid_to_sid( st.st_gid ); //token_get_primary_group( current->process->token );
     sd = mode_to_sd( st.st_mode,
-                     security_unix_uid_to_sid( st.st_uid ),
-                     token_get_primary_group( current->process->token ));
+                     usid,
+                     gsid);
     if (!sd) return obj->sd;
 
     file->mode = st.st_mode;
@@ -730,6 +798,7 @@ DECL_HANDLER(create_file)
         reply->handle = alloc_handle( current->process, file, req->access, objattr->attributes );
         release_object( file );
     }
+    //fprintf(stderr, "reply->handle %p\n",reply->handle ); fflush(stderr);
     if (root_fd) release_object( root_fd );
 }
 

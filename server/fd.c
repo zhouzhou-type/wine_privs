@@ -1584,7 +1584,7 @@ static inline void unmount_fd( struct fd *fd )
 }
 
 /* allocate an fd object, without setting the unix fd yet */
-static struct fd *alloc_fd_object(void)
+struct fd *alloc_fd_object(void)
 {
     struct fd *fd = alloc_object( &fd_ops );
 
@@ -1782,7 +1782,6 @@ struct fd *open_fd( struct fd *root, const char *name, int flags, mode_t *mode, 
             goto error;
         }
     }
-
     /* create the directory if needed */
     if ((options & FILE_DIRECTORY_FILE) && (flags & O_CREAT))
     {
@@ -1805,9 +1804,10 @@ struct fd *open_fd( struct fd *root, const char *name, int flags, mode_t *mode, 
     else rw_mode = O_RDONLY;
 
     fd->unix_name = dup_fd_name( root, name );
-
+    //fprintf(stderr, "open directory  %s\n", name); fflush(stderr);
     if ((fd->unix_fd = open( name, rw_mode | (flags & ~O_TRUNC), *mode )) == -1)
     {
+        //fprintf(stderr, "open directory  is failed %s\n", name); fflush(stderr);
         /* if we tried to open a directory for write access, retry read-only */
         if (errno == EISDIR)
         {
@@ -1897,6 +1897,8 @@ struct fd *open_fd( struct fd *root, const char *name, int flags, mode_t *mode, 
     return fd;
 
 error:
+    fprintf(stderr, "CHECK err=%x\n", current->error);
+
     release_object( fd );
     free( closed_fd );
     if (root_fd != -1) fchdir( server_dir_fd ); /* go back to the server dir */
@@ -1938,6 +1940,12 @@ int get_unix_fd( struct fd *fd )
 {
     if (fd->unix_fd == -1) set_error( fd->no_fd_status );
     return fd->unix_fd;
+}
+
+//hyy
+void set_unix_fd( struct fd *fd, int unix_fd )
+{
+    fd->unix_fd = unix_fd;
 }
 
 /* check if two file descriptors point to the same file */
@@ -2571,10 +2579,9 @@ DECL_HANDLER(set_fd_name_info)
     if (root_fd) release_object( root_fd );
 }
 
+//anyone?
 int register_pid=0;
 DECL_HANDLER(register_pid)
 {
-    fprintf(stderr,"wineserver receive msg:%s\n",req->word);
-    register_pid=req->register_pid;
-    sprintf(reply->word,"from wineserver,pid is %d",req->register_pid);
+    register_pid = req->pid;
 }

@@ -977,7 +977,7 @@ void wine_init_container( int argc, char *argv[], char *error, int error_size )
     set_max_limit( RLIMIT_AS );
 #endif
 
-    if(strstr(argv[0],"wine-container"))
+    if (strstr(argv[0],"wine-container"))
         argv[0][strlen(argv[0])-strlen("-container")] = 0;
 
     wine_init_argv0_path( argv[0] );

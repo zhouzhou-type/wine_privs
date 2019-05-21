@@ -2059,6 +2059,8 @@ static BOOL create_process( HANDLE hFile, LPCWSTR filename, LPWSTR cmd_line, LPW
         close( socketfd[1] );
         SERVER_START_REQ( new_process )
         {
+            req->unix_uid       = geteuid();
+            req->unix_gid       = getegid();
             req->create_flags   = flags;
             req->socket_fd      = socketfd[1];
             req->exe_file       = wine_server_obj_handle( hFile );
@@ -2117,6 +2119,8 @@ static BOOL create_process( HANDLE hFile, LPCWSTR filename, LPWSTR cmd_line, LPW
 
     SERVER_START_REQ( new_process )
     {
+        req->unix_uid       = geteuid();
+        req->unix_gid       = getegid();
         req->inherit_all    = inherit;
         req->create_flags   = flags;
         req->socket_fd      = socketfd[1];

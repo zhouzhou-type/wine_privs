@@ -251,6 +251,7 @@ BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
           ppSessionInfo, pCount);
     if (Reserved || (Version != 1)) return ret;
 	
+	//anyone?
 	
     *pCount = 0;
     *ppSessionInfo = NULL;
@@ -262,19 +263,20 @@ BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
     		if (!wine_server_call_err( req ))
     		{
                 fprintf(stderr,"~~~~~~~~~~~~\n");
-                fprintf(stderr,"%d\n",reply->size);
-                fprintf(stderr,"%d\n",reply->session[0]);
-				fprintf(stderr,"%d\n",reply->session[1]);
+                fprintf(stderr,"%d\n",reply->count);
                 
-    			if((*pCount = reply->size)){
-                    size = (reply->size)*sizeof(WTS_SESSION_INFOW);
+            	data_size_t data_size = wine_server_reply_size( reply );
+
+    			if ((*pCount = reply->count)) {
+                    size = (*pCount) * sizeof(WTS_SESSION_INFOW);
                 	tmp = (PWTS_SESSION_INFOW)LocalAlloc(LMEM_ZEROINIT,size);
                     //fprintf(stderr,"%08x\n",ppSessionInfo[i]);
-    				if(tmp)
+    				if (tmp)
     				{
-        				for(i = 0; i < reply->size; i++)
+						session_id_t *session_id = (session_id_t *)(&(reply->count) + 1);
+        				for (i = 0; i < *pCount; i++, session_id++)
         				{
-        					if(reply->session[i])
+        					if (*session_id)
         					{
 								newsize = size + sizeof(console);
 								fprintf(stderr,"newsize is %d\n", newsize);
@@ -300,8 +302,8 @@ BOOL WINAPI WTSEnumerateSessionsW(HANDLE hServer, DWORD Reserved, DWORD Version,
         						}
                             }
                             fprintf(stderr,"i=%d\n",i);
-        					tmp[i].SessionId = reply->session[i];
-        					if(reply->session[i] == NtCurrentTeb()->Peb->SessionId)
+        					tmp[i].SessionId = *session_id;
+        					if (tmp[i].SessionId == NtCurrentTeb()->Peb->SessionId)
         						tmp[i].State = WTSActive;
 							else tmp[i].State = WTSDisconnected;
 							fprintf(stderr,"Round(%d): newsize is %d\n", i, newsize);

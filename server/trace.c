@@ -531,6 +531,11 @@ static void dump_varargs_unicode_str( const char *prefix, data_size_t size )
     remove_data( size );
 }
 
+static void dump_varargs_session_id_t( const char *prefix, data_size_t size )
+{
+    //hyy TODO
+}
+
 static void dump_varargs_context( const char *prefix, data_size_t size )
 {
     const context_t *context = cur_data;
@@ -1210,7 +1215,9 @@ typedef void (*dump_func)( const void *req );
 
 static void dump_new_process_request( const struct new_process_request *req )
 {
-    fprintf( stderr, " inherit_all=%d", req->inherit_all );
+    fprintf( stderr, " unix_uid=%d", req->unix_uid );
+    fprintf( stderr, ", unix_gid=%d", req->unix_gid );
+    fprintf( stderr, ", inherit_all=%d", req->inherit_all );
     fprintf( stderr, ", create_flags=%08x", req->create_flags );
     fprintf( stderr, ", socket_fd=%d", req->socket_fd );
     fprintf( stderr, ", exe_file=%04x", req->exe_file );
@@ -1341,6 +1348,7 @@ static void dump_get_process_info_reply( const struct get_process_info_reply *re
     dump_cpu_type( ", cpu=", &req->cpu );
     fprintf( stderr, ", debugger_present=%d", req->debugger_present );
     fprintf( stderr, ", debug_children=%d", req->debug_children );
+    fprintf( stderr, ", is_not_service=%08x", req->is_not_service );
 }
 
 static void dump_set_process_info_request( const struct set_process_info_request *req )
@@ -2267,6 +2275,7 @@ static void dump_next_process_reply( const struct next_process_reply *req )
     fprintf( stderr, ", priority=%d", req->priority );
     fprintf( stderr, ", handles=%d", req->handles );
     fprintf( stderr, ", unix_pid=%d", req->unix_pid );
+    fprintf( stderr, ", session_id=%08x", req->session_id );
     dump_varargs_unicode_str( ", filename=", cur_size );
 }
 
@@ -3306,16 +3315,42 @@ static void dump_get_window_properties_reply( const struct get_window_properties
 
 static void dump_enum_session_request( const struct enum_session_request *req )
 {
+    fprintf( stderr, " window=%08x", req->window );
 }
 
 static void dump_enum_session_reply( const struct enum_session_reply *req )
 {
-   // int i;
-	//fprintf( stderr, " handle=%04x", req->size );
-	//for(i = 0 ; i < req->size ; i++)
-		//fprintf( stderr, " session id = %d", req->ids[i]);
+    fprintf( stderr, " count=%d", req->count );
+    dump_varargs_session_id_t( ", session=", cur_size );
 }
 
+static void dump_create_session_request( const struct create_session_request *req )
+{
+    fprintf( stderr, " session_id=%08x", req->session_id );
+    fprintf( stderr, ", flags=%08x", req->flags );
+    fprintf( stderr, ", access=%08x", req->access );
+    fprintf( stderr, ", attributes=%08x", req->attributes );
+    fprintf( stderr, ", rootdir=%04x", req->rootdir );
+}
+
+static void dump_create_session_reply( const struct create_session_reply *req )
+{
+    fprintf( stderr, " handle=%04x", req->handle );
+}
+
+static void dump_get_process_session_request( const struct get_process_session_request *req )
+{
+}
+
+static void dump_get_process_session_reply( const struct get_process_session_reply *req )
+{
+    fprintf( stderr, " handle=%04x", req->handle );
+}
+
+static void dump_set_process_session_request( const struct set_process_session_request *req )
+{
+    fprintf( stderr, " handle=%04x", req->handle );
+}
 
 static void dump_create_winstation_request( const struct create_winstation_request *req )
 {
@@ -4472,6 +4507,11 @@ static void dump_terminate_job_request( const struct terminate_job_request *req 
     fprintf( stderr, ", status=%d", req->status );
 }
 
+static void dump_register_pid_request( const struct register_pid_request *req )
+{
+    fprintf( stderr, " pid=%d", req->pid );
+}
+
 static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_new_process_request,
     (dump_func)dump_get_new_process_info_request,
@@ -4653,9 +4693,9 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_get_window_property_request,
     (dump_func)dump_get_window_properties_request,
     (dump_func)dump_enum_session_request,
-    NULL,  //lyl
-    NULL,  //lyl
-    NULL,  //lyl
+    (dump_func)dump_create_session_request,
+    (dump_func)dump_get_process_session_request,
+    (dump_func)dump_set_process_session_request,
     (dump_func)dump_create_winstation_request,
     (dump_func)dump_open_winstation_request,
     (dump_func)dump_close_winstation_request,
@@ -4760,6 +4800,7 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_set_job_limits_request,
     (dump_func)dump_set_job_completion_port_request,
     (dump_func)dump_terminate_job_request,
+    (dump_func)dump_register_pid_request,
 };
 
 static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
@@ -4943,9 +4984,9 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_get_window_property_reply,
     (dump_func)dump_get_window_properties_reply,
     (dump_func)dump_enum_session_reply,
-    NULL,  //lyl
-    NULL, //lyl
-    NULL,  //lyl
+    (dump_func)dump_create_session_reply,
+    (dump_func)dump_get_process_session_reply,
+    NULL,
     (dump_func)dump_create_winstation_reply,
     (dump_func)dump_open_winstation_reply,
     NULL,
@@ -5045,6 +5086,7 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     NULL,
     (dump_func)dump_create_job_reply,
     (dump_func)dump_open_job_reply,
+    NULL,
     NULL,
     NULL,
     NULL,
@@ -5232,10 +5274,10 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "remove_window_property",
     "get_window_property",
     "get_window_properties",
-    "enum_session",  //jz
-    "create_session",  //lyl
-    "get_process_session" , //lyl
-    "set_process_session" ,  //lyl
+    "enum_session",
+    "create_session",
+    "get_process_session",
+    "set_process_session",
     "create_winstation",
     "open_winstation",
     "close_winstation",
@@ -5340,6 +5382,7 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "set_job_limits",
     "set_job_completion_port",
     "terminate_job",
+    "register_pid",
 };
 
 static const struct

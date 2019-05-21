@@ -31,6 +31,7 @@
 
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE  /* for pread/pwrite, isfinite */
+# define _POSIX_C_SOURCE 20190116
 #endif
 #include <fcntl.h>
 #include <math.h>

@@ -3332,6 +3332,8 @@ void __wine_process_init(void)
     init_func();
 }
 
+#include <stdio.h>
+
 /***********************************************************************
  *           __wine_process_init_container
  */

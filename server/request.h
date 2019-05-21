@@ -291,10 +291,10 @@ DECL_HANDLER(set_window_property);
 DECL_HANDLER(remove_window_property);
 DECL_HANDLER(get_window_property);
 DECL_HANDLER(get_window_properties);
-DECL_HANDLER(enum_session);  //jz
-DECL_HANDLER(create_session);  //lyl
-DECL_HANDLER(get_process_session);  //lyl
-DECL_HANDLER(set_process_session);  //lyl
+DECL_HANDLER(enum_session);
+DECL_HANDLER(create_session);
+DECL_HANDLER(get_process_session);
+DECL_HANDLER(set_process_session);
 DECL_HANDLER(create_winstation);
 DECL_HANDLER(open_winstation);
 DECL_HANDLER(close_winstation);
@@ -400,7 +400,6 @@ DECL_HANDLER(set_job_limits);
 DECL_HANDLER(set_job_completion_port);
 DECL_HANDLER(terminate_job);
 DECL_HANDLER(register_pid);
-
 
 #ifdef WANT_REQUEST_HANDLERS
 
@@ -586,10 +585,10 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
     (req_handler)req_remove_window_property,
     (req_handler)req_get_window_property,
     (req_handler)req_get_window_properties,
-    (req_handler)req_enum_session,  //jz
-    (req_handler)req_create_session,  //lyl
-    (req_handler)req_get_process_session,  //lyl
-    (req_handler)req_set_process_session,  //lyl
+    (req_handler)req_enum_session,
+    (req_handler)req_create_session,
+    (req_handler)req_get_process_session,
+    (req_handler)req_set_process_session,
     (req_handler)req_create_winstation,
     (req_handler)req_open_winstation,
     (req_handler)req_close_winstation,
@@ -720,6 +719,7 @@ C_ASSERT( sizeof(mod_handle_t) == 8 );
 C_ASSERT( sizeof(obj_handle_t) == 4 );
 C_ASSERT( sizeof(process_id_t) == 4 );
 C_ASSERT( sizeof(rectangle_t) == 16 );
+C_ASSERT( sizeof(session_id_t) == 4 );
 C_ASSERT( sizeof(short int) == 2 );
 C_ASSERT( sizeof(thread_id_t) == 4 );
 C_ASSERT( sizeof(timeout_t) == 8 );
@@ -727,17 +727,19 @@ C_ASSERT( sizeof(unsigned char) == 1 );
 C_ASSERT( sizeof(unsigned int) == 4 );
 C_ASSERT( sizeof(unsigned short) == 2 );
 C_ASSERT( sizeof(user_handle_t) == 4 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, inherit_all) == 12 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, create_flags) == 16 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, socket_fd) == 20 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, exe_file) == 24 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, process_access) == 28 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, process_attr) == 32 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, thread_access) == 36 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, thread_attr) == 40 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, cpu) == 44 );
-C_ASSERT( FIELD_OFFSET(struct new_process_request, info_size) == 48 );
-C_ASSERT( sizeof(struct new_process_request) == 56 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, unix_uid) == 12 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, unix_gid) == 16 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, inherit_all) == 20 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, create_flags) == 24 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, socket_fd) == 28 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, exe_file) == 32 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, process_access) == 36 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, process_attr) == 40 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, thread_access) == 44 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, thread_attr) == 48 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, cpu) == 52 );
+C_ASSERT( FIELD_OFFSET(struct new_process_request, info_size) == 56 );
+C_ASSERT( sizeof(struct new_process_request) == 64 );
 C_ASSERT( FIELD_OFFSET(struct new_process_reply, info) == 8 );
 C_ASSERT( FIELD_OFFSET(struct new_process_reply, pid) == 12 );
 C_ASSERT( FIELD_OFFSET(struct new_process_reply, phandle) == 16 );
@@ -807,7 +809,7 @@ C_ASSERT( FIELD_OFFSET(struct get_process_info_reply, cpu) == 56 );
 C_ASSERT( FIELD_OFFSET(struct get_process_info_reply, debugger_present) == 60 );
 C_ASSERT( FIELD_OFFSET(struct get_process_info_reply, debug_children) == 62 );
 C_ASSERT( FIELD_OFFSET(struct get_process_info_reply, is_not_service) == 64 );
-C_ASSERT( sizeof(struct get_process_info_reply) == 68 );  //lyl
+C_ASSERT( sizeof(struct get_process_info_reply) == 72 );
 C_ASSERT( FIELD_OFFSET(struct set_process_info_request, handle) == 12 );
 C_ASSERT( FIELD_OFFSET(struct set_process_info_request, mask) == 16 );
 C_ASSERT( FIELD_OFFSET(struct set_process_info_request, priority) == 20 );
@@ -1292,9 +1294,8 @@ C_ASSERT( FIELD_OFFSET(struct next_process_reply, threads) == 20 );
 C_ASSERT( FIELD_OFFSET(struct next_process_reply, priority) == 24 );
 C_ASSERT( FIELD_OFFSET(struct next_process_reply, handles) == 28 );
 C_ASSERT( FIELD_OFFSET(struct next_process_reply, unix_pid) == 32 );
-C_ASSERT( FIELD_OFFSET(struct next_process_reply, session_id) == 36 );  //lyl
-//C_ASSERT( sizeof(struct next_process_reply) == 40 );
-C_ASSERT( sizeof(struct next_process_reply) == 44 );
+C_ASSERT( FIELD_OFFSET(struct next_process_reply, session_id) == 36 );
+C_ASSERT( sizeof(struct next_process_reply) == 40 );
 C_ASSERT( FIELD_OFFSET(struct next_thread_request, handle) == 12 );
 C_ASSERT( FIELD_OFFSET(struct next_thread_request, reset) == 16 );
 C_ASSERT( sizeof(struct next_thread_request) == 24 );
@@ -1817,25 +1818,22 @@ C_ASSERT( FIELD_OFFSET(struct get_window_properties_request, window) == 12 );
 C_ASSERT( sizeof(struct get_window_properties_request) == 16 );
 C_ASSERT( FIELD_OFFSET(struct get_window_properties_reply, total) == 8 );
 C_ASSERT( sizeof(struct get_window_properties_reply) == 16 );
-
-//C_ASSERT( sizeof(struct enum_session_request) == 16 );  //jz
-//C_ASSERT( FIELD_OFFSET(struct enum_session_reply, size) == 8 );  //jz
-//C_ASSERT( sizeof(struct enum_session_reply) == 20 );  //jz
-
-C_ASSERT( FIELD_OFFSET(struct create_session_request, session_id) == 12 );  //lyl
+C_ASSERT( FIELD_OFFSET(struct enum_session_request, window) == 12 );
+C_ASSERT( sizeof(struct enum_session_request) == 16 );
+C_ASSERT( FIELD_OFFSET(struct enum_session_reply, count) == 8 );
+C_ASSERT( sizeof(struct enum_session_reply) == 16 );
+C_ASSERT( FIELD_OFFSET(struct create_session_request, session_id) == 12 );
 C_ASSERT( FIELD_OFFSET(struct create_session_request, flags) == 16 );
 C_ASSERT( FIELD_OFFSET(struct create_session_request, access) == 20 );
 C_ASSERT( FIELD_OFFSET(struct create_session_request, attributes) == 24 );
 C_ASSERT( FIELD_OFFSET(struct create_session_request, rootdir) == 28 );
-C_ASSERT( sizeof(struct create_session_request) == 36 );
-C_ASSERT( FIELD_OFFSET(struct create_session_reply, handle) == 8 );  //lyl
+C_ASSERT( sizeof(struct create_session_request) == 32 );
+C_ASSERT( FIELD_OFFSET(struct create_session_reply, handle) == 8 );
 C_ASSERT( sizeof(struct create_session_reply) == 16 );
-
-C_ASSERT( sizeof(struct get_process_session_request) == 16 );  //lyl
+C_ASSERT( sizeof(struct get_process_session_request) == 16 );
 C_ASSERT( FIELD_OFFSET(struct get_process_session_reply, handle) == 8 );
 C_ASSERT( sizeof(struct get_process_session_reply) == 16 );
-
-C_ASSERT( FIELD_OFFSET(struct set_process_session_request, handle) == 12 );  //lyl
+C_ASSERT( FIELD_OFFSET(struct set_process_session_request, handle) == 12 );
 C_ASSERT( sizeof(struct set_process_session_request) == 16 );
 C_ASSERT( FIELD_OFFSET(struct create_winstation_request, flags) == 12 );
 C_ASSERT( FIELD_OFFSET(struct create_winstation_request, access) == 16 );
@@ -2400,6 +2398,10 @@ C_ASSERT( sizeof(struct set_job_completion_port_request) == 32 );
 C_ASSERT( FIELD_OFFSET(struct terminate_job_request, handle) == 12 );
 C_ASSERT( FIELD_OFFSET(struct terminate_job_request, status) == 16 );
 C_ASSERT( sizeof(struct terminate_job_request) == 24 );
+C_ASSERT( FIELD_OFFSET(struct register_pid_request, pid) == 12 );
+C_ASSERT( sizeof(struct register_pid_request) == 16 );
+C_ASSERT( sizeof(struct register_pid_reply) == 8 );
+
 #endif  /* WANT_REQUEST_HANDLERS */
 
 /* ### make_requests end ### */

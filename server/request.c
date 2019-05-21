@@ -207,6 +207,7 @@ const struct object_attributes *get_req_object_attributes( const struct security
         if (!(*root = get_directory_obj( current->process, attr->rootdir ))) return NULL;
     }
     *sd = attr->sd_len ? (const struct security_descriptor *)(attr + 1) : NULL;
+    //fprintf(stderr,"attr->sd_len==================%d\n",attr->sd_len);
     name->len = attr->name_len;
     name->str = (const WCHAR *)(attr + 1) + attr->sd_len / sizeof(WCHAR);
     return attr;
@@ -471,7 +472,7 @@ static inline const char *request_to_string(enum request num)
         ENUM_REQUEST_CASE(REQ_remove_window_property)
         ENUM_REQUEST_CASE(REQ_get_window_property)
         ENUM_REQUEST_CASE(REQ_get_window_properties)
-      
+        ENUM_REQUEST_CASE(REQ_enum_session)  //jz
         ENUM_REQUEST_CASE(REQ_create_session)  //lyl
         ENUM_REQUEST_CASE(REQ_get_process_session)  //lyl
         ENUM_REQUEST_CASE(REQ_set_process_session)  //lyl
@@ -580,7 +581,6 @@ static inline const char *request_to_string(enum request num)
         ENUM_REQUEST_CASE(REQ_set_job_completion_port)
         ENUM_REQUEST_CASE(REQ_terminate_job)
         ENUM_REQUEST_CASE(REQ_register_pid)
-        ENUM_REQUEST_CASE(REQ_enum_session)  //jz
     }  
     return "Unsupported Chip";  
 }  */
@@ -590,18 +590,7 @@ static void call_req_handler( struct thread *thread )
 {
     union generic_reply reply;
     enum request req = thread->req.request_header.req;
-    //log
-    /*
-    time_t t = time( 0 );  
-    char time_buf[81];  
-    strftime(time_buf, 81, "%Y-%m-%d %H:%M:%S", localtime(&t));  
-    int pid=thread->process->unix_pid;
-    FILE *fp=fopen("/tmp/.wine/wine_req_log","a+");
-    if(fp==NULL){
-        fprintf(stderr,"error!!!!!!!\n");
-    }
-    fprintf(fp,"timestamp:%s     pid:%d      req:%3d:%s\n",time_buf,pid,req,request_to_string(req));
-    fclose(fp);*/
+
     current = thread;
     current->reply_size = 0;
     clear_error();
@@ -880,6 +869,7 @@ static void master_socket_poll_event( struct fd *fd, int event )
         int client = accept( get_unix_fd( master_socket->fd ), (struct sockaddr *) &dummy, &len );
         if (client == -1) return;
         fcntl( client, F_SETFL, O_NONBLOCK );
+
         create_process( client, NULL, 0 );
     }
 }
@@ -1097,7 +1087,7 @@ static void acquire_lock(void)
         fatal_error( "bind: %s\n", strerror( errno ));
     }
     atexit( socket_cleanup );
-    chmod( server_socket_name, 0666 );  /* make sure no other user can connect */
+    chmod( server_socket_name, 0666 );  //anyone?
     if (listen( fd, 5 ) == -1) fatal_error( "listen: %s\n", strerror( errno ));
 
     if (!(master_socket = alloc_object( &master_socket_ops )) ||
