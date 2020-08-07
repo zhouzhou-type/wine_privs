@@ -84,14 +84,18 @@ struct token
     int            session_id;
 };
 
+//zyq
 struct privilege
 {
     struct list entry;
     LUID        luid;
     unsigned    enabled  : 1; /* is the privilege currently enabled? */
     unsigned    def      : 1; /* is the privilege enabled by default? */
+	struct list lgsid;
+	struct list usid;
 };
 
+//zyq
 struct group
 {
     struct list entry;
@@ -103,7 +107,27 @@ struct group
     unsigned    resource : 1; /* is this a domain-local group? */
     unsigned    deny_only: 1; /* is this a sid that should be use for denying only? */
     SID         sid;
+	LPWSTR      lgrpi1_name;
+	LPWSTR      lgrpi1_comment;
 };
+
+//zyq
+struct user{
+    struct list entry;
+	LPWSTR      usri1_name;
+	LPWSTR      usri1_password;
+    DWORD       usri1_password_age;
+    DWORD       usri1_priv;
+	SID         sid;
+};
+
+//zyq
+struct user_group_relations{
+    struct list entry;
+	SID         u_sid;
+	SID         g_sid;
+};
+
 
 extern void token_dump( struct object *obj, int verbose );
 extern void token_destroy( struct object *obj );

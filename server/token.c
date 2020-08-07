@@ -49,14 +49,14 @@
 
 const LUID SeIncreaseQuotaPrivilege        = {  5, 0 };
 const LUID SeSecurityPrivilege             = {  8, 0 };
-const LUID SeTakeOwnershipPrivilege        = {  9, 0 };
+//const LUID SeTakeOwnershipPrivilege        = {  9, 0 };
 const LUID SeLoadDriverPrivilege           = { 10, 0 };
 const LUID SeSystemProfilePrivilege        = { 11, 0 };
 const LUID SeSystemtimePrivilege           = { 12, 0 };
 const LUID SeProfileSingleProcessPrivilege = { 13, 0 };
 const LUID SeIncreaseBasePriorityPrivilege = { 14, 0 };
 const LUID SeCreatePagefilePrivilege       = { 15, 0 };
-const LUID SeBackupPrivilege               = { 17, 0 };
+//const LUID SeBackupPrivilege               = { 17, 0 };
 const LUID SeRestorePrivilege              = { 18, 0 };
 const LUID SeShutdownPrivilege             = { 19, 0 };
 const LUID SeDebugPrivilege                = { 20, 0 };
@@ -114,33 +114,9 @@ const struct object_ops token_ops =
     token_destroy              /* destroy */
 };
 
-//zyq
-struct group
-{
-    struct list entry;
-    unsigned    enabled  : 1; /* is the sid currently enabled? */
-    unsigned    def      : 1; /* is the sid enabled by default? */
-    unsigned    logon    : 1; /* is this a logon sid? */
-    unsigned    mandatory: 1; /* is this sid always enabled? */
-    unsigned    owner    : 1; /* can this sid be an owner of an object? */
-    unsigned    resource : 1; /* is this a domain-local group? */
-    unsigned    deny_only: 1; /* is this a sid that should be use for denying only? */
-    SID         sid;
-    LPWSTR      lgrpi1_name;
-	LPWSTR      lgrpi1_comment;
-};
 
-//zyq
-struct user{
-    struct list entry;
-	LPWSTR      usri1_name;
-	LPWSTR      usri1_password;
-    DWORD       usri1_password_age;
-    DWORD       usri1_priv;
-	SID         sid;
-}
 
-//zyq user group management
+//zyq group management
 static struct list group_list = LIST_INIT( group_list );
 NET_API_STATUS WINAPI NetLocalGroupAdd(group_name)
 {
@@ -173,64 +149,56 @@ NET_API_STATUS WINAPI NetLocalGroupAdd(group_name)
 }
 
 
-//zyq
-struct privilege
-{
-    struct list entry;
-    LUID        luid;
-    unsigned    enabled  : 1; /* is the privilege currently enabled? */
-    unsigned    def      : 1; /* is the privilege enabled by default? */
-	struct list lgsid;
-	struct list usid;
-};
 
 //zyq sysprivilege management
 static struct list privilege_list = LIST_INIT( privilege_list );
 static struct list priv_lgsid_list = LIST_INIT( priv_lgsid_list );
-static struct list priv_user_list = LIST_INIT( priv_user__list );
-privilege SeBackupPrivilege = {
+static struct list priv_user_list = LIST_INIT( priv_user_list );
+struct privilege SeBackupPrivilege = {
     {17,0},
     1,
     1,
     &priv_lgsid_list,
     &priv_user_list
-}
+};
 list_add_head(&privilege_list,&SeBackupPrivilege);
-privilege SeTakeOwnershipPrivilege = {
+struct privilege SeTakeOwnershipPrivilege = {
     {9,0},
     1,
     1,
     &priv_lgsid_list,
     &priv_user_list
-}
+};
 list_add_head(&privilege_list,&SeTakeOwnershipPrivilege);
+
 
 void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
 {
 	SID *lgsid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
-    group lgp = &group_list;
-	whlile(lgp){
+    struct group lgp = &group_list;
+	while(lgp){
 		if(lgp->lgrpi1_name == group_name){
             lgsid = lgp->sid;
 			break;
 		}
 		lgp = lgp->entry->next;
 	}
-	list lgsidlist;
-	privilege syspriv = &privilege_list;
+	//struct list lgsidlist = LIST_INIT(lgsidlist);
+	struct privilege syspriv = &privilege_list;
 	while(syspriv){
         if(syspriv->luid == luid){
-            lgsidlist = syspriv->lgsid;
+            //lgsidlist = syspriv->lgsid;
+			list_add_head(&syspriv->lgsid,&lgsid);
 			break;
 		}
 		syspriv = syspriv->entry->next;
 	}
-	list_add_head(&lgsidlist, &lgsid);
+	//list_add_head(&lgsidlist, &lgsid);
 }
 static struct list user_list = LIST_INIT( user_list );
 void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
     SID *usid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
-	user us = &user_list;
+	struct user us = &user_list;
 	while(us){
         if(us->usri1_name == user_name){
            usid = us->sid;
@@ -238,7 +206,7 @@ void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
 		}
 		us = us->entry->next;
 	}
-	list usidlist;
+	struct list usidlist;
 	privilege syspriv = &privilege_list;
 	while(syspriv){
         if(syspriv->luid == luid){
@@ -250,15 +218,9 @@ void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
 	list_add_head(&usidlist,&usid);
 }
 
-//zyq
-struct user_group_relations{
-    struct list entry;
-	SID         u_sid;
-	SID         g_sid;
-}
 
 //zyq add group sid by user sid
-static struct list user_group_list = LIST_INIT( user_group_list );
+/*static struct list user_group_list = LIST_INIT( user_group_list );
 SID *usid_to_gsid(SID *usid){
 	struct user_group_relations *ug = NULL;
 	struct group *gp = NULL;
@@ -273,7 +235,7 @@ SID *usid_to_gsid(SID *usid){
 	list_add_head(&user_group_list,&ug->entry);
 	return gsid;
 }
-
+*/
 
 
 void token_dump( struct object *obj, int verbose )
@@ -351,7 +313,7 @@ const SID *security_unix_uid_to_sid( uid_t uid )
     /*DWORD subauthes[] = {
         SECURITY_LOGON_IDS_RID,
         0,
-        1 /* FIXME: should be randomly generated when tokens are inherited by new processes */
+        1 /* FIXME: should be randomly generated when tokens are inherited by new processes 
     };*/
     DWORD subauthes[] = {
         SECURITY_NT_NON_UNIQUE,
@@ -359,10 +321,11 @@ const SID *security_unix_uid_to_sid( uid_t uid )
 		0,
 		0,
 		uid
-	}
+	};
     return alloc_security_sid(&id, subauth_count, subauthes);
 }
 //hyy
+zyq
 const SID *security_unix_gid_to_sid( gid_t gid )
 {
     SID_IDENTIFIER_AUTHORITY id;
@@ -370,13 +333,20 @@ const SID *security_unix_gid_to_sid( gid_t gid )
     *(uint32_t *)(&id) = ((uint32_t)gid);
     id.Value[5] = 2;
 
-    BYTE subauth_count = 3;
-    DWORD subauthes[] = {
+    //BYTE subauth_count = 3;
+    BYTE subauth_count = 5;
+	/*DWORD subauthes[] = {
         SECURITY_LOGON_IDS_RID,
         0,
-        1 /* FIXME: should be randomly generated when tokens are inherited by new processes */
-    };
-
+        1 /* FIXME: should be randomly generated when tokens are inherited by new processes 
+    };*/
+    DWORD subauthes[] = {
+        SECURITY_NT_NON_UNIQUE,
+		0,
+		0,
+		0,
+		gid
+	};
     return alloc_security_sid(&id, subauth_count, subauthes);
 }
 static int acl_is_valid( const ACL *acl, data_size_t size )
@@ -775,24 +745,22 @@ struct sid_data
 struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 {
     SID* usid = security_unix_uid_to_sid(unix_uid);
-    SID* gsid_def = security_unix_gid_to_sid(unix_gid);
-	SID* gsid = usid_to_gsid(usid);
+    SID* gsid = security_unix_gid_to_sid(unix_gid);
     const SID_AND_ATTRIBUTES groups[] =
     {
         { security_world_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
         { security_local_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
         { security_interactive_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
         { security_authenticated_user_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
-        { gsid_def, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
         { gsid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
     };
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
-	privilege priv = &privilege_list;
-	list gp_privs;
+	struct privilege *priv = &privilege_list;
+	struct list gp_privs = LIST_INIT(gp_privs);
 	while(priv){
-        list gsidlist = priv->lgsid;
-		for(auto gsidlist:sid){
-            if(sid == gsid) 
+        struct list *gsidlist = &priv->lgsid;
+		for(auto gsidlist:var){
+            if(var == gsid) 
 				list_add_head(&gp_privs, & priv->luid); //find out all the privileges that group related to 
 		}
 		
@@ -820,9 +788,9 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
         { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
         { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
 	};
-    for(auto gp_privs:luid){
-        LUID_AND_ATTRIBUTES priv = &privs;
-		if(priv->Luid == luid)
+    for(auto gp_privs:varb){
+        LUID_AND_ATTRIBUTES priv = privs;
+		if(priv->Luid == varb)
 			priv->Attributes = SE_PRIVILEGE_ENABLED;
 	}
 	
