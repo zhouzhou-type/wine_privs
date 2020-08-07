@@ -23,14 +23,14 @@
 
 extern const LUID SeIncreaseQuotaPrivilege;
 extern const LUID SeSecurityPrivilege;
-extern const LUID SeTakeOwnershipPrivilege;
+//extern const LUID SeTakeOwnershipPrivilege;
 extern const LUID SeLoadDriverPrivilege;
 extern const LUID SeSystemProfilePrivilege;
 extern const LUID SeSystemtimePrivilege;
 extern const LUID SeProfileSingleProcessPrivilege;
 extern const LUID SeIncreaseBasePriorityPrivilege;
 extern const LUID SeCreatePagefilePrivilege;
-extern const LUID SeBackupPrivilege;
+//extern const LUID SeBackupPrivilege;
 extern const LUID SeRestorePrivilege;
 extern const LUID SeShutdownPrivilege;
 extern const LUID SeDebugPrivilege;

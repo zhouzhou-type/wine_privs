@@ -118,7 +118,7 @@ const struct object_ops token_ops =
 
 //zyq group management
 static struct list group_list = LIST_INIT( group_list );
-NET_API_STATUS WINAPI NetLocalGroupAdd(group_name)
+/*NET_API_STATUS WINAPI NetLocalGroupAdd (group_name)
 {
      NET_API_STATUS status;
 	 struct group *gp = NULL;
@@ -146,7 +146,7 @@ NET_API_STATUS WINAPI NetLocalGroupAdd(group_name)
 	 list_add_head(&group_list, &gp->entry);
 	 status = NERR_Success;
 	 return status;
-}
+}*/
 
 
 
@@ -156,16 +156,16 @@ static struct list priv_lgsid_list = LIST_INIT( priv_lgsid_list );
 static struct list priv_user_list = LIST_INIT( priv_user_list );
 struct privilege SeBackupPrivilege = {
     {17,0},
-    1,
-    1,
+    enabled,
+    def,
     &priv_lgsid_list,
     &priv_user_list
 };
 list_add_head(&privilege_list,&SeBackupPrivilege);
 struct privilege SeTakeOwnershipPrivilege = {
     {9,0},
-    1,
-    1,
+    enabled,
+    def,
     &priv_lgsid_list,
     &priv_user_list
 };
@@ -175,7 +175,7 @@ list_add_head(&privilege_list,&SeTakeOwnershipPrivilege);
 void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
 {
 	SID *lgsid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
-    struct group lgp = &group_list;
+    struct group *lgp = &group_list;
 	while(lgp){
 		if(lgp->lgrpi1_name == group_name){
             lgsid = lgp->sid;
@@ -184,7 +184,7 @@ void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
 		lgp = lgp->entry->next;
 	}
 	//struct list lgsidlist = LIST_INIT(lgsidlist);
-	struct privilege syspriv = &privilege_list;
+	struct privilege *syspriv = &privilege_list;
 	while(syspriv){
         if(syspriv->luid == luid){
             //lgsidlist = syspriv->lgsid;
@@ -198,7 +198,7 @@ void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
 static struct list user_list = LIST_INIT( user_list );
 void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
     SID *usid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
-	struct user us = &user_list;
+	struct user *us = &user_list;
 	while(us){
         if(us->usri1_name == user_name){
            usid = us->sid;
@@ -207,7 +207,7 @@ void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
 		us = us->entry->next;
 	}
 	struct list usidlist;
-	privilege syspriv = &privilege_list;
+	struct privilege *syspriv = &privilege_list;
 	while(syspriv){
         if(syspriv->luid == luid){
             usidlist = syspriv->usid;
@@ -325,7 +325,7 @@ const SID *security_unix_uid_to_sid( uid_t uid )
     return alloc_security_sid(&id, subauth_count, subauthes);
 }
 //hyy
-zyq
+//zyq
 const SID *security_unix_gid_to_sid( gid_t gid )
 {
     SID_IDENTIFIER_AUTHORITY id;
