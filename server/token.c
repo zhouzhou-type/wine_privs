@@ -49,14 +49,14 @@
 
 const LUID SeIncreaseQuotaPrivilege        = {  5, 0 };
 const LUID SeSecurityPrivilege             = {  8, 0 };
-//const LUID SeTakeOwnershipPrivilege        = {  9, 0 };
+const LUID SeTakeOwnershipPrivilege        = {  9, 0 };
 const LUID SeLoadDriverPrivilege           = { 10, 0 };
 const LUID SeSystemProfilePrivilege        = { 11, 0 };
 const LUID SeSystemtimePrivilege           = { 12, 0 };
 const LUID SeProfileSingleProcessPrivilege = { 13, 0 };
 const LUID SeIncreaseBasePriorityPrivilege = { 14, 0 };
 const LUID SeCreatePagefilePrivilege       = { 15, 0 };
-//const LUID SeBackupPrivilege               = { 17, 0 };
+const LUID SeBackupPrivilege               = { 17, 0 };
 const LUID SeRestorePrivilege              = { 18, 0 };
 const LUID SeShutdownPrivilege             = { 19, 0 };
 const LUID SeDebugPrivilege                = { 20, 0 };
@@ -154,31 +154,31 @@ static struct list group_list = LIST_INIT( group_list );
 static struct list privilege_list = LIST_INIT( privilege_list );
 static struct list priv_lgsid_list = LIST_INIT( priv_lgsid_list );
 static struct list priv_user_list = LIST_INIT( priv_user_list );
-struct privilege SeBackupPrivilege = {
+/*struct privilege priv1 = {
     {17,0},
-    enabled,
-    def,
+    1,
+    1,
     &priv_lgsid_list,
     &priv_user_list
 };
-list_add_head(&privilege_list,&SeBackupPrivilege);
-struct privilege SeTakeOwnershipPrivilege = {
+list_add_head(&privilege_list,&priv1);
+struct privilege priv2 = {
     {9,0},
-    enabled,
-    def,
+    1,
+    1,
     &priv_lgsid_list,
     &priv_user_list
 };
-list_add_head(&privilege_list,&SeTakeOwnershipPrivilege);
+list_add_head(&privilege_list,&priv2);*/
 
 
-void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
+/*void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
 {
 	SID *lgsid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
     struct group *lgp = &group_list;
 	while(lgp){
 		if(lgp->lgrpi1_name == group_name){
-            lgsid = lgp->sid;
+            lgsid = &lgp->sid;
 			break;
 		}
 		lgp = lgp->entry->next;
@@ -186,7 +186,7 @@ void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
 	//struct list lgsidlist = LIST_INIT(lgsidlist);
 	struct privilege *syspriv = &privilege_list;
 	while(syspriv){
-        if(syspriv->luid == luid){
+        if(syspriv->luid == &luid){
             //lgsidlist = syspriv->lgsid;
 			list_add_head(&syspriv->lgsid,&lgsid);
 			break;
@@ -217,7 +217,7 @@ void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
 	}
 	list_add_head(&usidlist,&usid);
 }
-
+*/
 
 //zyq add group sid by user sid
 /*static struct list user_group_list = LIST_INIT( user_group_list );
@@ -759,11 +759,12 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	struct list gp_privs = LIST_INIT(gp_privs);
 	while(priv){
         struct list *gsidlist = &priv->lgsid;
-		for(auto gsidlist:var){
-            if(var == gsid) 
-				list_add_head(&gp_privs, & priv->luid); //find out all the privileges that group related to 
+		while(gsidlist){
+            if(gsidlist == gsid) 
+				list_add_head(&gp_privs, &priv->luid); //find out all the privileges that group related to 
+			gsidlist = gsidlist->next;
 		}
-		
+		priv=priv->next;
 	}
 	
 	LUID_AND_ATTRIBUTES privs[] = {
@@ -788,10 +789,13 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
         { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
         { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
 	};
-    for(auto gp_privs:varb){
+	//traverse group privilege luid
+	struct list *luidlist = &gp_privs;
+    while(luidlist){
         LUID_AND_ATTRIBUTES priv = privs;
-		if(priv->Luid == varb)
+		if(priv->Luid == luidlist)
 			priv->Attributes = SE_PRIVILEGE_ENABLED;
+		luidlist = luidlist->next;
 	}
 	
     /*const LUID_AND_ATTRIBUTES admin_privs[] =
