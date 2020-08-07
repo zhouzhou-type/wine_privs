@@ -114,6 +114,168 @@ const struct object_ops token_ops =
     token_destroy              /* destroy */
 };
 
+//zyq
+struct group
+{
+    struct list entry;
+    unsigned    enabled  : 1; /* is the sid currently enabled? */
+    unsigned    def      : 1; /* is the sid enabled by default? */
+    unsigned    logon    : 1; /* is this a logon sid? */
+    unsigned    mandatory: 1; /* is this sid always enabled? */
+    unsigned    owner    : 1; /* can this sid be an owner of an object? */
+    unsigned    resource : 1; /* is this a domain-local group? */
+    unsigned    deny_only: 1; /* is this a sid that should be use for denying only? */
+    SID         sid;
+    LPWSTR      lgrpi1_name;
+	LPWSTR      lgrpi1_comment;
+};
+
+//zyq
+struct user{
+    struct list entry;
+	LPWSTR      usri1_name;
+	LPWSTR      usri1_password;
+    DWORD       usri1_password_age;
+    DWORD       usri1_priv;
+	SID         sid;
+}
+
+//zyq user group management
+static struct list group_list = LIST_INIT( group_list );
+NET_API_STATUS WINAPI NetLocalGroupAdd(group_name)
+{
+     NET_API_STATUS status;
+	 struct group *gp = NULL;
+	 SID *sid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
+	 gp = HeapAlloc(GetProcessHeap(), 0, sizeof(struct local_group));
+	 if(!gp)
+        {
+            status = NERR_InternalError;
+            break;
+        }
+	 gp->lgrpi1_comment = NULL;
+	 gp->lgrpi1_name = group_name;
+	 sid->Revision = SID_REVISION;
+//	 sid->SubAuthorityCount = 5;
+	 sid->IdentifierAuthority = 5;
+	 if(group_name == "spec"){
+	 	sid->SubAuthority = {SECURITY_NT_NON_UNIQUE,0,0,0,2000};
+		gp->sid = sid;
+	 }
+	 	 
+	 if(group_name == "norm"){
+         sid->SubAuthority = {SECURITY_NT_NON_UNIQUE,0,0,0,2001};
+		 gp->sid = sid;
+	 }
+	 list_add_head(&group_list, &gp->entry);
+	 status = NERR_Success;
+	 return status;
+}
+
+
+//zyq
+struct privilege
+{
+    struct list entry;
+    LUID        luid;
+    unsigned    enabled  : 1; /* is the privilege currently enabled? */
+    unsigned    def      : 1; /* is the privilege enabled by default? */
+	struct list lgsid;
+	struct list usid;
+};
+
+//zyq sysprivilege management
+static struct list privilege_list = LIST_INIT( privilege_list );
+static struct list priv_lgsid_list = LIST_INIT( priv_lgsid_list );
+static struct list priv_user_list = LIST_INIT( priv_user__list );
+privilege SeBackupPrivilege = {
+    {17,0},
+    1,
+    1,
+    &priv_lgsid_list,
+    &priv_user_list
+}
+list_add_head(&privilege_list,&SeBackupPrivilege);
+privilege SeTakeOwnershipPrivilege = {
+    {9,0},
+    1,
+    1,
+    &priv_lgsid_list,
+    &priv_user_list
+}
+list_add_head(&privilege_list,&SeTakeOwnershipPrivilege);
+
+void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
+{
+	SID *lgsid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
+    group lgp = &group_list;
+	whlile(lgp){
+		if(lgp->lgrpi1_name == group_name){
+            lgsid = lgp->sid;
+			break;
+		}
+		lgp = lgp->entry->next;
+	}
+	list lgsidlist;
+	privilege syspriv = &privilege_list;
+	while(syspriv){
+        if(syspriv->luid == luid){
+            lgsidlist = syspriv->lgsid;
+			break;
+		}
+		syspriv = syspriv->entry->next;
+	}
+	list_add_head(&lgsidlist, &lgsid);
+}
+static struct list user_list = LIST_INIT( user_list );
+void adjust_sysprivilege_add_user(LUID luid, LPWSTR user_name){
+    SID *usid = mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
+	user us = &user_list;
+	while(us){
+        if(us->usri1_name == user_name){
+           usid = us->sid;
+		   break;
+		}
+		us = us->entry->next;
+	}
+	list usidlist;
+	privilege syspriv = &privilege_list;
+	while(syspriv){
+        if(syspriv->luid == luid){
+            usidlist = syspriv->usid;
+			break;
+		}
+		syspriv = syspriv->entry->next;
+	}
+	list_add_head(&usidlist,&usid);
+}
+
+//zyq
+struct user_group_relations{
+    struct list entry;
+	SID         u_sid;
+	SID         g_sid;
+}
+
+//zyq add group sid by user sid
+static struct list user_group_list = LIST_INIT( user_group_list );
+SID *usid_to_gsid(SID *usid){
+	struct user_group_relations *ug = NULL;
+	struct group *gp = NULL;
+    SID *gsid =  mem_alloc(FIELD_OFFSET(SID, SubAuthority[5]));
+    gsid->Revision = usid->Revision;
+    gsid->IdentifierAuthority = 2;
+	gsid->SubAuthority = usid->SubAuthority;
+	gp->sid = gsid;
+	list_add_head(&group_list, &gp->entry);
+	ug->u_sid = usid;
+	ug->g_sid = gsid;
+	list_add_head(&user_group_list,&ug->entry);
+	return gsid;
+}
+
+
+
 void token_dump( struct object *obj, int verbose )
 {
     fprintf( stderr, "Security token\n" );
@@ -175,20 +337,29 @@ void security_set_thread_token( struct thread *thread, obj_handle_t handle )
 }
 
 //hyy only used by file_get_sd and dir_get_sd and first_token
+//zyq
 const SID *security_unix_uid_to_sid( uid_t uid )
 {
     SID_IDENTIFIER_AUTHORITY id;
     memset(&id, 0, sizeof(id));
     *(uint32_t *)(&id) = ((uint32_t)uid);
-    id.Value[5] = 1;
+    //id.Value[5] = 1;
+    id.Value[5] = 5;
 
-    BYTE subauth_count = 3;
-    DWORD subauthes[] = {
+    //BYTE subauth_count = 3;
+    BYTE subauth_count = 5;
+    /*DWORD subauthes[] = {
         SECURITY_LOGON_IDS_RID,
         0,
         1 /* FIXME: should be randomly generated when tokens are inherited by new processes */
-    };
-
+    };*/
+    DWORD subauthes[] = {
+        SECURITY_NT_NON_UNIQUE,
+		0,
+		0,
+		0,
+		uid
+	}
     return alloc_security_sid(&id, subauth_count, subauthes);
 }
 //hyy
@@ -208,7 +379,6 @@ const SID *security_unix_gid_to_sid( gid_t gid )
 
     return alloc_security_sid(&id, subauth_count, subauthes);
 }
-
 static int acl_is_valid( const ACL *acl, data_size_t size )
 {
     ULONG i;
@@ -601,20 +771,62 @@ struct sid_data
 };
 
 // hyy
+//zyq
 struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 {
     SID* usid = security_unix_uid_to_sid(unix_uid);
-    SID* gsid = security_unix_gid_to_sid(unix_gid);
+    SID* gsid_def = security_unix_gid_to_sid(unix_gid);
+	SID* gsid = usid_to_gsid(usid);
     const SID_AND_ATTRIBUTES groups[] =
     {
         { security_world_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
         { security_local_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
         { security_interactive_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
         { security_authenticated_user_sid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY },
+        { gsid_def, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
         { gsid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
     };
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
-    const LUID_AND_ATTRIBUTES admin_privs[] =
+	privilege priv = &privilege_list;
+	list gp_privs;
+	while(priv){
+        list gsidlist = priv->lgsid;
+		for(auto gsidlist:sid){
+            if(sid == gsid) 
+				list_add_head(&gp_privs, & priv->luid); //find out all the privileges that group related to 
+		}
+		
+	}
+	
+	LUID_AND_ATTRIBUTES privs[] = {
+		{ SeChangeNotifyPrivilege        , SE_PRIVILEGE_ENABLED },
+        { SeSecurityPrivilege            , 0                    },
+        { SeBackupPrivilege              , 0                    },
+        { SeRestorePrivilege             , 0                    },
+        { SeSystemtimePrivilege          , 0                    },
+        { SeShutdownPrivilege            , 0                    },
+        { SeRemoteShutdownPrivilege      , 0                    },
+        { SeTakeOwnershipPrivilege       , 0                    },
+        { SeDebugPrivilege               , 0                    },
+        { SeSystemEnvironmentPrivilege   , 0                    },
+        { SeSystemProfilePrivilege       , 0                    },
+        { SeProfileSingleProcessPrivilege, 0                    },
+        { SeIncreaseBasePriorityPrivilege, 0                    },
+        { SeLoadDriverPrivilege          , SE_PRIVILEGE_ENABLED },
+        { SeCreatePagefilePrivilege      , 0                    },
+        { SeIncreaseQuotaPrivilege       , 0                    },
+        { SeUndockPrivilege              , 0                    },
+        { SeManageVolumePrivilege        , 0                    },
+        { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
+        { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
+	};
+    for(auto gp_privs:luid){
+        LUID_AND_ATTRIBUTES priv = &privs;
+		if(priv->Luid == luid)
+			priv->Attributes = SE_PRIVILEGE_ENABLED;
+	}
+	
+    /*const LUID_AND_ATTRIBUTES admin_privs[] =
     {
         { SeChangeNotifyPrivilege        , SE_PRIVILEGE_ENABLED },
         { SeSecurityPrivilege            , 0                    },
@@ -662,7 +874,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     };
     LUID_AND_ATTRIBUTES *privs = &admin_privs;
     if(unix_uid != getuid())
-        privs = &common_privs;
+        privs = &common_privs; */
 
     DWORD priv_count = sizeof(privs) / sizeof(LUID_AND_ATTRIBUTES);
     const TOKEN_SOURCE source = {"SeMgr", {0U, 0}};
