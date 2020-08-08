@@ -793,7 +793,8 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	struct list *luidlist = &gp_privs;
     while(luidlist){
         LUID_AND_ATTRIBUTES priv = privs;
-		if(priv->Luid == luidlist)
+		LUID *gluid = &luidlist;
+		if(&priv->Luid == gluid)
 			priv->Attributes = SE_PRIVILEGE_ENABLED;
 		luidlist = luidlist->next;
 	}
