@@ -118,7 +118,7 @@ const struct object_ops token_ops =
 
 //zyq group management
 static struct list group_list = LIST_INIT( group_list );
-NET_API_STATUS WINAPI NetLocalGroupAdd (group_name)
+/*NET_API_STATUS WINAPI NetLocalGroupAdd (group_name)
 {
      NET_API_STATUS status;
 	 struct group *gp = NULL;
@@ -147,7 +147,7 @@ NET_API_STATUS WINAPI NetLocalGroupAdd (group_name)
 	 status = NERR_Success;
 	 return status;
 }
-
+*/
 
 
 //zyq sysprivilege management
