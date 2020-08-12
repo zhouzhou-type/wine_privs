@@ -118,7 +118,7 @@ const struct object_ops token_ops =
 
 //zyq group management
 static struct list group_list = LIST_INIT( group_list );
-/*NET_API_STATUS WINAPI NetLocalGroupAdd (group_name)
+NET_API_STATUS WINAPI NetLocalGroupAdd (group_name)
 {
      NET_API_STATUS status;
 	 struct group *gp = NULL;
@@ -146,7 +146,7 @@ static struct list group_list = LIST_INIT( group_list );
 	 list_add_head(&group_list, &gp->entry);
 	 status = NERR_Success;
 	 return status;
-}*/
+}
 
 
 
@@ -1063,6 +1063,37 @@ static unsigned int token_access_check( struct token *token,
         }
     }
     else if (priv_count) *priv_count = 0;
+
+    //zyq
+	if(desired_access & GENERIC_ALL){
+        const LUID_AND_ATTRIBUTES takeownership_priv = {SeTakeOwnershipPrivilege,0};
+		LUID_AND_ATTRIBUTES retpriv = takeownership_priv;
+	    if(token_check_privileges(token,TRUE,&takeownership_priv,1,&retpriv)){
+            if(priv_count){
+                if(*priv_count >= 1){
+                    *priv_count = 1;
+					*privs = retpriv;
+				}
+				else{
+                    *priv_count = 1;
+					return STATUS_BUFFER_TOO_SMALL;
+				}
+			}
+			current_access |= GENERIC_ALL;
+			if(desired_access == current_access){
+                *granted_access = current_access;
+				return *status = STATUS_SUCCESS;
+			}
+		}
+		else{
+            if(priv_count)
+				*priv_count = 0;
+			*status = STATUS_PRIVILEGE_NOT_HELD;
+			return STATUS_SUCCESS;
+		}
+	}
+	else if(priv_count)
+		*priv_count = 0;
 
     /* 3: Check whether the token is the owner */
     /* NOTE: SeTakeOwnershipPrivilege is not checked for here - it is instead
