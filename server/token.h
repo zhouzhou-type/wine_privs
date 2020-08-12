@@ -91,8 +91,7 @@ struct privilege
     LUID        luid;
     unsigned    enabled  : 1; /* is the privilege currently enabled? */
     unsigned    def      : 1; /* is the privilege enabled by default? */
-	struct list lgsid;
-	struct list usid;
+	struct list sid;
 };
 
 //zyq

@@ -149,27 +149,89 @@ static struct list group_list = LIST_INIT( group_list );
 }
 */
 
+struct sidlistnode{
+    SID val;
+	sidlistnode *next;
+	sidlistnode(){}
+	sidlistnode(SID valu,sidlist *next1){
+        val = valu;
+		next = next1;
+	}
+};
+
+struct luidlistnode{
+    LUID val;
+	luidlistnode *next;
+	luidlistnode(){}
+	luidlistnode(SID valu,sidlist *next1){
+        val = valu;
+		next = next1;
+	}
+};
+
+void luidlistaddtotail(luidlistnode **phead, LUID val){
+    luidlistnode *pnew = new luidlistnode();
+	pnew->val = val;
+	pnew->next = NULL;
+	if(phead == NULL){
+        *phead = pnew;
+	}
+	else{
+        luidlistnode *pnode = *phead;
+		while(pnode->next != NULL){
+            pnode = pnode->next;
+		}
+		pnode->next = pnew;
+	}
+}
 
 //zyq sysprivilege management
-static struct list privilege_list = LIST_INIT( privilege_list );
-static struct list priv_lgsid_list = LIST_INIT( priv_lgsid_list );
-static struct list priv_user_list = LIST_INIT( priv_user_list );
-/*struct privilege priv1 = {
-    {17,0},
-    1,
-    1,
-    &priv_lgsid_list,
-    &priv_user_list
+sidlistnode *sechangenotify_sid = new sidlistnode();
+sidlistnode *sesecurity_sid = new sidlistnode();
+sidlistnode *sebackup_sid = new sidlistnode();
+sidlistnode *serestore_sid = new sidlistnode();
+sidlistnode *sesystemtime_sid = new sidlistnode();
+sidlistnode *seshutdown_sid = new sidlistnode();
+sidlistnode *seremoteshutdown_sid = new sidlistnode();
+sidlistnode *setakeownership_sid = new sidlistnode();
+sidlistnode *sedebug_sid = new sidlistnode();
+sidlistnode *sesystemenvironment_sid = new sidlistnode();
+sidlistnode *sesystemprofile_sid = new sidlistnode();
+sidlistnode *seprofilesingleprocess_sid = new sidlistnode();
+sidlistnode *seincreasebasepriority_sid = new sidlistnode();
+sidlistnode *seloaddriver_sid = new sidlistnode();
+sidlistnode *secreatepagefile_sid = new sidlistnode();
+sidlistnode *seincreasequota_sid = new sidlistnode();
+sidlistnode *seundock_sid = new sidlistnode();
+sidlistnode *semanagevolume_sid = new sidlistnode();
+sidlistnode *seimpersonate_sid = new sidlistnode();
+sidlistnode *secreateglobal_sid = new sidlistnode();
+
+
+
+struct privilege sysprivs[] = {
+	{ SeChangeNotifyPrivilege		 , 0,0, sechangenotify_sid},
+	{ SeSecurityPrivilege			 , 0,0, sesecurity_sid	  },
+	{ SeBackupPrivilege 			 , 0,0, sebackup_sid	  },
+	{ SeRestorePrivilege			 , 0,0, serestore_sid	  },
+	{ SeSystemtimePrivilege 		 , 0,0, sesystemtime_sid  },
+	{ SeShutdownPrivilege			 , 0,0, seshutdown_sid	  },
+	{ SeRemoteShutdownPrivilege 	 , 0,0, seremoteshutdown_sid				},
+	{ SeTakeOwnershipPrivilege		 , 0,0, 	setakeownership_sid				},
+	{ SeDebugPrivilege				 , 0,0,		sedebug_sid			},
+	{ SeSystemEnvironmentPrivilege	 , 0,0,sesystemenvironment_sid					},
+	{ SeSystemProfilePrivilege		 , 0,0,sesystemprofile_sid					},
+	{ SeProfileSingleProcessPrivilege, 0,0,		seprofilesingleprocess_sid			},
+	{ SeIncreaseBasePriorityPrivilege, 0,0,		seincreasebasepriority_sid			},
+	{ SeLoadDriverPrivilege 		 , 0,0,  seloaddriver_sid},
+	{ SeCreatePagefilePrivilege 	 , 0,0, 	secreatepagefile_sid				},
+	{ SeIncreaseQuotaPrivilege		 , 0,0, seincreasequota_sid					},
+	{ SeUndockPrivilege 			 , 0,0,seundock_sid					},
+	{ SeManageVolumePrivilege		 , 0,0,semanagevolume_sid					},
+	{ SeImpersonatePrivilege		 , 0,0,  seimpersonate_sid},
+	{ SeCreateGlobalPrivilege		 , 0,0,  secreateglobal_sid},
+
 };
-list_add_head(&privilege_list,&priv1);
-struct privilege priv2 = {
-    {9,0},
-    1,
-    1,
-    &priv_lgsid_list,
-    &priv_user_list
-};
-list_add_head(&privilege_list,&priv2);*/
 
 
 /*void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
@@ -755,16 +817,18 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
         { gsid, SE_GROUP_ENABLED|SE_GROUP_ENABLED_BY_DEFAULT|SE_GROUP_MANDATORY|SE_GROUP_OWNER },
     };
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
-	struct privilege *priv = &privilege_list;
-	struct list gp_privs = LIST_INIT(gp_privs);
-	while(priv){
-        struct list *gsidlist = &priv->lgsid;
-		while(gsidlist){
-            if(gsidlist == gsid) 
-				list_add_head(&gp_privs, &priv->luid); //find out all the privileges that group related to 
-			gsidlist = gsidlist->next;
+	
+    //traverse privilege array, find which privilege that gsid related to
+	luidlistnode *syspriv_luids = new luidlist(); //store the privilege luid which find out
+	for(struct privilege pr:sysprivs){
+        sidlistnode *sids = pr->sid;
+        while(sids){
+            if(sids->val == gsid){
+                luidlistaddtotail(syspriv_luids, pr->luid);
+			}
+			sids = sids->next;
 		}
-		priv=priv->next;
+		
 	}
 	
 	LUID_AND_ATTRIBUTES privs[] = {
@@ -789,14 +853,14 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
         { SeImpersonatePrivilege         , SE_PRIVILEGE_ENABLED },
         { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
 	};
-	//traverse group privilege luid
-	struct list *luidlist = &gp_privs;
-    while(luidlist){
-        LUID_AND_ATTRIBUTES priv = privs;
-		LUID *gluid = &luidlist;
-		if(&priv->Luid == gluid)
-			priv->Attributes = SE_PRIVILEGE_ENABLED;
-		luidlist = luidlist->next;
+	//traverse group privilege luid ==>syspriv_luids
+	luidlistnode *luids = syspriv_luids;
+	for(LUID_AND_ATTRIBUTES priv: privs){
+        while(luids){
+            if(luids->val == priv->Luid)
+				priv->Attributes = SE_PRIVILEGE_ENABLED;
+			luids = luids->next;
+		}
 	}
 	
     /*const LUID_AND_ATTRIBUTES admin_privs[] =
