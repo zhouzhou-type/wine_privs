@@ -175,9 +175,13 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID val){
 	}
 }
 
+void initsidlistnode(struct sidlistnode **pNode){
+    *pNode = NULL;
+}
+
 //zyq sysprivilege management
-struct sidlistnode *sechangenotify_sid = NULL;
-//static struct list sechangenotify_sid = LIST_INIT( sechangenotify_sid );
+struct sidlistnode *sechangenotify_sid = initsidlistnode(*sechangenotify_sid);
+
 
 struct sidlistnode *sesecurity_sid = NULL;
 //static struct list sesecurity_sid = LIST_INIT( sesecurity_sid );
