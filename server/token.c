@@ -152,29 +152,19 @@ static struct list group_list = LIST_INIT( group_list );
 struct sidlistnode{
     SID val;
 	struct sidlistnode *next;
-	sidlistnode(){}
-	sidlistnode(SID valu,sidlistnode *next1){
-        val = valu;
-		next = next1;
-	}
 };
 
 struct luidlistnode{
     LUID val;
 	struct luidlistnode *next;
-	luidlistnode(){}
-	luidlistnode(SID valu,luidlistnode *next1){
-        val = valu;
-		next = next1;
-	}
 };
 
-void luidlistaddtotail(struct luidlistnode **phead, LUID val){
-    luidlistnode *pnew = new luidlistnode();
+void luidlistaddtotail(struct luidlistnode *phead, LUID val){
+    struct luidlistnode *pnew = (struct luidlistnode*)malloc(sizeof(struct luidlistnode));
 	pnew->val = val;
 	pnew->next = NULL;
 	if(phead == NULL){
-        *phead = pnew;
+        phead = pnew;
 	}
 	else{
         luidlistnode *pnode = *phead;
@@ -186,26 +176,26 @@ void luidlistaddtotail(struct luidlistnode **phead, LUID val){
 }
 
 //zyq sysprivilege management
-struct sidlistnode *sechangenotify_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesecurity_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sebackup_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *serestore_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesystemtime_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seshutdown_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seremoteshutdown_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *setakeownership_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sedebug_sid = new (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesystemenvironment_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesystemprofile_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seprofilesingleprocess_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seincreasebasepriority_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seloaddriver_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *secreatepagefile_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seincreasequota_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seundock_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *semanagevolume_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seimpersonate_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *secreateglobal_sid = (sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sechangenotify_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sesecurity_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sebackup_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *serestore_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sesystemtime_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seshutdown_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seremoteshutdown_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *setakeownership_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sedebug_sid = new (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sesystemenvironment_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sesystemprofile_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seprofilesingleprocess_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seincreasebasepriority_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seloaddriver_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *secreatepagefile_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seincreasequota_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seundock_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *semanagevolume_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *seimpersonate_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *secreateglobal_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
 
 
 
@@ -819,7 +809,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
 	
     //traverse privilege array, find which privilege that gsid related to
-	struct luidlistnode *syspriv_luids = (luidlistnode*)malloc(sizeof(luidlistnode)); //store the privilege luid which find out
+	struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(luidlistnode)); //store the privilege luid which find out
 	for(struct privilege *pr:sysprivs){
         struct sidlistnode *sids = pr->sid;
         while(sids){
