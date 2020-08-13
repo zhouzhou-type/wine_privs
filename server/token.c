@@ -239,54 +239,30 @@ struct sidlistnode *secreateglobal_sid = NULL;
 
 
 
-/*struct privilege sysprivs[] = {
-	{ { 23, 0 }		 , 0,0, &sechangenotify_sid},
-	{ {  8, 0 }			 , 0,0, &sesecurity_sid	  },
-	{ { 17, 0 } 			 , 0,0, &sebackup_sid	  },
-	{ { 18, 0 }			 , 0,0, &serestore_sid	  },
-	{ { 12, 0 } 		 , 0,0, &sesystemtime_sid  },
-	{ { 19, 0 }			 , 0,0, &seshutdown_sid	  },
-	{ { 24, 0 } 	 , 0,0, &seremoteshutdown_sid				},
-	{ {  9, 0 }		 , 0,0, 	&setakeownership_sid				},
-	{ { 20, 0 }				 , 0,0,		&sedebug_sid			},
-	{ { 22, 0 }	 , 0,0,&sesystemenvironment_sid					},
-	{ { 11, 0 }		 , 0,0,&sesystemprofile_sid					},
-	{ { 13, 0 }, 0,0,		&seprofilesingleprocess_sid			},
-	{ { 14, 0 }, 0,0,		&seincreasebasepriority_sid			},
-	{ { 10, 0 } 		 , 0,0,  &seloaddriver_sid},
-	{ { 15, 0 } 	 , 0,0, 	&secreatepagefile_sid				},
-	{ {  5, 0 }		 , 0,0, &seincreasequota_sid					},
-	{ { 25, 0 } 			 , 0,0,&seundock_sid					},
-	{ { 28, 0 }		 , 0,0,&semanagevolume_sid					},
-	{ { 29, 0 }		 , 0,0,  &seimpersonate_sid},
-	{ { 30, 0 }		 , 0,0,  &secreateglobal_sid},
-
-};
-*/
-
 struct privilege sysprivs[] = {
-	{ { 23, 0 }		 , &sechangenotify_sid},
-	{ {  8, 0 }		 , &sesecurity_sid	  },
-	{ { 17, 0 } 	 , &sebackup_sid	  },
-	{ { 18, 0 }		 , &serestore_sid	  },
-	{ { 12, 0 } 	 , &sesystemtime_sid  },
-	{ { 19, 0 }		 , &seshutdown_sid	  },
-	{ { 24, 0 } 	 , &seremoteshutdown_sid				},
-	{ {  9, 0 }		 , &setakeownership_sid				},
-	{ { 20, 0 }		 , &sedebug_sid			},
-	{ { 22, 0 }	     , &sesystemenvironment_sid					},
-	{ { 11, 0 }		 , &sesystemprofile_sid					},
-	{ { 13, 0 }      , &seprofilesingleprocess_sid			},
-	{ { 14, 0 }      , &seincreasebasepriority_sid			},
-	{ { 10, 0 } 	 , &seloaddriver_sid},
-	{ { 15, 0 } 	 , &secreatepagefile_sid				},
-	{ {  5, 0 }		 , &seincreasequota_sid					},
-	{ { 25, 0 } 	 , &seundock_sid					},
-	{ { 28, 0 }		 , &semanagevolume_sid					},
-	{ { 29, 0 }		 , &seimpersonate_sid},
-	{ { 30, 0 }		 , &secreateglobal_sid},
+	{ { 23, 0 }		, 0,0, &sechangenotify_sid                  },
+	{ {  8, 0 }		, 0,0, &sesecurity_sid	                    },
+	{ { 17, 0 } 	, 0,0, &sebackup_sid	                    },
+	{ { 18, 0 }	    , 0,0, &serestore_sid	                    },
+	{ { 12, 0 } 	, 0,0, &sesystemtime_sid                    },
+	{ { 19, 0 }		, 0,0, &seshutdown_sid	                    },
+	{ { 24, 0 } 	, 0,0, &seremoteshutdown_sid				},
+	{ {  9, 0 }		, 0,0, &setakeownership_sid				    },
+	{ { 20, 0 }		, 0,0, &sedebug_sid			                },
+	{ { 22, 0 }	    , 0,0, &sesystemenvironment_sid			    },
+	{ { 11, 0 }		, 0,0, &sesystemprofile_sid					},
+	{ { 13, 0 }     , 0,0, &seprofilesingleprocess_sid			},
+	{ { 14, 0 }     , 0,0, &seincreasebasepriority_sid			},
+	{ { 10, 0 } 	, 0,0, &seloaddriver_sid                    },
+	{ { 15, 0 } 	, 0,0, &secreatepagefile_sid				},
+	{ {  5, 0 }		, 0,0, &seincreasequota_sid					},
+ 	{ { 25, 0 } 	, 0,0, &seundock_sid					    },
+ 	{ { 28, 0 }		, 0,0, &semanagevolume_sid					},
+	{ { 29, 0 }		, 0,0, &seimpersonate_sid                   },
+	{ { 30, 0 }		, 0,0, &secreateglobal_sid                  },
 
 };
+
 
 
 /*void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
