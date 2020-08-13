@@ -175,12 +175,16 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID val){
 	}
 }
 
-void initsidlistnode(struct sidlistnode **pNode){
-    *pNode = NULL;
+sidlistnode *createsidlist(){
+    sidlistnode *phead;
+	phead = (sidlistnode *)malloc(sizeof(sidlistnode));
+	phead->next = NULL;
+	return phead;
 }
 
+
 //zyq sysprivilege management
-struct sidlistnode *sechangenotify_sid = initsidlistnode(*sechangenotify_sid);
+struct sidlistnode *sechangenotify_sid = createsidlist();
 
 
 struct sidlistnode *sesecurity_sid = NULL;
@@ -243,7 +247,7 @@ struct sidlistnode *secreateglobal_sid = NULL;
 
 
 
-struct privilege sysprivs[] = {
+/*struct privilege sysprivs[] = {
 	{ { 23, 0 }		, TRUE,TRUE,   sechangenotify_sid                   },
 	{ {  8, 0 }		, FALSE,FALSE, sesecurity_sid	                    },
 	{ { 17, 0 } 	, FALSE,FALSE, sebackup_sid	                        },
@@ -265,8 +269,31 @@ struct privilege sysprivs[] = {
 	{ { 29, 0 }		, TRUE,TRUE,   seimpersonate_sid                    },
 	{ { 30, 0 }		, TRUE,TRUE,   secreateglobal_sid                   },
 
-};
+};*/
 
+struct privilege sysprivs[] = {
+	{ { 23, 0 }		, TRUE,TRUE,   sechangenotify_sid                   },
+	{ {  8, 0 }		, FALSE,FALSE, NULL	                    },
+	{ { 17, 0 } 	, FALSE,FALSE, NULL	                        },
+	{ { 18, 0 }	    , FALSE,FALSE, NULL	                    },
+	{ { 12, 0 } 	, FALSE,FALSE, NULL                     },
+	{ { 19, 0 }		, FALSE,FALSE, NULL	                    },
+	{ { 24, 0 } 	, FALSE,FALSE, NULL				    },
+	{ {  9, 0 }		, FALSE,FALSE, NULL				    },
+	{ { 20, 0 }		, FALSE,FALSE, NULL			                },
+	{ { 22, 0 }	    , FALSE,FALSE, NULL			    },
+	{ { 11, 0 }		, FALSE,FALSE, NULL					},
+	{ { 13, 0 }     , FALSE,FALSE, NULL			},
+	{ { 14, 0 }     , FALSE,FALSE, NULL			},
+	{ { 10, 0 } 	, TRUE,TRUE,   NULL                     },
+	{ { 15, 0 } 	, FALSE,FALSE, NULL				    },
+	{ {  5, 0 }		, FALSE,FALSE, NULL					},
+ 	{ { 25, 0 } 	, FALSE,FALSE, NULL					        },
+ 	{ { 28, 0 }		, FALSE,FALSE, NULL					},
+	{ { 29, 0 }		, TRUE,TRUE,   NULL                    },
+	{ { 30, 0 }		, TRUE,TRUE,   NULL                   },
+
+};
 
 
 /*void adjust_sysprivilege_add_group(LUID luid, LPWSTR group_name )
