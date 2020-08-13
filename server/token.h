@@ -92,7 +92,7 @@ struct privilege
     unsigned    enabled  : 1; /* is the privilege currently enabled? */
     unsigned    def      : 1; /* is the privilege enabled by default? */
 	//struct list sid;
-    struct sidlistnode sid;
+    struct sidlistnode* sid;
 };
 
 //zyq
