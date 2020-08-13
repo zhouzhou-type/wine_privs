@@ -239,7 +239,7 @@ struct sidlistnode *secreateglobal_sid = NULL;
 
 
 
-struct privilege sysprivs[] = {
+/*struct privilege sysprivs[] = {
 	{ { 23, 0 }		 , 0,0, &sechangenotify_sid},
 	{ {  8, 0 }			 , 0,0, &sesecurity_sid	  },
 	{ { 17, 0 } 			 , 0,0, &sebackup_sid	  },
@@ -260,6 +260,31 @@ struct privilege sysprivs[] = {
 	{ { 28, 0 }		 , 0,0,&semanagevolume_sid					},
 	{ { 29, 0 }		 , 0,0,  &seimpersonate_sid},
 	{ { 30, 0 }		 , 0,0,  &secreateglobal_sid},
+
+};
+*/
+
+struct privilege sysprivs[] = {
+	{ { 23, 0 }		 , &sechangenotify_sid},
+	{ {  8, 0 }		 , &sesecurity_sid	  },
+	{ { 17, 0 } 	 , &sebackup_sid	  },
+	{ { 18, 0 }		 , &serestore_sid	  },
+	{ { 12, 0 } 	 , &sesystemtime_sid  },
+	{ { 19, 0 }		 , &seshutdown_sid	  },
+	{ { 24, 0 } 	 , &seremoteshutdown_sid				},
+	{ {  9, 0 }		 , &setakeownership_sid				},
+	{ { 20, 0 }		 , &sedebug_sid			},
+	{ { 22, 0 }	     , &sesystemenvironment_sid					},
+	{ { 11, 0 }		 , &sesystemprofile_sid					},
+	{ { 13, 0 }      , &seprofilesingleprocess_sid			},
+	{ { 14, 0 }      , &seincreasebasepriority_sid			},
+	{ { 10, 0 } 	 , &seloaddriver_sid},
+	{ { 15, 0 } 	 , &secreatepagefile_sid				},
+	{ {  5, 0 }		 , &seincreasequota_sid					},
+	{ { 25, 0 } 	 , &seundock_sid					},
+	{ { 28, 0 }		 , &semanagevolume_sid					},
+	{ { 29, 0 }		 , &seimpersonate_sid},
+	{ { 30, 0 }		 , &secreateglobal_sid},
 
 };
 
@@ -853,7 +878,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     //static struct list syspriv_luids = LIST_INIT( syspriv_luids );//store the privilege luid which find out
 	for(int i = 0; i < 20; i++){
         struct privilege pr = sysprivs[i];
-		struct sidlistnode *sids = &pr->sid;
+		struct sidlistnode *sids = pr->sid;
 	    while(sids){
             if(sids->val == gsid)
 				luidlistaddtotail(syspriv_luids, &pr->luid);
