@@ -884,10 +884,10 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     //static struct list syspriv_luids = LIST_INIT( syspriv_luids );//store the privilege luid which find out
 	for(int i = 0; i < 20; i++){
         struct privilege pr = sysprivs[i];
-		struct sidlistnode *sids = pr->sid;
+		struct sidlistnode *sids = pr.sid;
 	    while(sids){
             if(sids->val == gsid)
-				luidlistaddtotail(syspriv_luids, &pr->luid);
+				luidlistaddtotail(syspriv_luids, pr.luid);
 			sids = sids->next;
 		}
 		
@@ -925,10 +925,10 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 		}
 	}*/
     for(int i = 0; i < 20; i++){
-        LUID_AND_ATTRIBUTES priv = &privs[i];
+        LUID_AND_ATTRIBUTES priv = privs[i];
 		while(luids){
-            if(luids->val == priv->Luid)
-				priv->Attributes = SE_PRIVILEGE_ENABLED;
+            if(luids->val == priv.Luid)
+				priv.Attributes = SE_PRIVILEGE_ENABLED;
 			luids = luids->next;
 		}
 	}
