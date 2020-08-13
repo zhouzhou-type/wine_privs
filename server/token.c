@@ -200,8 +200,8 @@ struct sidlistnode *secreateglobal_sid = (struct sidlistnode*)malloc(sizeof(sidl
 
 
 struct privilege sysprivs[] = {
-	{ { 23, 0 }		 , 0,0, sechangenotify_sid},
-	{ {  8, 0 }			 , 0,0, sesecurity_sid	  },
+	{ { 23, 0 }		 , 0,0, &sechangenotify_sid},
+	{ {  8, 0 }			 , 0,0, &sesecurity_sid	  },
 	{ { 17, 0 } 			 , 0,0, sebackup_sid	  },
 	{ { 18, 0 }			 , 0,0, serestore_sid	  },
 	{ { 12, 0 } 		 , 0,0, sesystemtime_sid  },
@@ -809,7 +809,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
 	
     //traverse privilege array, find which privilege that gsid related to
-	struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(luidlistnode)); //store the privilege luid which find out
+	struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(struct luidlistnode)); //store the privilege luid which find out
 	for(struct privilege *pr:sysprivs){
         struct sidlistnode *sids = pr->sid;
         while(sids){
