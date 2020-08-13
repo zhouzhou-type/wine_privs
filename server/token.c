@@ -149,14 +149,14 @@ static struct list group_list = LIST_INIT( group_list );
 }
 */
 
-struct sidlistnode{
+typedef struct sidlistnode{
     SID val;
-	struct sidlistnode *next;
+	sidlistnode *next;
 };
 
-struct luidlistnode{
+typedef struct luidlistnode{
     LUID val;
-	struct luidlistnode *next;
+	luidlistnode *next;
 };
 
 void luidlistaddtotail(struct luidlistnode *phead, LUID val){
@@ -176,26 +176,26 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID val){
 }
 
 //zyq sysprivilege management
-struct sidlistnode *sechangenotify_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *sesecurity_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *sebackup_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *serestore_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *sesystemtime_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seshutdown_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seremoteshutdown_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *setakeownership_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *sedebug_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *sesystemenvironment_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *sesystemprofile_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seprofilesingleprocess_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seincreasebasepriority_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seloaddriver_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *secreatepagefile_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seincreasequota_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seundock_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *semanagevolume_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *seimpersonate_sid = (sidlistnode*)malloc(sizeof(SID));
-struct sidlistnode *secreateglobal_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *sechangenotify_sid = nullptr;
+sidlistnode *sesecurity_sid = (sidlistnode *)malloc(sizeof(SID));
+sidlistnode *sebackup_sid = (sidlistnode *)malloc(sizeof(sidlistnode));
+sidlistnode *serestore_sid = (sidlistnode *)malloc(sizeof(SID));
+sidlistnode *sesystemtime_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seshutdown_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seremoteshutdown_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *setakeownership_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *sedebug_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *sesystemenvironment_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *sesystemprofile_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seprofilesingleprocess_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seincreasebasepriority_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seloaddriver_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *secreatepagefile_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seincreasequota_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seundock_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *semanagevolume_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *seimpersonate_sid = (sidlistnode*)malloc(sizeof(SID));
+sidlistnode *secreateglobal_sid = (sidlistnode*)malloc(sizeof(SID));
 
 
 
