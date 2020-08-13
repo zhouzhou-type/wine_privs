@@ -176,26 +176,26 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID val){
 }
 
 //zyq sysprivilege management
-struct sidlistnode *sechangenotify_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode));
-struct sidlistnode *sesecurity_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sebackup_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *serestore_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesystemtime_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seshutdown_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seremoteshutdown_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *setakeownership_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sedebug_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesystemenvironment_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sesystemprofile_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seprofilesingleprocess_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seincreasebasepriority_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seloaddriver_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *secreatepagefile_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seincreasequota_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seundock_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *semanagevolume_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *seimpersonate_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *secreateglobal_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sechangenotify_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *sesecurity_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *sebackup_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *serestore_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *sesystemtime_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seshutdown_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seremoteshutdown_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *setakeownership_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *sedebug_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *sesystemenvironment_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *sesystemprofile_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seprofilesingleprocess_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seincreasebasepriority_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seloaddriver_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *secreatepagefile_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seincreasequota_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seundock_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *semanagevolume_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *seimpersonate_sid = (struct sidlistnode*)malloc(sizeof(SID));
+struct sidlistnode *secreateglobal_sid = (struct sidlistnode*)malloc(sizeof(SID));
 
 
 
