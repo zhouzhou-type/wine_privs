@@ -89,8 +89,8 @@ struct privilege
 {
     struct list entry;
     LUID        luid;
-    unsigned    enabled; /* is the privilege currently enabled? */
-    unsigned    def; /* is the privilege enabled by default? */
+    unsigned    enabled : 1; /* is the privilege currently enabled? */
+    unsigned    def     : 1; /* is the privilege enabled by default? */
 	//struct list sid;
     struct sidlistnode* sid;
 };
