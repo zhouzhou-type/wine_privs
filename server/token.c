@@ -151,12 +151,12 @@ static struct list group_list = LIST_INIT( group_list );
 
 typedef struct sidlistnode{
     SID val;
-	sidlistnode *next;
+	struct sidlistnode *next;
 };
 
 typedef struct luidlistnode{
     LUID val;
-	luidlistnode *next;
+	struct luidlistnode *next;
 };
 
 void luidlistaddtotail(struct luidlistnode *phead, LUID val){
@@ -176,8 +176,8 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID val){
 }
 
 //zyq sysprivilege management
-sidlistnode *sechangenotify_sid = nullptr;
-sidlistnode *sesecurity_sid = (sidlistnode *)malloc(sizeof(SID));
+struct sidlistnode *sechangenotify_sid = NULL;
+struct sidlistnode *sesecurity_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode));
 sidlistnode *sebackup_sid = (sidlistnode *)malloc(sizeof(sidlistnode));
 sidlistnode *serestore_sid = (sidlistnode *)malloc(sizeof(SID));
 sidlistnode *sesystemtime_sid = (sidlistnode*)malloc(sizeof(SID));
