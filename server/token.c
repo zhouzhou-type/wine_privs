@@ -167,7 +167,7 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID val){
         phead = pnew;
 	}
 	else{
-        luidlistnode *pnode = *phead;
+       struct luidlistnode *pnode = phead;
 		while(pnode->next != NULL){
             pnode = pnode->next;
 		}
@@ -184,7 +184,7 @@ struct sidlistnode *sesystemtime_sid = (struct sidlistnode*)malloc(sizeof(sidlis
 struct sidlistnode *seshutdown_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
 struct sidlistnode *seremoteshutdown_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
 struct sidlistnode *setakeownership_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
-struct sidlistnode *sedebug_sid = new (struct sidlistnode*)malloc(sizeof(sidlistnode));
+struct sidlistnode *sedebug_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
 struct sidlistnode *sesystemenvironment_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
 struct sidlistnode *sesystemprofile_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
 struct sidlistnode *seprofilesingleprocess_sid = (struct sidlistnode*)malloc(sizeof(sidlistnode));
@@ -200,26 +200,26 @@ struct sidlistnode *secreateglobal_sid = (struct sidlistnode*)malloc(sizeof(sidl
 
 
 struct privilege sysprivs[] = {
-	{ SeChangeNotifyPrivilege		 , 0,0, sechangenotify_sid},
-	{ SeSecurityPrivilege			 , 0,0, sesecurity_sid	  },
-	{ SeBackupPrivilege 			 , 0,0, sebackup_sid	  },
-	{ SeRestorePrivilege			 , 0,0, serestore_sid	  },
-	{ SeSystemtimePrivilege 		 , 0,0, sesystemtime_sid  },
-	{ SeShutdownPrivilege			 , 0,0, seshutdown_sid	  },
-	{ SeRemoteShutdownPrivilege 	 , 0,0, seremoteshutdown_sid				},
-	{ SeTakeOwnershipPrivilege		 , 0,0, 	setakeownership_sid				},
-	{ SeDebugPrivilege				 , 0,0,		sedebug_sid			},
-	{ SeSystemEnvironmentPrivilege	 , 0,0,sesystemenvironment_sid					},
-	{ SeSystemProfilePrivilege		 , 0,0,sesystemprofile_sid					},
-	{ SeProfileSingleProcessPrivilege, 0,0,		seprofilesingleprocess_sid			},
-	{ SeIncreaseBasePriorityPrivilege, 0,0,		seincreasebasepriority_sid			},
-	{ SeLoadDriverPrivilege 		 , 0,0,  seloaddriver_sid},
-	{ SeCreatePagefilePrivilege 	 , 0,0, 	secreatepagefile_sid				},
-	{ SeIncreaseQuotaPrivilege		 , 0,0, seincreasequota_sid					},
-	{ SeUndockPrivilege 			 , 0,0,seundock_sid					},
-	{ SeManageVolumePrivilege		 , 0,0,semanagevolume_sid					},
-	{ SeImpersonatePrivilege		 , 0,0,  seimpersonate_sid},
-	{ SeCreateGlobalPrivilege		 , 0,0,  secreateglobal_sid},
+	{ { 23, 0 }		 , 0,0, sechangenotify_sid},
+	{ {  8, 0 }			 , 0,0, sesecurity_sid	  },
+	{ { 17, 0 } 			 , 0,0, sebackup_sid	  },
+	{ { 18, 0 }			 , 0,0, serestore_sid	  },
+	{ { 12, 0 } 		 , 0,0, sesystemtime_sid  },
+	{ { 19, 0 }			 , 0,0, seshutdown_sid	  },
+	{ { 24, 0 } 	 , 0,0, seremoteshutdown_sid				},
+	{ {  9, 0 }		 , 0,0, 	setakeownership_sid				},
+	{ { 20, 0 }				 , 0,0,		sedebug_sid			},
+	{ { 22, 0 }	 , 0,0,sesystemenvironment_sid					},
+	{ { 11, 0 }		 , 0,0,sesystemprofile_sid					},
+	{ { 13, 0 }, 0,0,		seprofilesingleprocess_sid			},
+	{ { 14, 0 }, 0,0,		seincreasebasepriority_sid			},
+	{ { 10, 0 } 		 , 0,0,  seloaddriver_sid},
+	{ { 15, 0 } 	 , 0,0, 	secreatepagefile_sid				},
+	{ {  5, 0 }		 , 0,0, seincreasequota_sid					},
+	{ { 25, 0 } 			 , 0,0,seundock_sid					},
+	{ { 28, 0 }		 , 0,0,semanagevolume_sid					},
+	{ { 29, 0 }		 , 0,0,  seimpersonate_sid},
+	{ { 30, 0 }		 , 0,0,  secreateglobal_sid},
 
 };
 
