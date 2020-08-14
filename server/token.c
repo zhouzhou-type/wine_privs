@@ -927,7 +927,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     for(int i = 0; i < 20; i++){
         LUID_AND_ATTRIBUTES priv = privs[i];
 		while(luids){
-            if(luids->val == priv.Luid)
+            if(luids->val.HighPart == priv.Luid.HighPart)
 				priv.Attributes = SE_PRIVILEGE_ENABLED;
 			luids = luids->next;
 		}
