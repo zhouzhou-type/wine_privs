@@ -896,10 +896,11 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	struct luidlistnode *luids = syspriv_luids;
     for(int i = 0; i < 20; i++){
         LUID_AND_ATTRIBUTES priv = privs[i];
-		while(luids){
-            if(luids->val->HighPart == priv.Luid.HighPart)
+		//while(luids){
+		while(syspriv_luids){
+            if(syspriv_luids->val->HighPart == priv.Luid.HighPart)
 				priv.Attributes = SE_PRIVILEGE_ENABLED;
-			luids = luids->next;
+			syspriv_luids = syspriv_luids->next;
 		}
 	}
 	
