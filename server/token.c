@@ -857,8 +857,8 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
 	
     //traverse privilege array, find which privilege that gsid related to
-	//struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(struct luidlistnode)); //store the privilege luid which find out
-    struct luidlistnode *syspriv_luids = NULL;
+	struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(struct luidlistnode)); //store the privilege luid which find out
+    //struct luidlistnode *syspriv_luids = NULL;
 	for(int i = 0; i < 20; i++){
         struct privilege pr = sysprivs[i];
 		struct sidlistnode *sids = pr.sid;
@@ -893,7 +893,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
         { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
 	};
 	//traverse group privilege luid ==>syspriv_luids
-	struct luidlistnode *luids = &syspriv_luids;
+	struct luidlistnode *luids = syspriv_luids;
     for(int i = 0; i < 20; i++){
         LUID_AND_ATTRIBUTES priv = privs[i];
 		while(luids){
