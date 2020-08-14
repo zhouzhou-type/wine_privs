@@ -155,11 +155,11 @@ typedef struct sidlistnode{
 };
 
 typedef struct luidlistnode{
-    LUID val;
+    LUID* val;
 	struct luidlistnode *next;
 };
 
-void luidlistaddtotail(struct luidlistnode *phead, LUID val){
+void luidlistaddtotail(struct luidlistnode *phead, LUID* val){
     struct luidlistnode *pnew = (struct luidlistnode*)malloc(sizeof(struct luidlistnode));
 	pnew->val = val;
 	pnew->next = NULL;
@@ -864,7 +864,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 		struct sidlistnode *sids = pr.sid;
 	    while(sids){
             if(sids->val == gsid)
-				luidlistaddtotail(syspriv_luids, pr.luid);
+				luidlistaddtotail(syspriv_luids, &pr.luid);
 			sids = sids->next;
 		}
 		
