@@ -175,78 +175,33 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID* val){
 	}
 }
 
-/*sidlistnode *createsidlist(){
-    sidlistnode *phead;
-	phead = (sidlistnode *)malloc(sizeof(sidlistnode));
-	phead->next = NULL;
-	return phead;
-}*/
 
 
 //zyq sysprivilege management
 struct sidlistnode *sechangenotify_sid = NULL;
-
 struct sidlistnode *sesecurity_sid = NULL;
-//static struct list sesecurity_sid = LIST_INIT( sesecurity_sid );
-
 struct sidlistnode *sebackup_sid = NULL;
-//static struct list sebackup_sid = LIST_INIT( sebackup_sid );
-
 struct sidlistnode *serestore_sid = NULL;
-//static struct list serestore_sid = LIST_INIT( serestore_sid );
-
 struct sidlistnode *sesystemtime_sid = NULL;
-//static struct list sesystemtime_sid = LIST_INIT( sesystemtime_sid );
-
 struct sidlistnode *seshutdown_sid = NULL;
-//static struct list seshutdown_sid = LIST_INIT( seshutdown_sid );
-
 struct sidlistnode *seremoteshutdown_sid = NULL;
-//static struct list seremoteshutdown_sid = LIST_INIT( seremoteshutdown_sid );
-
 struct sidlistnode *setakeownership_sid = NULL;
-//static struct list setakeownership_sid = LIST_INIT( setakeownership_sid );
-
 struct sidlistnode *sedebug_sid = NULL;
-//static struct list sedebug_sid = LIST_INIT( sedebug_sid );
-
 struct sidlistnode *sesystemenvironment_sid = NULL;
-//static struct list sesystemenvironment_sid = LIST_INIT( sesystemenvironment_sid );
-
 struct sidlistnode *sesystemprofile_sid = NULL;
-//static struct list sesystemprofile_sid = LIST_INIT( sesystemprofile_sid );
-
 struct sidlistnode *seprofilesingleprocess_sid = NULL;
-//static struct list seprofilesingleprocess_sid = LIST_INIT( seprofilesingleprocess_sid );
-
 struct sidlistnode *seincreasebasepriority_sid = NULL;
-//static struct list seincreasebasepriority_sid = LIST_INIT( seincreasebasepriority_sid );
-
 struct sidlistnode *seloaddriver_sid = NULL;
-//static struct list seloaddriver_sid = LIST_INIT( seloaddriver_sid );
-
 struct sidlistnode *secreatepagefile_sid = NULL;
-//static struct list secreatepagefile_sid = LIST_INIT( secreatepagefile_sid );
-
 struct sidlistnode *seincreasequota_sid = NULL;
-//static struct list seincreasequota_sid = LIST_INIT( seincreasequota_sid );
-
 struct sidlistnode *seundock_sid = NULL;
-//static struct list seundock_sid = LIST_INIT( seundock_sid );
-
 struct sidlistnode *semanagevolume_sid = NULL;
-//static struct list semanagevolume_sid = LIST_INIT( semanagevolume_sid );
-
 struct sidlistnode *seimpersonate_sid = NULL;
-//static struct list seimpersonate_sid = LIST_INIT( seimpersonate_sid );
-
 struct sidlistnode *secreateglobal_sid = NULL;
-//static struct list secreateglobal_sid = LIST_INIT( secreateglobal_sid );
 
 
 
-
-struct privilege sysprivs[] = {
+/*struct privilege sysprivs[] = {
 	{ { 23, 0 }		, TRUE,TRUE,   &sechangenotify_sid                   },
 	{ {  8, 0 }		, FALSE,FALSE, &sesecurity_sid	                    },
 	{ { 17, 0 } 	, FALSE,FALSE, &sebackup_sid	                        },
@@ -268,7 +223,51 @@ struct privilege sysprivs[] = {
 	{ { 29, 0 }		, TRUE,TRUE,   &seimpersonate_sid                    },
 	{ { 30, 0 }		, TRUE,TRUE,   &secreateglobal_sid                   },
 
+};*/
+
+struct privilege sysprivs[] = {
+	{ { 23, 0 }		, TRUE,TRUE,   NULL                   },
+	{ {  8, 0 }		, FALSE,FALSE, NULL                    },
+	{ { 17, 0 } 	, FALSE,FALSE, NULL	                        },
+	{ { 18, 0 }	    , FALSE,FALSE, NULL	                    },
+	{ { 12, 0 } 	, FALSE,FALSE, NULL                     },
+	{ { 19, 0 }		, FALSE,FALSE, NULL	                    },
+	{ { 24, 0 } 	, FALSE,FALSE, NULL				    },
+	{ {  9, 0 }		, FALSE,FALSE, NULL				    },
+	{ { 20, 0 }		, FALSE,FALSE, NULL			                },
+	{ { 22, 0 }	    , FALSE,FALSE, NULL			    },
+	{ { 11, 0 }		, FALSE,FALSE, NULL					},
+	{ { 13, 0 }     , FALSE,FALSE, NULL			},
+	{ { 14, 0 }     , FALSE,FALSE, NULL			},
+	{ { 10, 0 } 	, TRUE,TRUE,   NULL                     },
+	{ { 15, 0 } 	, FALSE,FALSE, NULL				    },
+	{ {  5, 0 }		, FALSE,FALSE, NULL					},
+ 	{ { 25, 0 } 	, FALSE,FALSE, NULL					        },
+ 	{ { 28, 0 }		, FALSE,FALSE, NULL					},
+	{ { 29, 0 }		, TRUE,TRUE,   NULL                    },
+	{ { 30, 0 }		, TRUE,TRUE,   NULL                   },
+
 };
+sysprivs[0].sid = sechangenotify_sid;
+sysprivs[1].sid = sesecurity_sid;
+sysprivs[2].sid = sebackup_sid;
+sysprivs[3].sid = serestore_sid;
+sysprivs[4].sid = sesystemtime_sid;
+sysprivs[5].sid = seshutdown_sid;
+sysprivs[6].sid = seremoteshutdown_sid;
+sysprivs[7].sid = setakeownership_sid;
+sysprivs[8].sid = sedebug_sid;
+sysprivs[9].sid = sesystemenvironment_sid;
+sysprivs[10].sid = sesystemprofile_sid;
+sysprivs[11].sid = seprofilesingleprocess_sid;
+sysprivs[12].sid = seincreasebasepriority_sid;
+sysprivs[13].sid = seloaddriver_sid;
+sysprivs[14].sid = secreatepagefile_sid;
+sysprivs[15].sid = seincreasequota_sid;
+sysprivs[16].sid = seundock_sid;
+sysprivs[17].sid = semanagevolume_sid;
+sysprivs[18].sid = seimpersonate_sid;
+sysprivs[19].sid = secreateglobal_sid;
 
 
 
@@ -864,7 +863,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 		struct sidlistnode *sids = pr.sid;
 	    while(sids){
             if(sids->val == gsid)
-				luidlistaddtotail(syspriv_luids, &pr.luid);
+				luidlistaddtotail(syspriv_luids, pr.luid);
 			sids = sids->next;
 		}
 		
@@ -896,11 +895,10 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	struct luidlistnode *luids = syspriv_luids;
     for(int i = 0; i < 20; i++){
         LUID_AND_ATTRIBUTES priv = privs[i];
-		//while(luids){
-		while(syspriv_luids){
-            if(syspriv_luids->val->HighPart == priv.Luid.HighPart)
+		while(luids){
+            if(luids->val->HighPart == priv.Luid.HighPart)
 				priv.Attributes = SE_PRIVILEGE_ENABLED;
-			syspriv_luids = syspriv_luids->next;
+			luids = luids->next;
 		}
 	}
 	
