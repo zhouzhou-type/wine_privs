@@ -248,26 +248,26 @@ struct privilege sysprivs[] = {
 	{ { 30, 0 }		, TRUE,TRUE,   NULL                   },
 
 };
-sysprivs[0].sid = sechangenotify_sid;
-sysprivs[1].sid = sesecurity_sid;
-sysprivs[2].sid = sebackup_sid;
-sysprivs[3].sid = serestore_sid;
-sysprivs[4].sid = sesystemtime_sid;
-sysprivs[5].sid = seshutdown_sid;
-sysprivs[6].sid = seremoteshutdown_sid;
-sysprivs[7].sid = setakeownership_sid;
-sysprivs[8].sid = sedebug_sid;
-sysprivs[9].sid = sesystemenvironment_sid;
-sysprivs[10].sid = sesystemprofile_sid;
-sysprivs[11].sid = seprofilesingleprocess_sid;
-sysprivs[12].sid = seincreasebasepriority_sid;
-sysprivs[13].sid = seloaddriver_sid;
-sysprivs[14].sid = secreatepagefile_sid;
-sysprivs[15].sid = seincreasequota_sid;
-sysprivs[16].sid = seundock_sid;
-sysprivs[17].sid = semanagevolume_sid;
-sysprivs[18].sid = seimpersonate_sid;
-sysprivs[19].sid = secreateglobal_sid;
+sysprivs[0]->sid = sechangenotify_sid;
+sysprivs[1]->sid = sesecurity_sid;
+sysprivs[2]->sid = sebackup_sid;
+sysprivs[3]->sid = serestore_sid;
+sysprivs[4]->sid = sesystemtime_sid;
+sysprivs[5]->sid = seshutdown_sid;
+sysprivs[6]->sid = seremoteshutdown_sid;
+sysprivs[7]->sid = setakeownership_sid;
+sysprivs[8]->sid = sedebug_sid;
+sysprivs[9]->sid = sesystemenvironment_sid;
+sysprivs[10]->sid = sesystemprofile_sid;
+sysprivs[11]->sid = seprofilesingleprocess_sid;
+sysprivs[12]->sid = seincreasebasepriority_sid;
+sysprivs[13]->sid = seloaddriver_sid;
+sysprivs[14]->sid = secreatepagefile_sid;
+sysprivs[15]->sid = seincreasequota_sid;
+sysprivs[16]->sid = seundock_sid;
+sysprivs[17]->sid = semanagevolume_sid;
+sysprivs[18]->sid = seimpersonate_sid;
+sysprivs[19]->sid = secreateglobal_sid;
 
 
 
@@ -863,7 +863,7 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 		struct sidlistnode *sids = pr.sid;
 	    while(sids){
             if(sids->val == gsid)
-				luidlistaddtotail(syspriv_luids, pr.luid);
+				luidlistaddtotail(syspriv_luids, &pr.luid);
 			sids = sids->next;
 		}
 		
