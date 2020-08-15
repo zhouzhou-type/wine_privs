@@ -149,12 +149,12 @@ static struct list group_list = LIST_INIT( group_list );
 }
 */
 
-typedef struct sidlistnode{
+struct sidlistnode{
     SID* val;
 	struct sidlistnode *next;
 };
 
-typedef struct luidlistnode{
+struct luidlistnode{
     LUID* val;
 	struct luidlistnode *next;
 };
@@ -248,9 +248,10 @@ struct privilege sysprivs[] = {
 	{ { 30, 0 }		, TRUE,TRUE,   NULL                   },
 
 };
-sysprivs[0]->sid = sechangenotify_sid;
-sysprivs[1]->sid = sesecurity_sid;
-sysprivs[2]->sid = sebackup_sid;
+
+sysprivs[0]->sid = &sechangenotify_sid;
+sysprivs[1]->sid = &sesecurity_sid;
+sysprivs[2]->sid = &sebackup_sid;
 sysprivs[3]->sid = serestore_sid;
 sysprivs[4]->sid = sesystemtime_sid;
 sysprivs[5]->sid = seshutdown_sid;
