@@ -856,8 +856,8 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	sysprivs[18].sid = seimpersonate_sid;
 	sysprivs[19].sid = secreateglobal_sid;
     //traverse privilege array, find which privilege that gsid related to
-	struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(struct luidlistnode)); //store the privilege luid which find out
-    //struct luidlistnode *syspriv_luids = NULL;
+	//struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(struct luidlistnode)); //store the privilege luid which find out
+    struct luidlistnode *syspriv_luids = NULL;
 	for(int i = 0; i < 20; i++){
         struct privilege pr = sysprivs[i];
 		struct sidlistnode *sids = pr.sid;
@@ -894,6 +894,8 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	//traverse group privilege luid ==>syspriv_luids
 	struct luidlistnode *luids = syspriv_luids;
     for(int i = 0; i < 20; i++){
+		if(luids == NULL)
+			break;
         LUID_AND_ATTRIBUTES priv = privs[i];
 		while(luids){
             if(luids->val->HighPart == priv.Luid.HighPart)
