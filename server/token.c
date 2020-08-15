@@ -178,65 +178,26 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID* val){
 
 
 //zyq sysprivilege management
-//struct sidlistnode *sechangenotify_sid = NULL;
-struct sidlistnode *sechangenotify_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *sesecurity_sid = NULL;
-struct sidlistnode *sesecurity_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *sebackup_sid = NULL;
-struct sidlistnode *sebackup_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *serestore_sid = NULL;
-struct sidlistnode *serestore_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *sesystemtime_sid = NULL;
-struct sidlistnode *sesystemtime_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seshutdown_sid = NULL;
-struct sidlistnode *seshutdown_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seremoteshutdown_sid = NULL;
-struct sidlistnode *seremoteshutdown_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *setakeownership_sid = NULL;
-struct sidlistnode *setakeownership_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *sedebug_sid = NULL;
-struct sidlistnode *sedebug_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *sesystemenvironment_sid = NULL;
-struct sidlistnode *sesystemenvironment_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *sesystemprofile_sid = NULL;
-struct sidlistnode *sesystemprofile_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seprofilesingleprocess_sid = NULL;
-struct sidlistnode *seprofilesingleprocess_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seincreasebasepriority_sid = NULL;
-struct sidlistnode *seincreasebasepriority_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seloaddriver_sid = NULL;
-struct sidlistnode *seloaddriver_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *secreatepagefile_sid = NULL;
-struct sidlistnode *secreatepagefile_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seincreasequota_sid = NULL;
-struct sidlistnode *seincreasequota_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seundock_sid = NULL;
-struct sidlistnode *seundock_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *semanagevolume_sid = NULL;
-struct sidlistnode *semanagevolume_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *seimpersonate_sid = NULL;
-struct sidlistnode *seimpersonate_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
-
-//struct sidlistnode *secreateglobal_sid = NULL;
-struct sidlistnode *secreateglobal_sid = (struct sidlistnode*)malloc(sizeof(struct sidlistnode)); 
+struct sidlistnode *sechangenotify_sid = NULL;
+struct sidlistnode *sesecurity_sid = NULL;
+struct sidlistnode *sebackup_sid = NULL;
+struct sidlistnode *serestore_sid = NULL;
+struct sidlistnode *sesystemtime_sid = NULL;
+struct sidlistnode *seshutdown_sid = NULL;
+struct sidlistnode *seremoteshutdown_sid = NULL;
+struct sidlistnode *setakeownership_sid = NULL;
+struct sidlistnode *sedebug_sid = NULL;
+struct sidlistnode *sesystemenvironment_sid = NULL;
+struct sidlistnode *sesystemprofile_sid = NULL;
+struct sidlistnode *seprofilesingleprocess_sid = NULL;
+struct sidlistnode *seincreasebasepriority_sid = NULL;
+struct sidlistnode *seloaddriver_sid = NULL;
+struct sidlistnode *secreatepagefile_sid = NULL;
+struct sidlistnode *seincreasequota_sid = NULL;
+struct sidlistnode *seundock_sid = NULL;
+struct sidlistnode *semanagevolume_sid = NULL;
+struct sidlistnode *seimpersonate_sid = NULL;
+struct sidlistnode *secreateglobal_sid = NULL;
 
 
 
