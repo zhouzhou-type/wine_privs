@@ -201,30 +201,6 @@ struct sidlistnode *secreateglobal_sid = NULL;
 
 
 
-/*struct privilege sysprivs[] = {
-	{ { 23, 0 }		, TRUE,TRUE,   &sechangenotify_sid                   },
-	{ {  8, 0 }		, FALSE,FALSE, &sesecurity_sid	                    },
-	{ { 17, 0 } 	, FALSE,FALSE, &sebackup_sid	                        },
-	{ { 18, 0 }	    , FALSE,FALSE, &serestore_sid	                    },
-	{ { 12, 0 } 	, FALSE,FALSE, &sesystemtime_sid                     },
-	{ { 19, 0 }		, FALSE,FALSE, &seshutdown_sid	                    },
-	{ { 24, 0 } 	, FALSE,FALSE, &seremoteshutdown_sid				    },
-	{ {  9, 0 }		, FALSE,FALSE, &setakeownership_sid				    },
-	{ { 20, 0 }		, FALSE,FALSE, &sedebug_sid			                },
-	{ { 22, 0 }	    , FALSE,FALSE, &sesystemenvironment_sid			    },
-	{ { 11, 0 }		, FALSE,FALSE, &sesystemprofile_sid					},
-	{ { 13, 0 }     , FALSE,FALSE, &seprofilesingleprocess_sid			},
-	{ { 14, 0 }     , FALSE,FALSE, &seincreasebasepriority_sid			},
-	{ { 10, 0 } 	, TRUE,TRUE,   &seloaddriver_sid                     },
-	{ { 15, 0 } 	, FALSE,FALSE, &secreatepagefile_sid				    },
-	{ {  5, 0 }		, FALSE,FALSE, &seincreasequota_sid					},
- 	{ { 25, 0 } 	, FALSE,FALSE, &seundock_sid					        },
- 	{ { 28, 0 }		, FALSE,FALSE, &semanagevolume_sid					},
-	{ { 29, 0 }		, TRUE,TRUE,   &seimpersonate_sid                    },
-	{ { 30, 0 }		, TRUE,TRUE,   &secreateglobal_sid                   },
-
-};*/
-
 struct privilege sysprivs[] = {
 	{ { 23, 0 }		, TRUE,TRUE,   NULL                   },
 	{ {  8, 0 }		, FALSE,FALSE, NULL                    },
@@ -1170,7 +1146,7 @@ static unsigned int token_access_check( struct token *token,
     else if (priv_count) *priv_count = 0;
 
     //zyq
-	if(desired_access & GENERIC_ALL){
+/*	if(desired_access & GENERIC_ALL){
         const LUID_AND_ATTRIBUTES takeownership_priv = {SeTakeOwnershipPrivilege,0};
 		LUID_AND_ATTRIBUTES retpriv = takeownership_priv;
 	    if(token_check_privileges(token,TRUE,&takeownership_priv,1,&retpriv)){
@@ -1199,7 +1175,7 @@ static unsigned int token_access_check( struct token *token,
 	}
 	else if(priv_count)
 		*priv_count = 0;
-
+*/
     /* 3: Check whether the token is the owner */
     /* NOTE: SeTakeOwnershipPrivilege is not checked for here - it is instead
      * checked when a "set owner" call is made, overriding the access rights
