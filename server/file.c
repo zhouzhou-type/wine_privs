@@ -262,9 +262,13 @@ static struct object *create_file( struct fd *root, const char *nameptr, data_si
         int dsharing = FILE_SHARE_READ;
         int doptions = FILE_DIRECTORY_FILE;
         struct object *dir_obj = create_file( root, dname, strlen(dname), daccess, dsharing, FILE_OPEN, doptions, 0, NULL );
+	if(dir_obj == NULL){
+	    free(dname);
+	    set_error(STATUS_ACCESS_DENIED);
+	    goto done;
+	}
         check_status = check_file_object_access(dir_obj, &daccess) ? STATUS_SUCCESS : STATUS_ACCESS_DENIED;
         release_object( dir_obj );
-        free(dname);
         //fprintf(stderr, "checked dir %s\n", dname); fflush(stderr);
     } else {
         //fprintf(stderr, "check open dir%s\n", name); fflush(stderr);
@@ -627,6 +631,12 @@ mode_t sd_to_mode( const struct security_descriptor *sd, const SID *owner )
     return new_mode;
 }
 
+static int set_owner_check_privilege(struct token *token, const LUID *priv){
+    const LUID_AND_ATTRIBUTES privs = {*priv,0};
+    if(!token)
+	    return FALSE;
+    return token_check_privileges(token,TRUE,&privs,1,NULL);
+}
 static int file_set_sd( struct object *obj, const struct security_descriptor *sd,
                         unsigned int set_info )
 {
@@ -653,6 +663,12 @@ static int file_set_sd( struct object *obj, const struct security_descriptor *sd
         if (!obj->sd || !security_equal_sid( owner, sd_get_owner( obj->sd ) ))
         {
             /* FIXME: get Unix uid and call fchown */
+	    if(!set_owner_check_privilege(current->process->token,&SeTakeOwnershipPrivilege)){
+	        set_error(STATUS_PRIVILEGE_NOT_HELD);
+		return;
+	    }
+	    int res = fchown(unix_fd,1001,1001);
+	    return res;
         }
     }
     else if (obj->sd)

@@ -159,6 +159,15 @@ struct luidlistnode{
 	struct luidlistnode *next;
 };
 
+void luidlistinithead(struct luidlistnode * *phead){
+    *phead = (struct luidlistnode *)malloc(sizeof(struct luidlistnode));
+    if(*phead == NULL){
+        fprintf(stderr,"inithead failed\n"); fflush(stderr);
+	exit(-1);
+    }
+    (*phead)->next = NULL;
+}
+
 void luidlistaddtotail(struct luidlistnode *phead, LUID* val){
     struct luidlistnode *pnew = (struct luidlistnode*)malloc(sizeof(struct luidlistnode));
 	pnew->val = val;
@@ -175,7 +184,30 @@ void luidlistaddtotail(struct luidlistnode *phead, LUID* val){
 	}
 }
 
+void sidlistinithead(struct sidlistnode * *phead){
+    *phead = (struct sidlistnode*)malloc(sizeof(struct sidlistnode));
+    if(*phead == NULL){
+        fprintf(stderr,"inithead failed\n"); fflush(stderr);
+	exit(-1);
+    }
+    (*phead)->next = NULL;
+}
 
+void sidlistaddtotail(struct sidlistnode *phead, SID* val){
+    struct sidlistnode *pnew = (struct sidlistnode*)malloc(sizeof(struct sidlistnode));
+    pnew->val = val;
+    pnew->next = NULL;
+    if(phead == NULL){
+        phead = pnew;
+    }
+    else{
+        struct sidlistnode *pnode = phead;
+	while(pnode->next != NULL){
+	    pnode = pnode->next;
+	}
+	pnode->next = pnew;
+    }
+}
 
 //zyq sysprivilege management
 struct sidlistnode *sechangenotify_sid = NULL;
@@ -202,26 +234,26 @@ struct sidlistnode *secreateglobal_sid = NULL;
 
 
 struct privilege sysprivs[] = {
-	{ { 23, 0 }		, TRUE,TRUE,   NULL                   },
-	{ {  8, 0 }		, FALSE,FALSE, NULL                    },
-	{ { 17, 0 } 	, FALSE,FALSE, NULL	                        },
-	{ { 18, 0 }	    , FALSE,FALSE, NULL	                    },
-	{ { 12, 0 } 	, FALSE,FALSE, NULL                     },
-	{ { 19, 0 }		, FALSE,FALSE, NULL	                    },
-	{ { 24, 0 } 	, FALSE,FALSE, NULL				    },
-	{ {  9, 0 }		, FALSE,FALSE, NULL				    },
-	{ { 20, 0 }		, FALSE,FALSE, NULL			                },
-	{ { 22, 0 }	    , FALSE,FALSE, NULL			    },
-	{ { 11, 0 }		, FALSE,FALSE, NULL					},
-	{ { 13, 0 }     , FALSE,FALSE, NULL			},
-	{ { 14, 0 }     , FALSE,FALSE, NULL			},
-	{ { 10, 0 } 	, TRUE,TRUE,   NULL                     },
-	{ { 15, 0 } 	, FALSE,FALSE, NULL				    },
-	{ {  5, 0 }		, FALSE,FALSE, NULL					},
- 	{ { 25, 0 } 	, FALSE,FALSE, NULL					        },
- 	{ { 28, 0 }		, FALSE,FALSE, NULL					},
-	{ { 29, 0 }		, TRUE,TRUE,   NULL                    },
-	{ { 30, 0 }		, TRUE,TRUE,   NULL                   },
+	{NULL,0, { 23, 0 }		, TRUE,TRUE,   NULL                   },
+	{NULL,0, {  8, 0 }		, FALSE,FALSE, NULL                    },
+	{NULL,0, { 17, 0 } 	, FALSE,FALSE, NULL	                        },
+	{NULL,0, { 18, 0 }	    , FALSE,FALSE, NULL	                    },
+	{NULL,0, { 12, 0 } 	, FALSE,FALSE, NULL                     },
+	{NULL,0, { 19, 0 }		, FALSE,FALSE, NULL	                    },
+	{NULL,0, { 24, 0 } 	, FALSE,FALSE, NULL				    },
+	{NULL,0, {  9, 0 }		, FALSE,FALSE, NULL				    },
+	{NULL,0, { 20, 0 }		, FALSE,FALSE, NULL			                },
+	{NULL,0, { 22, 0 }	    , FALSE,FALSE, NULL			    },
+	{NULL,0, { 11, 0 }		, FALSE,FALSE, NULL					},
+	{NULL,0, { 13, 0 }     , FALSE,FALSE, NULL			},
+	{NULL,0, { 14, 0 }     , FALSE,FALSE, NULL			},
+	{NULL,0, { 10, 0 } 	, TRUE,TRUE,   NULL                     },
+	{NULL,0, { 15, 0 } 	, FALSE,FALSE, NULL				    },
+	{NULL,0, {  5, 0 }		, FALSE,FALSE, NULL					},
+ 	{NULL,0, { 25, 0 } 	, FALSE,FALSE, NULL					        },
+ 	{NULL,0, { 28, 0 }		, FALSE,FALSE, NULL					},
+	{NULL,0, { 29, 0 }		, TRUE,TRUE,   NULL                    },
+	{NULL,0, { 30, 0 }		, TRUE,TRUE,   NULL                   },
 
 };
 
@@ -810,7 +842,29 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
     };
     DWORD group_count = sizeof(groups) / sizeof(SID_AND_ATTRIBUTES);
 
-    
+        //sid init
+	sidlistinithead(&sechangenotify_sid);
+	sidlistinithead(&sesecurity_sid);
+	sidlistinithead(&sebackup_sid);
+	sidlistinithead(&serestore_sid);
+	sidlistinithead(&sesystemtime_sid);
+	sidlistinithead(&seshutdown_sid);
+	sidlistinithead(&seremoteshutdown_sid);
+	sidlistinithead(&setakeownership_sid);
+	sidlistinithead(&sedebug_sid);
+	sidlistinithead(&sesystemenvironment_sid);
+	sidlistinithead(&sesystemprofile_sid);
+	sidlistinithead(&seprofilesingleprocess_sid);
+	sidlistinithead(&seincreasebasepriority_sid);
+	sidlistinithead(&seloaddriver_sid);
+	sidlistinithead(&secreatepagefile_sid);
+	sidlistinithead(&seincreasequota_sid);
+	sidlistinithead(&seundock_sid);
+	sidlistinithead(&semanagevolume_sid);
+	sidlistinithead(&seimpersonate_sid);
+	sidlistinithead(&secreateglobal_sid);
+   
+       //sysprivilege sid assignment	
 	sysprivs[0].sid = sechangenotify_sid;
 	sysprivs[1].sid = sesecurity_sid;
 	sysprivs[2].sid = sebackup_sid;
@@ -831,18 +885,26 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
 	sysprivs[17].sid = semanagevolume_sid;
 	sysprivs[18].sid = seimpersonate_sid;
 	sysprivs[19].sid = secreateglobal_sid;
+
+	//add sid to struct privilege setakeownership
+	sidlistaddtotail(setakeownership_sid,security_unix_uid_to_sid(0));
+
+	
     //traverse privilege array, find which privilege that gsid related to
-	//struct luidlistnode *syspriv_luids = (struct luidlistnode*)malloc(sizeof(struct luidlistnode)); //store the privilege luid which find out
-    struct luidlistnode *syspriv_luids = NULL;
+    //store the privilege luid which find out
+	struct luidlistnode *syspriv_luids = NULL;
+	luidlistinithead(&syspriv_luids);
+
 	for(int i = 0; i < 20; i++){
-        struct privilege pr = sysprivs[i];
-		struct sidlistnode *sids = pr.sid;
-	    while(sids){
-            if(sids->val == gsid)
-				luidlistaddtotail(syspriv_luids, &pr.luid);
-			sids = sids->next;
-		}
-		
+	   struct sidlistnode *sids = sysprivs[i].sid;
+           while(sids != NULL){
+	       if(sids->val != NULL){
+	           if(sids->val->SubAuthority[4] == gsid->SubAuthority[4] || sids->val->SubAuthority[4] == usid->SubAuthority[4]){
+		       luidlistaddtotail(syspriv_luids,&sysprivs[i].luid);
+		   }
+	       }
+	       sids = sids->next;
+	   }	   
 	}
 	
 	LUID_AND_ATTRIBUTES privs[] = {
@@ -868,17 +930,19 @@ struct token *first_token( uid_t unix_uid, gid_t unix_gid )
         { SeCreateGlobalPrivilege        , SE_PRIVILEGE_ENABLED },
 	};
 	//traverse group privilege luid ==>syspriv_luids
-	struct luidlistnode *luids = syspriv_luids;
     for(int i = 0; i < 20; i++){
-		if(luids == NULL)
-			break;
-        LUID_AND_ATTRIBUTES priv = privs[i];
-		while(luids){
-            if(luids->val->HighPart == priv.Luid.HighPart)
-				priv.Attributes = SE_PRIVILEGE_ENABLED;
-			luids = luids->next;
+        struct luidlistnode *luids = syspriv_luids;
+	if(luids == NULL)
+		break;
+	while(luids){
+	    if(luids->val != NULL){
+	        if(luids->val->LowPart == privs[i].Luid.LowPart){
+		    privs[i].Attributes = SE_PRIVILEGE_ENABLED;
 		}
+	    }
+	    luids = luids->next;
 	}
+    }
 	
     /*const LUID_AND_ATTRIBUTES admin_privs[] =
     {
@@ -1041,10 +1105,17 @@ int token_check_privileges( struct token *token, int all_required,
         return (enabled_count > 0);
 }
 
+int set_owner_check_privilege(struct token *token, const LUID *priv){
+    const LUID_AND_ATTRIBUTES privs = {*priv,0};
+    if(!token) return FALSE;
+    return token_check_privileges(token, TRUE, &privs, 1, NULL);
+}
+
 int token_sid_present( struct token *token, const SID *sid, int deny )
 {
     struct group *group;
-
+    if(set_owner_check_privilege(token,&SeTakeOwnershipPrivilege)) return TRUE;
+    
     if (security_equal_sid( token->user, sid )) return TRUE;
 
     LIST_FOR_EACH_ENTRY( group, &token->groups, struct group, entry )
@@ -1145,37 +1216,6 @@ static unsigned int token_access_check( struct token *token,
     }
     else if (priv_count) *priv_count = 0;
 
-    //zyq
-/*	if(desired_access & GENERIC_ALL){
-        const LUID_AND_ATTRIBUTES takeownership_priv = {SeTakeOwnershipPrivilege,0};
-		LUID_AND_ATTRIBUTES retpriv = takeownership_priv;
-	    if(token_check_privileges(token,TRUE,&takeownership_priv,1,&retpriv)){
-            if(priv_count){
-                if(*priv_count >= 1){
-                    *priv_count = 1;
-					*privs = retpriv;
-				}
-				else{
-                    *priv_count = 1;
-					return STATUS_BUFFER_TOO_SMALL;
-				}
-			}
-			current_access |= GENERIC_ALL;
-			if(desired_access == current_access){
-                *granted_access = current_access;
-				return *status = STATUS_SUCCESS;
-			}
-		}
-		else{
-            if(priv_count)
-				*priv_count = 0;
-			*status = STATUS_PRIVILEGE_NOT_HELD;
-			return STATUS_SUCCESS;
-		}
-	}
-	else if(priv_count)
-		*priv_count = 0;
-*/
     /* 3: Check whether the token is the owner */
     /* NOTE: SeTakeOwnershipPrivilege is not checked for here - it is instead
      * checked when a "set owner" call is made, overriding the access rights
